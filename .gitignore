@@ -1,2 +1,7 @@
 # Claude Code project config — do not commit
 .claude/
+.venv/
+results/
+__pycache__/
+*.pyc
+*.egg-info/
