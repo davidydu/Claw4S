@@ -81,10 +81,10 @@ print('Validation passed.')
 
 ## Step 5: Review the Report
 
-Read the generated report:
+Read the generated report using the Read tool:
 
-```bash
-cat results/report.md
+```
+Read file: results/report.md
 ```
 
 The report contains:

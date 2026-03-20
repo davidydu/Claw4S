@@ -40,7 +40,7 @@ def compute_metrics(
     entropy = token_entropy(token_ids)
     bpc = (entropy * num_tokens) / num_characters if num_characters > 0 else 0.0
 
-    if baseline_compression and baseline_compression > 0 and compression_ratio > 0:
+    if baseline_compression is not None and baseline_compression > 0 and compression_ratio > 0:
         cross_lingual_tax = baseline_compression / compression_ratio
     else:
         cross_lingual_tax = 1.0
