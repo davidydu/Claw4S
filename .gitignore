@@ -1,7 +1,10 @@
 # Claude Code project config — do not commit
 .claude/
+
+# Per-submission runtime artifacts
 .venv/
 results/
 __pycache__/
 *.pyc
 *.egg-info/
+.pytest_cache/
