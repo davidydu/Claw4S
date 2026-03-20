@@ -1,9 +1,15 @@
 # src/report.py
-"""Generate a markdown report from analysis results."""
+"""Generate a markdown report from analysis results.
+
+Writes the report to output_path and returns the report as a string.
+Creates output directories if they do not exist.
+"""
+
+import os
 
 
 def generate_report(results: dict, output_path: str = "results/report.md") -> str:
-    """Generate a markdown summary report from analysis results."""
+    """Generate a markdown summary report and write it to output_path."""
     meta = results["metadata"]
     data = results["results"]
 
@@ -35,7 +41,11 @@ def generate_report(results: dict, output_path: str = "results/report.md") -> st
                 match = [r for r in data
                          if r["tokenizer"] == tok and r["language"] == lang]
                 if match:
-                    row += f" {match[0][key]:{fmt}}{suffix} |"
+                    val = f"{match[0][key]:{fmt}}{suffix}"
+                    # Include std dev for compression ratio if available
+                    if key == "compression_ratio" and "compression_std" in match[0]:
+                        val += f" (±{match[0]['compression_std']:.2f})"
+                    row += f" {val} |"
                 else:
                     row += " — |"
             lines.append(row)
@@ -86,6 +96,8 @@ def generate_report(results: dict, output_path: str = "results/report.md") -> st
     lines.append("")
     lines.append("### Notes")
     lines.append("")
+    lines.append("- Compression ratio values include per-sentence standard "
+                 "deviation (±) to indicate variance across the corpus.")
     lines.append("- Fertility (tokens/word) is unreliable for CJK languages "
                  "(Chinese, Japanese, Korean) because they don't use spaces. "
                  "Use compression ratio as the primary cross-lingual metric.")
@@ -97,7 +109,6 @@ def generate_report(results: dict, output_path: str = "results/report.md") -> st
 
     report = "\n".join(lines)
 
-    import os
     os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
     with open(output_path, "w") as f:
         f.write(report)

@@ -24,8 +24,9 @@ def load_parallel_sentences(
     """Load Tatoeba parallel sentences, return {lang_code: concatenated_text}.
 
     For each pair (e.g., 'en-fr'), loads parallel English and target
-    language sentences. English sentences are aggregated across all pairs
-    to build a combined English baseline.
+    language sentences. English sentences are accumulated from all pairs
+    and then capped to max_sentences (using the first pair's sentences)
+    to match target language corpus sizes.
     """
     if pairs is None:
         pairs = DEFAULT_PAIRS

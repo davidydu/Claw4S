@@ -2,6 +2,7 @@
 """Run the full cross-lingual tokenizer analysis pipeline."""
 
 import json
+import math
 import os
 from datetime import datetime, timezone
 
@@ -47,7 +48,7 @@ def run_analysis(
             tokens = tokenize(tok_entry, en_text)
             english_compressions[tok_name] = en_chars / len(tokens) if tokens else 1.0
 
-    # Second pass: compute all metrics
+    # Second pass: compute all metrics with per-sentence variance
     for tok_name, tok_entry in tokenizers.items():
         baseline_comp = english_compressions.get(tok_name)
         for lang, text in samples.items():
@@ -63,6 +64,22 @@ def run_analysis(
                 baseline_compression=baseline_comp,
             )
 
+            # Per-sentence compression ratio for variance estimation
+            sentences = text.split("\n")
+            sent_compressions = []
+            for sent in sentences:
+                if not sent.strip():
+                    continue
+                sent_tokens = tokenize(tok_entry, sent)
+                if sent_tokens:
+                    sent_compressions.append(len(sent) / len(sent_tokens))
+            if len(sent_compressions) > 1:
+                mean_cr = sum(sent_compressions) / len(sent_compressions)
+                variance = sum((x - mean_cr) ** 2 for x in sent_compressions) / (len(sent_compressions) - 1)
+                m["compression_std"] = math.sqrt(variance)
+            else:
+                m["compression_std"] = 0.0
+
             lang_name = LANG_NAMES.get(lang, lang)
             all_results.append({
                 "tokenizer": tok_name,
@@ -71,7 +88,8 @@ def run_analysis(
                 **m,
             })
             print(f"  {tok_name} x {lang_name}: "
-                  f"compression={m['compression_ratio']:.2f}, "
+                  f"compression={m['compression_ratio']:.2f} "
+                  f"(±{m['compression_std']:.2f}), "
                   f"tax={m['cross_lingual_tax']:.2f}x")
 
     # Step 4: Save results

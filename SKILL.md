@@ -47,14 +47,7 @@ Expected: Pytest exits with `X passed` and exit code 0.
 Execute the full cross-lingual tokenizer analysis:
 
 ```bash
-.venv/bin/python -c "
-from src.analysis import run_analysis
-from src.report import generate_report
-
-results = run_analysis(max_sentences=200)
-report = generate_report(results)
-print(report)
-"
+.venv/bin/python run.py
 ```
 
 Expected: Script prints `[4/4] Saving results to results/` and exits with code 0. Files `results/results.json` and `results/report.md` are created.
@@ -72,24 +65,10 @@ This will:
 Check that results were produced correctly:
 
 ```bash
-.venv/bin/python -c "
-import json
-with open('results/results.json') as f:
-    data = json.load(f)
-print(f'Tokenizers: {data[\"metadata\"][\"num_tokenizers\"]}')
-print(f'Languages: {data[\"metadata\"][\"num_languages\"]}')
-print(f'Data points: {len(data[\"results\"])}')
-assert data['metadata']['num_languages'] >= 10, f'Expected >= 10 languages, got {data[\"metadata\"][\"num_languages\"]}'
-assert data['metadata']['num_tokenizers'] >= 2, f'Expected >= 2 tokenizers, got {data[\"metadata\"][\"num_tokenizers\"]}'
-expected_points = data['metadata']['num_languages'] * data['metadata']['num_tokenizers']
-assert len(data['results']) == expected_points, f'Expected {expected_points} data points, got {len(data[\"results\"])}'
-en_results = [r for r in data['results'] if r['language'] == 'en']
-for r in en_results:
-    print(f'  {r[\"tokenizer\"]}: compression={r[\"compression_ratio\"]:.2f}')
-    assert 1.0 < r['compression_ratio'] < 20.0
-print('Validation passed.')
-"
+.venv/bin/python validate.py
 ```
+
+Expected: Prints tokenizer/language/data-point counts and `Validation passed.`
 
 ## Step 5: Review the Report
 
