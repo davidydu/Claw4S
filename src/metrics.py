@@ -38,6 +38,7 @@ def compute_metrics(
     vocab_utilization = unique_tokens / vocab_size if vocab_size > 0 else 0.0
 
     entropy = token_entropy(token_ids)
+    # Unigram estimate: assumes token independence. Upper bound on true BPC.
     bpc = (entropy * num_tokens) / num_characters if num_characters > 0 else 0.0
 
     if baseline_compression is not None and baseline_compression > 0 and compression_ratio > 0:

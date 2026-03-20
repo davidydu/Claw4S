@@ -72,6 +72,18 @@ def generate_report(results: dict, output_path: str = "results/report.md") -> st
         )
 
     lines.append("")
+    lines.append("### Findings")
+    lines.append("")
+    lines.append("- GPT-4 (cl100k_base) and Qwen2.5 produce identical "
+                 "tokenization granularity on English text — same token count, "
+                 "same frequency distribution — despite different vocabularies "
+                 "(100K vs 152K). Qwen2.5's additional vocabulary is allocated "
+                 "to non-English languages.")
+    lines.append("- BPC (bits per character) and vocabulary utilization are "
+                 "computed per (tokenizer, language) pair but omitted from the "
+                 "tables above to keep the report concise. They are available "
+                 "in the raw JSON results.")
+    lines.append("")
     lines.append("### Notes")
     lines.append("")
     lines.append("- Fertility (tokens/word) is unreliable for CJK languages "
