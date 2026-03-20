@@ -34,7 +34,7 @@
 \begin{abstract}
 Modern LLM tokenizers impose a hidden ``tax'' on non-English languages: speakers of CJK and Indic scripts pay 2--5$\times$ more tokens per character than English users, inflating API costs, latency, and reducing effective context windows.
 We present an \emph{agent-executable skill} that benchmarks four major tokenizers---GPT-4o, GPT-4, Mistral-7B, and Qwen2.5-7B---across 14 languages using Tatoeba parallel sentences.
-Our results confirm that GPT-4o's expanded 200K vocabulary achieves the best equity (avg.\ tax 1.74$\times$), and that no single tokenizer dominates across all scripts.
+Our results confirm that GPT-4o's expanded 200K vocabulary achieves the best equity (avg.\ tax 1.75$\times$), and that no single tokenizer dominates across all scripts.
 The primary contribution is not the findings themselves, which corroborate prior work, but the reproducible, agent-executable analysis: any AI agent can re-run the full pipeline by executing a single \texttt{SKILL.md} file.
 \end{abstract}
 
@@ -90,22 +90,22 @@ Table~\ref{tab:tax} presents the cross-lingual tax for all tokenizer--language c
 \textbf{Language} & \textbf{GPT-4} & \textbf{GPT-4o} & \textbf{Mistral} & \textbf{Qwen2.5} \\
 \midrule
 English   & 1.00$\times$ & 1.00$\times$ & 1.00$\times$ & 1.00$\times$ \\
-German    & 1.19$\times$ & \textbf{1.04$\times$} & 1.25$\times$ & 1.19$\times$ \\
-French    & 1.22$\times$ & \textbf{1.07$\times$} & 1.30$\times$ & 1.21$\times$ \\
-Spanish   & 1.24$\times$ & \textbf{1.09$\times$} & 1.32$\times$ & 1.24$\times$ \\
-Russian   & 2.08$\times$ & \textbf{1.24$\times$} & 1.72$\times$ & 1.47$\times$ \\
-Chinese   & 4.96$\times$ & 3.36$\times$ & 4.12$\times$ & \textbf{2.63$\times$} \\
-Japanese  & 4.50$\times$ & 3.40$\times$ & 3.81$\times$ & \textbf{2.60$\times$} \\
-Korean    & 4.05$\times$ & \textbf{2.66$\times$} & 3.97$\times$ & 2.80$\times$ \\
-Hindi     & 4.22$\times$ & \textbf{1.46$\times$} & 3.67$\times$ & 3.90$\times$ \\
-Arabic    & 3.03$\times$ & \textbf{1.52$\times$} & 3.20$\times$ & 1.69$\times$ \\
-Turkish   & 1.68$\times$ & \textbf{1.36$\times$} & 1.90$\times$ & 1.50$\times$ \\
-Vietnamese& 2.20$\times$ & 1.35$\times$ & 2.46$\times$ & \textbf{1.27$\times$} \\
-Finnish   & 1.65$\times$ & \textbf{1.37$\times$} & 1.67$\times$ & 1.63$\times$ \\
-Hebrew    & 3.96$\times$ & 1.68$\times$ & 3.53$\times$ & \textbf{1.61$\times$} \\
+German    & 1.19$\times$ & \textbf{1.04$\times$} & 1.26$\times$ & 1.18$\times$ \\
+French    & 1.22$\times$ & \textbf{1.07$\times$} & 1.31$\times$ & 1.21$\times$ \\
+Spanish   & 1.24$\times$ & \textbf{1.09$\times$} & 1.33$\times$ & 1.24$\times$ \\
+Russian   & 2.07$\times$ & \textbf{1.24$\times$} & 1.73$\times$ & 1.47$\times$ \\
+Chinese   & 4.94$\times$ & 3.38$\times$ & 4.15$\times$ & \textbf{2.62$\times$} \\
+Japanese  & 4.48$\times$ & 3.41$\times$ & 3.84$\times$ & \textbf{2.59$\times$} \\
+Korean    & 4.03$\times$ & \textbf{2.67$\times$} & 3.99$\times$ & 2.79$\times$ \\
+Hindi     & 4.20$\times$ & \textbf{1.47$\times$} & 3.69$\times$ & 3.89$\times$ \\
+Arabic    & 3.02$\times$ & \textbf{1.53$\times$} & 3.22$\times$ & 1.69$\times$ \\
+Turkish   & 1.67$\times$ & \textbf{1.37$\times$} & 1.92$\times$ & 1.49$\times$ \\
+Vietnamese& 2.19$\times$ & 1.36$\times$ & 2.48$\times$ & \textbf{1.27$\times$} \\
+Finnish   & 1.64$\times$ & \textbf{1.38$\times$} & 1.68$\times$ & 1.62$\times$ \\
+Hebrew    & 3.94$\times$ & 1.69$\times$ & 3.56$\times$ & \textbf{1.61$\times$} \\
 \midrule
-\textbf{Avg.\ tax} & 2.77$\times$ & \textbf{1.74$\times$} & 2.61$\times$ & 1.90$\times$ \\
-\textbf{Max tax}   & 4.96$\times$ & \textbf{3.40$\times$} & 4.12$\times$ & 3.90$\times$ \\
+\textbf{Avg.\ tax} & 2.76$\times$ & \textbf{1.75$\times$} & 2.63$\times$ & 1.90$\times$ \\
+\textbf{Max tax}   & 4.94$\times$ & \textbf{3.41$\times$} & 4.15$\times$ & 3.89$\times$ \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -114,10 +114,10 @@ Hebrew    & 3.96$\times$ & 1.68$\times$ & 3.53$\times$ & \textbf{1.61$\times$} \
 
 Ranking tokenizers by average cross-lingual tax (lower is more equitable):
 \begin{enumerate}
-  \item \textbf{GPT-4o}: avg.\ 1.74$\times$, max 3.40$\times$ (Japanese)
-  \item \textbf{Qwen2.5}: avg.\ 1.90$\times$, max 3.90$\times$ (Hindi)
-  \item \textbf{Mistral}: avg.\ 2.61$\times$, max 4.12$\times$ (Chinese)
-  \item \textbf{GPT-4}: avg.\ 2.77$\times$, max 4.96$\times$ (Chinese)
+  \item \textbf{GPT-4o}: avg.\ 1.75$\times$, max 3.41$\times$ (Japanese)
+  \item \textbf{Qwen2.5}: avg.\ 1.90$\times$, max 3.89$\times$ (Hindi)
+  \item \textbf{Mistral}: avg.\ 2.63$\times$, max 4.15$\times$ (Chinese)
+  \item \textbf{GPT-4}: avg.\ 2.76$\times$, max 4.94$\times$ (Chinese)
 \end{enumerate}
 
 \subsection{Compression Ratios}
@@ -133,7 +133,7 @@ Table~\ref{tab:compression} shows selected compression ratios (characters per to
 \toprule
 \textbf{Language} & \textbf{GPT-4} & \textbf{GPT-4o} & \textbf{Mistral} & \textbf{Qwen2.5} \\
 \midrule
-English  & 4.17 & 4.29 & 3.53 & 4.16 \\
+English  & 4.15 & 4.31 & 3.56 & 4.15 \\
 Chinese  & 0.84 & 1.28 & 0.86 & 1.58 \\
 Hindi    & 0.99 & 2.94 & 0.96 & 1.07 \\
 Arabic   & 1.37 & 2.82 & 1.10 & 2.46 \\
@@ -146,15 +146,15 @@ Japanese & 0.93 & 1.26 & 0.93 & 1.60 \\
 
 \paragraph{Vocabulary expansion as equity strategy.}
 GPT-4o's doubling of vocabulary size from 100K to 200K tokens yields dramatic improvements for previously under-served scripts.
-Chinese tax drops from 4.96$\times$ (GPT-4) to 3.36$\times$ (32\% improvement); Hindi drops from 4.22$\times$ to 1.46$\times$ (65\% improvement); Arabic drops from 3.03$\times$ to 1.52$\times$ (50\% improvement).
+Chinese tax drops from 4.94$\times$ (GPT-4) to 3.38$\times$ (32\% improvement); Hindi drops from 4.20$\times$ to 1.47$\times$ (65\% improvement); Arabic drops from 3.02$\times$ to 1.53$\times$ (49\% improvement).
 This confirms that vocabulary expansion, when guided by multilingual coverage, is an effective equity intervention.
 
 \paragraph{No single winner.}
-Despite GPT-4o's overall lead, Qwen2.5 outperforms it on CJK languages (Chinese: 2.63$\times$ vs.\ 3.36$\times$) and Vietnamese (1.27$\times$ vs.\ 1.35$\times$), reflecting its training data composition.
-However, Qwen2.5 performs poorly on Hindi (3.90$\times$ vs.\ GPT-4o's 1.46$\times$), illustrating that tokenizer equity is inherently a multi-objective problem.
+Despite GPT-4o's overall lead, Qwen2.5 outperforms it on CJK languages (Chinese: 2.62$\times$ vs.\ 3.38$\times$) and Vietnamese (1.27$\times$ vs.\ 1.36$\times$), reflecting its training data composition.
+However, Qwen2.5 performs poorly on Hindi (3.89$\times$ vs.\ GPT-4o's 1.47$\times$), illustrating that tokenizer equity is inherently a multi-objective problem.
 
 \paragraph{The CJK floor.}
-Even the best-performing tokenizer for Chinese (Qwen2.5 at 2.63$\times$) still imposes substantial tax.
+Even the best-performing tokenizer for Chinese (Qwen2.5 at 2.62$\times$) still imposes substantial tax.
 This likely reflects a fundamental limit of BPE for logographic scripts: Chinese characters carry more semantic density per character, so fewer characters per token is structurally expected.
 Whether this constitutes ``inequity'' or merely a difference in information density per glyph remains debated~\cite{goldman2024tokenization}.
 
@@ -171,7 +171,7 @@ This represents a new paradigm for reproducible research: rather than sharing co
 \section{Conclusion}
 
 We presented a cross-lingual tokenizer equity analysis comparing GPT-4o, GPT-4, Mistral-7B, and Qwen2.5-7B across 14 languages.
-GPT-4o's 200K vocabulary achieves the best overall equity (avg.\ tax 1.74$\times$), while Qwen2.5 leads on CJK.
+GPT-4o's 200K vocabulary achieves the best overall equity (avg.\ tax 1.75$\times$), while Qwen2.5 leads on CJK.
 No tokenizer achieves parity across all scripts.
 The key contribution is the agent-executable \texttt{SKILL.md} that enables any AI agent to reproduce this analysis end-to-end, advancing toward a future where research artifacts are not just readable but autonomously executable.
 
