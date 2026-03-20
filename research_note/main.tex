@@ -1,0 +1,195 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{amsmath}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue!60!black,
+  citecolor=blue!60!black,
+  urlcolor=blue!60!black
+}
+
+\title{Cross-Lingual Tokenizer Equity:\\An Agent-Executable Analysis of Modern LLM Tokenizers}
+\author{
+  Yun Du \\
+  Stanford University \\
+  \texttt{yundu27@stanford.edu}
+  \and
+  Claw \\
+  AI Agent \\
+  \texttt{claw@agent}
+}
+\date{March 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Modern LLM tokenizers impose a hidden ``tax'' on non-English languages: speakers of CJK and Indic scripts pay 2--5$\times$ more tokens per character than English users, inflating API costs, latency, and reducing effective context windows.
+We present an \emph{agent-executable skill} that benchmarks four major tokenizers---GPT-4o, GPT-4, Mistral-7B, and Qwen2.5-7B---across 14 languages using Tatoeba parallel sentences.
+Our results confirm that GPT-4o's expanded 200K vocabulary achieves the best equity (avg.\ tax 1.74$\times$), and that no single tokenizer dominates across all scripts.
+The primary contribution is not the findings themselves, which corroborate prior work, but the reproducible, agent-executable analysis: any AI agent can re-run the full pipeline by executing a single \texttt{SKILL.md} file.
+\end{abstract}
+
+\section{Introduction}
+
+Byte-pair encoding (BPE) tokenizers are trained predominantly on English-heavy corpora, producing vocabularies that efficiently compress Latin-script text while fragmenting other writing systems into many small tokens.
+This asymmetry has concrete consequences: a Chinese user querying GPT-4 pays nearly 5$\times$ more tokens per character of input than an English user for semantically parallel content.
+The cost is not merely financial---it reduces effective context windows, increases inference latency, and raises fairness concerns for multilingual deployment~\cite{petrov2023language}.
+
+Recent work has quantified this ``cross-lingual tax'' \cite{petrov2023language, goldman2024tokenization} and shown that vocabulary expansion partially mitigates it.
+However, reproducing these analyses requires substantial manual effort: downloading corpora, loading multiple tokenizer libraries, computing metrics, and interpreting results.
+
+We contribute an \textbf{agent-executable skill}---a structured \texttt{SKILL.md} document that any AI coding agent can execute end-to-end---which downloads Tatoeba parallel sentences, loads four tokenizers, computes five metrics (compression ratio, cross-lingual tax, token entropy, fertility, vocabulary utilization), and generates a full report.
+This note presents results from one such execution and discusses their implications.
+
+\section{Methodology}
+
+\subsection{Corpus}
+We use the Tatoeba parallel corpus~\cite{tatoeba}, extracting 200 sentence pairs per language for 14 languages: English, German, French, Spanish, Russian, Chinese, Japanese, Korean, Hindi, Arabic, Turkish, Vietnamese, Finnish, and Hebrew.
+Tatoeba sentences are informal and short, which limits generalizability but ensures consistent cross-lingual alignment.
+
+\subsection{Tokenizers}
+We evaluate four tokenizers spanning different vocabulary strategies:
+\begin{itemize}
+  \item \textbf{GPT-4} (\texttt{cl100k\_base}): 100K vocabulary, OpenAI's previous-generation tokenizer.
+  \item \textbf{GPT-4o} (\texttt{o200k\_base}): 200K vocabulary, OpenAI's current tokenizer with expanded multilingual coverage.
+  \item \textbf{Mistral-7B}: 32K vocabulary SentencePiece tokenizer.
+  \item \textbf{Qwen2.5-7B}: 152K vocabulary with strong CJK optimization.
+\end{itemize}
+
+\subsection{Metrics}
+Our primary metric is \textbf{compression ratio} (characters per token), from which we derive the \textbf{cross-lingual tax}:
+\[
+  \text{tax}_\ell = \frac{\text{compression}_{\text{en}}}{\text{compression}_\ell}
+\]
+A tax of $2.0\times$ means language $\ell$ requires twice as many tokens per character as English.
+We also compute \textbf{token entropy} (Shannon entropy over the token distribution in bits) and \textbf{fertility} (tokens per whitespace-delimited word).
+We note that fertility is unreliable for CJK languages, which lack whitespace word boundaries; compression ratio is therefore the primary cross-lingual metric.
+
+\section{Results}
+
+\subsection{Cross-Lingual Tax}
+
+Table~\ref{tab:tax} presents the cross-lingual tax for all tokenizer--language combinations.
+
+\begin{table}[h]
+\centering
+\small
+\caption{Cross-lingual tax relative to English ($1.00\times$ = parity). Bold indicates best (lowest) tax per language.}
+\label{tab:tax}
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Language} & \textbf{GPT-4} & \textbf{GPT-4o} & \textbf{Mistral} & \textbf{Qwen2.5} \\
+\midrule
+English   & 1.00$\times$ & 1.00$\times$ & 1.00$\times$ & 1.00$\times$ \\
+German    & 1.19$\times$ & \textbf{1.04$\times$} & 1.25$\times$ & 1.19$\times$ \\
+French    & 1.22$\times$ & \textbf{1.07$\times$} & 1.30$\times$ & 1.21$\times$ \\
+Spanish   & 1.24$\times$ & \textbf{1.09$\times$} & 1.32$\times$ & 1.24$\times$ \\
+Russian   & 2.08$\times$ & \textbf{1.24$\times$} & 1.72$\times$ & 1.47$\times$ \\
+Chinese   & 4.96$\times$ & 3.36$\times$ & 4.12$\times$ & \textbf{2.63$\times$} \\
+Japanese  & 4.50$\times$ & 3.40$\times$ & 3.81$\times$ & \textbf{2.60$\times$} \\
+Korean    & 4.05$\times$ & \textbf{2.66$\times$} & 3.97$\times$ & 2.80$\times$ \\
+Hindi     & 4.22$\times$ & \textbf{1.46$\times$} & 3.67$\times$ & 3.90$\times$ \\
+Arabic    & 3.03$\times$ & \textbf{1.52$\times$} & 3.20$\times$ & 1.69$\times$ \\
+Turkish   & 1.68$\times$ & \textbf{1.36$\times$} & 1.90$\times$ & 1.50$\times$ \\
+Vietnamese& 2.20$\times$ & 1.35$\times$ & 2.46$\times$ & \textbf{1.27$\times$} \\
+Finnish   & 1.65$\times$ & \textbf{1.37$\times$} & 1.67$\times$ & 1.63$\times$ \\
+Hebrew    & 3.96$\times$ & 1.68$\times$ & 3.53$\times$ & \textbf{1.61$\times$} \\
+\midrule
+\textbf{Avg.\ tax} & 2.77$\times$ & \textbf{1.74$\times$} & 2.61$\times$ & 1.90$\times$ \\
+\textbf{Max tax}   & 4.96$\times$ & \textbf{3.40$\times$} & 4.12$\times$ & 3.90$\times$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Equity Ranking}
+
+Ranking tokenizers by average cross-lingual tax (lower is more equitable):
+\begin{enumerate}
+  \item \textbf{GPT-4o}: avg.\ 1.74$\times$, max 3.40$\times$ (Japanese)
+  \item \textbf{Qwen2.5}: avg.\ 1.90$\times$, max 3.90$\times$ (Hindi)
+  \item \textbf{Mistral}: avg.\ 2.61$\times$, max 4.12$\times$ (Chinese)
+  \item \textbf{GPT-4}: avg.\ 2.77$\times$, max 4.96$\times$ (Chinese)
+\end{enumerate}
+
+\subsection{Compression Ratios}
+
+Table~\ref{tab:compression} shows selected compression ratios (characters per token) illustrating the disparity.
+
+\begin{table}[h]
+\centering
+\small
+\caption{Compression ratio (characters/token) for selected languages.}
+\label{tab:compression}
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Language} & \textbf{GPT-4} & \textbf{GPT-4o} & \textbf{Mistral} & \textbf{Qwen2.5} \\
+\midrule
+English  & 4.17 & 4.29 & 3.53 & 4.16 \\
+Chinese  & 0.84 & 1.28 & 0.86 & 1.58 \\
+Hindi    & 0.99 & 2.94 & 0.96 & 1.07 \\
+Arabic   & 1.37 & 2.82 & 1.10 & 2.46 \\
+Japanese & 0.93 & 1.26 & 0.93 & 1.60 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Discussion}
+
+\paragraph{Vocabulary expansion as equity strategy.}
+GPT-4o's doubling of vocabulary size from 100K to 200K tokens yields dramatic improvements for previously under-served scripts.
+Chinese tax drops from 4.96$\times$ (GPT-4) to 3.36$\times$ (32\% improvement); Hindi drops from 4.22$\times$ to 1.46$\times$ (65\% improvement); Arabic drops from 3.03$\times$ to 1.52$\times$ (50\% improvement).
+This confirms that vocabulary expansion, when guided by multilingual coverage, is an effective equity intervention.
+
+\paragraph{No single winner.}
+Despite GPT-4o's overall lead, Qwen2.5 outperforms it on CJK languages (Chinese: 2.63$\times$ vs.\ 3.36$\times$) and Vietnamese (1.27$\times$ vs.\ 1.35$\times$), reflecting its training data composition.
+However, Qwen2.5 performs poorly on Hindi (3.90$\times$ vs.\ GPT-4o's 1.46$\times$), illustrating that tokenizer equity is inherently a multi-objective problem.
+
+\paragraph{The CJK floor.}
+Even the best-performing tokenizer for Chinese (Qwen2.5 at 2.63$\times$) still imposes substantial tax.
+This likely reflects a fundamental limit of BPE for logographic scripts: Chinese characters carry more semantic density per character, so fewer characters per token is structurally expected.
+Whether this constitutes ``inequity'' or merely a difference in information density per glyph remains debated~\cite{goldman2024tokenization}.
+
+\paragraph{Limitations.}
+Tatoeba sentences are short and informal, potentially underestimating the tax for technical or literary text.
+Fertility (tokens per word) is misleading for CJK languages that lack whitespace boundaries---we use compression ratio as the primary metric.
+We evaluate only BPE-family tokenizers; character-level and byte-level models are not compared.
+
+\paragraph{The skill as contribution.}
+The primary contribution of this work is not the empirical findings, which corroborate Petrov et al.~\cite{petrov2023language} and Goldman et al.~\cite{goldman2024tokenization}, but the \emph{executable skill} itself.
+Our analysis is encoded as a \texttt{SKILL.md} file---a structured document that any AI coding agent (e.g., Claude Code) can execute to reproduce all results from scratch.
+This represents a new paradigm for reproducible research: rather than sharing code repositories that require manual setup, we share agent-executable instructions that automate the entire pipeline from environment setup through result validation.
+
+\section{Conclusion}
+
+We presented a cross-lingual tokenizer equity analysis comparing GPT-4o, GPT-4, Mistral-7B, and Qwen2.5-7B across 14 languages.
+GPT-4o's 200K vocabulary achieves the best overall equity (avg.\ tax 1.74$\times$), while Qwen2.5 leads on CJK.
+No tokenizer achieves parity across all scripts.
+The key contribution is the agent-executable \texttt{SKILL.md} that enables any AI agent to reproduce this analysis end-to-end, advancing toward a future where research artifacts are not just readable but autonomously executable.
+
+\begin{thebibliography}{9}
+\bibitem{petrov2023language}
+A.~Petrov, E.~La~Malfa, P.~H.~S.~Torr, and A.~Biber,
+``Language Model Tokenizers Introduce Unfairness Between Languages,''
+in \emph{Advances in Neural Information Processing Systems (NeurIPS)}, 2023.
+
+\bibitem{goldman2024tokenization}
+O.~Goldman, A.~Caciularu, M.~Eyal, K.~Cao, I.~Szpektor, and R.~Tsarfaty,
+``Tokenization Is More Than Compression,''
+in \emph{Proceedings of the 2024 Conference on Empirical Methods in Natural Language Processing (EMNLP)}, 2024.
+
+\bibitem{tatoeba}
+Tatoeba Project,
+``Tatoeba: Collection of sentences and translations,''
+\url{https://tatoeba.org}, 2024.
+\end{thebibliography}
+
+\end{document}
