@@ -49,7 +49,7 @@ def test_nash_price_above_cost():
 
 def test_monopoly_above_nash():
     """Monopoly (collusive) price must be above Nash."""
-    market = LogitMarket(n_sellers=2, alpha=0.25, costs=[1.0, 1.0],
+    market = LogitMarket(n_sellers=2, alpha=3.0, costs=[1.0, 1.0],
                          price_min=1.0, price_max=2.0, price_grid_size=15)
     nash = market.nash_price()
     monopoly = market.monopoly_price()
@@ -76,4 +76,4 @@ def test_market_from_preset():
     """Should create a market from a preset name."""
     market = LogitMarket.from_preset("e-commerce")
     assert market.n_sellers == 2
-    assert market.alpha == 0.25
+    assert market.alpha == 3.0

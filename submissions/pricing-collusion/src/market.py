@@ -50,7 +50,7 @@ class LogitMarket:
         c = self.costs[0]  # symmetric case
         if n < 2:
             return self.price_max  # monopoly
-        p_nash = c + self.alpha * n / (n - 1)
+        p_nash = c + n / (self.alpha * (n - 1))
         return np.clip(p_nash, self.price_min, self.price_max)
 
     def monopoly_price(self):
@@ -71,7 +71,7 @@ class LogitMarket:
 MARKET_PRESETS = {
     "e-commerce": {
         "n_sellers": 2,
-        "alpha": 0.25,
+        "alpha": 3.0,
         "costs": [1.0, 1.0],
         "price_min": 1.0,
         "price_max": 2.0,
@@ -79,7 +79,7 @@ MARKET_PRESETS = {
     },
     "ride-share": {
         "n_sellers": 2,
-        "alpha": 0.5,
+        "alpha": 1.5,
         "costs": [1.0, 1.3],
         "price_min": 1.0,
         "price_max": 3.0,
@@ -87,7 +87,7 @@ MARKET_PRESETS = {
     },
     "commodity": {
         "n_sellers": 2,
-        "alpha": 1.0,
+        "alpha": 6.0,
         "costs": [1.0, 1.0],
         "price_min": 1.0,
         "price_max": 1.5,
