@@ -75,20 +75,44 @@ def generate_report(results: dict, output_path: str = "results/report.md") -> st
 
     rankings.sort(key=lambda x: x[1])
     for tok, avg_tax, worst in rankings:
-        lines.append(
-            f"- **{tok}**: avg tax = {avg_tax:.2f}x, "
-            f"max tax = {worst['cross_lingual_tax']:.2f}x "
-            f"({worst['language_name']})"
-        )
+        # Compute std dev of tax values across languages
+        taxes = [r["cross_lingual_tax"] for r in data
+                 if r["tokenizer"] == tok and r["language"] != "en"]
+        if len(taxes) > 1:
+            tax_mean = sum(taxes) / len(taxes)
+            tax_std = (sum((t - tax_mean) ** 2 for t in taxes) / (len(taxes) - 1)) ** 0.5
+            lines.append(
+                f"- **{tok}**: avg tax = {avg_tax:.2f}x (±{tax_std:.2f}), "
+                f"max tax = {worst['cross_lingual_tax']:.2f}x "
+                f"({worst['language_name']})"
+            )
+        else:
+            lines.append(
+                f"- **{tok}**: avg tax = {avg_tax:.2f}x, "
+                f"max tax = {worst['cross_lingual_tax']:.2f}x "
+                f"({worst['language_name']})"
+            )
 
     lines.append("")
     lines.append("### Findings")
     lines.append("")
-    lines.append("- GPT-4 (cl100k_base) and Qwen2.5 produce identical "
-                 "tokenization granularity on English text — same token count, "
-                 "same frequency distribution — despite different vocabularies "
-                 "(100K vs 152K). Qwen2.5's additional vocabulary is allocated "
-                 "to non-English languages.")
+
+    # Dynamically detect tokenizers with identical English compression
+    en_compressions = {}
+    for r in data:
+        if r["language"] == "en":
+            cr = round(r["compression_ratio"], 6)
+            en_compressions.setdefault(cr, []).append(r["tokenizer"])
+    for cr_val, toks_with_same_cr in en_compressions.items():
+        if len(toks_with_same_cr) > 1:
+            tok_list = " and ".join(toks_with_same_cr)
+            lines.append(
+                f"- {tok_list} produce identical tokenization granularity "
+                f"on English text (compression ratio {cr_val:.2f}), despite "
+                f"different vocabularies. The additional vocabulary in the "
+                f"larger model is allocated to non-English languages."
+            )
+
     lines.append("- BPC (bits per character) and vocabulary utilization are "
                  "computed per (tokenizer, language) pair but omitted from the "
                  "tables above to keep the report concise. They are available "

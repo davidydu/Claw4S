@@ -13,6 +13,7 @@ This skill performs an information-theoretic analysis of LLM tokenization across
 - Requires **Python 3.10+** and **internet access** (for dataset and model downloads).
 - Expected runtime: **3-5 minutes** on first run (subsequent runs are faster due to caching).
 - All commands must be run from the **project root directory**.
+- The analysis loads 4 tokenizers by default (GPT-4o, GPT-4, Mistral, Qwen2.5). Two additional tokenizers (Gemma-2, Llama-3) require HuggingFace authentication and will be skipped without it. To include them: `export HF_TOKEN=your_token` before Step 1.
 
 ## Step 1: Environment Setup
 
