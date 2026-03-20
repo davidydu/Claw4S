@@ -39,6 +39,7 @@ def load_parallel_sentences(
                 "sentence-transformers/parallel-sentences-tatoeba",
                 pair,
                 split="train",
+                revision="cec1343ab5a7a8befe99af4a2d0ca847b6c84743",
             )
             n = min(max_sentences, len(ds))
             subset = ds.select(range(n))
