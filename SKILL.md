@@ -71,6 +71,10 @@ with open('results/results.json') as f:
 print(f'Tokenizers: {data[\"metadata\"][\"num_tokenizers\"]}')
 print(f'Languages: {data[\"metadata\"][\"num_languages\"]}')
 print(f'Data points: {len(data[\"results\"])}')
+assert data['metadata']['num_languages'] >= 10, f'Expected >= 10 languages, got {data[\"metadata\"][\"num_languages\"]}'
+assert data['metadata']['num_tokenizers'] >= 2, f'Expected >= 2 tokenizers, got {data[\"metadata\"][\"num_tokenizers\"]}'
+expected_points = data['metadata']['num_languages'] * data['metadata']['num_tokenizers']
+assert len(data['results']) == expected_points, f'Expected {expected_points} data points, got {len(data[\"results\"])}'
 en_results = [r for r in data['results'] if r['language'] == 'en']
 for r in en_results:
     print(f'  {r[\"tokenizer\"]}: compression={r[\"compression_ratio\"]:.2f}')

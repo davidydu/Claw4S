@@ -53,5 +53,10 @@ def load_parallel_sentences(
         except Exception as e:
             print(f"  Warning: Could not load {pair}: {e}")
 
+    # Cap English to max_sentences so it matches target language corpus sizes.
+    # Without this, English accumulates ~13x more sentences (one batch per pair),
+    # inflating its compression ratio and skewing all cross-lingual tax values.
+    samples["en"] = samples["en"][:max_sentences]
+
     # Concatenate sentence lists into text blocks
     return {lang: "\n".join(sents) for lang, sents in samples.items() if sents}
