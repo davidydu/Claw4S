@@ -83,3 +83,15 @@ def test_run_full_analysis_returns_all_phases():
     assert "extrapolation" in result
     assert "cross_family" in result
     assert "metadata" in result
+
+
+def test_generate_report_has_expected_sections():
+    """Report should contain all major sections."""
+    from src.report import generate_report
+    results = run_full_analysis(n_bootstrap=10, seed=42)
+    report = generate_report(results)
+    assert isinstance(report, str)
+    assert len(report) > 100
+    assert "Loss Scaling" in report
+    assert "Task Scaling" in report
+    assert "Extrapolation" in report
