@@ -14,7 +14,7 @@ This skill simulates algorithmic pricing agents competing in repeated Bertrand m
 ## Prerequisites
 
 - Requires **Python 3.10+**. No internet access needed (pure simulation).
-- Expected runtime: **7-15 minutes** on first run (324 simulations × 100K rounds, parallelized across CPU cores). Runtime scales with available cores.
+- Expected runtime: **8-15 minutes** on first run (324 simulations, 100K-200K rounds per matchup, parallelized across CPU cores). Runtime scales with available cores.
 - All commands must be run from the **submission directory** (`submissions/pricing-collusion/`).
 
 ## Step 1: Environment Setup

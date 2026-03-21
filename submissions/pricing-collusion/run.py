@@ -21,13 +21,23 @@ MEMORIES = [1, 3, 5]
 PRESETS = ["e-commerce", "ride-share", "commodity"]
 SEEDS = list(range(3))
 SHOCK_CONDITIONS = [False, True]
-TOTAL_ROUNDS = 100_000
+# Adaptive rounds: learning matchups get 200k for stronger convergence,
+# non-learning matchups get 100k (sufficient for their dynamics).
+ROUNDS_BY_MATCHUP = {
+    "QQ": 200_000,
+    "SS": 200_000,
+    "QS": 200_000,
+    "PG-PG": 100_000,
+    "Q-TFT": 100_000,
+    "Q-Competitive": 100_000,
+}
 
 
 def build_configs():
-    """Build the full experiment matrix."""
+    """Build the full experiment matrix with adaptive round counts."""
     configs = []
     for matchup in MATCHUPS:
+        total_rounds = ROUNDS_BY_MATCHUP[matchup]
         for memory in MEMORIES:
             for preset in PRESETS:
                 for shocks in SHOCK_CONDITIONS:
@@ -35,7 +45,7 @@ def build_configs():
                         configs.append(ExperimentConfig(
                             matchup=matchup, memory=memory, preset=preset,
                             shocks=shocks, seed=seed,
-                            total_rounds=TOTAL_ROUNDS,
+                            total_rounds=total_rounds,
                         ))
     return configs
 
@@ -124,7 +134,7 @@ def main():
             "memories": MEMORIES,
             "presets": PRESETS,
             "seeds": SEEDS,
-            "total_rounds": TOTAL_ROUNDS,
+            "rounds_by_matchup": ROUNDS_BY_MATCHUP,
         },
         "records": records,
         "statistics": statistics,
