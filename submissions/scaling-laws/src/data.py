@@ -137,3 +137,103 @@ def get_benchmark_keys(family: dict) -> list[str]:
     first_model = next(iter(family["models"].values()))
     exclude = {"params", "training_tokens", "pile_test_loss", "non_emb_params"}
     return [k for k in first_model if k not in exclude]
+
+
+# ---------------------------------------------------------------------------
+# Pythia (Biderman et al., 2023)
+# Paper: arXiv 2304.01373
+# Training: The Pile, ~300B tokens, same data + same order for all sizes
+# Benchmarks: EleutherAI GitHub evals/pythia-v1/ (0-shot, step 143000)
+# Architecture: Paper Table 1 + HuggingFace configs
+# NOTE: Training losses are NOT published as exact values (only wandb figures)
+# NOTE: HellaSwag is NOT in the official Pythia evaluation suite
+# ---------------------------------------------------------------------------
+PYTHIA: dict = {
+    "name": "Pythia",
+    "source": "Biderman et al., 2023 (arXiv 2304.01373); GitHub evals/pythia-v1/",
+    "dataset": "The Pile",
+    "training_recipe": "Fixed budget (~300B tokens for all sizes)",
+    "training_tokens_per_model": 300e9,
+    "models": {
+        "70M": {
+            "params": 70e6,
+            "non_emb_params": 18_915_328,
+            "training_tokens": 300e9,
+            "lambada_acc": 0.185,
+            "winogrande_acc": 0.528,
+            "piqa_acc": 0.595,
+            "arc_easy_acc": 0.374,
+            "arc_challenge_acc": 0.221,
+        },
+        "160M": {
+            "params": 160e6,
+            "non_emb_params": 85_056_000,
+            "training_tokens": 300e9,
+            "lambada_acc": 0.328,
+            "winogrande_acc": 0.531,
+            "piqa_acc": 0.627,
+            "arc_easy_acc": 0.435,
+            "arc_challenge_acc": 0.233,
+        },
+        "410M": {
+            "params": 410e6,
+            "non_emb_params": 302_311_424,
+            "training_tokens": 300e9,
+            "lambada_acc": 0.516,
+            "winogrande_acc": 0.537,
+            "piqa_acc": 0.668,
+            "arc_easy_acc": 0.521,
+            "arc_challenge_acc": 0.243,
+        },
+        "1B": {
+            "params": 1e9,
+            "non_emb_params": 805_736_448,
+            "training_tokens": 300e9,
+            "lambada_acc": 0.562,
+            "winogrande_acc": 0.537,
+            "piqa_acc": 0.707,
+            "arc_easy_acc": 0.569,
+            "arc_challenge_acc": 0.271,
+        },
+        "1.4B": {
+            "params": 1.4e9,
+            "non_emb_params": 1_208_602_624,
+            "training_tokens": 300e9,
+            "lambada_acc": 0.616,
+            "winogrande_acc": 0.573,
+            "piqa_acc": 0.709,
+            "arc_easy_acc": 0.606,
+            "arc_challenge_acc": 0.286,
+        },
+        "2.8B": {
+            "params": 2.8e9,
+            "non_emb_params": 2_517_652_480,
+            "training_tokens": 300e9,
+            "lambada_acc": 0.647,
+            "winogrande_acc": 0.594,
+            "piqa_acc": 0.739,
+            "arc_easy_acc": 0.644,
+            "arc_challenge_acc": 0.333,
+        },
+        "6.9B": {
+            "params": 6.9e9,
+            "non_emb_params": 6_444_163_072,
+            "training_tokens": 300e9,
+            "lambada_acc": 0.673,
+            "winogrande_acc": 0.609,
+            "piqa_acc": 0.752,
+            "arc_easy_acc": 0.673,
+            "arc_challenge_acc": 0.351,
+        },
+        "12B": {
+            "params": 12e9,
+            "non_emb_params": 11_327_027_200,
+            "training_tokens": 300e9,
+            "lambada_acc": 0.705,
+            "winogrande_acc": 0.639,
+            "piqa_acc": 0.760,
+            "arc_easy_acc": 0.702,
+            "arc_challenge_acc": 0.348,
+        },
+    },
+}

@@ -1,5 +1,5 @@
 # tests/test_data.py
-from src.data import CEREBRAS_GPT, get_family_data
+from src.data import CEREBRAS_GPT, get_family_data, PYTHIA, get_benchmark_keys
 
 
 def test_cerebras_gpt_has_seven_models():
@@ -61,3 +61,38 @@ def test_get_training_tokens_returns_array():
     assert isinstance(tokens, np.ndarray)
     assert len(tokens) == 7
     assert tokens[0] < tokens[-1]  # should increase with model size
+
+
+def test_pythia_has_eight_models():
+    """Pythia suite has exactly 8 model sizes."""
+    assert len(PYTHIA["models"]) == 8
+
+
+def test_pythia_has_required_fields():
+    """Every Pythia model must have params, non_emb_params, and benchmark scores."""
+    required = {"params", "non_emb_params", "training_tokens"}
+    benchmarks = {"lambada_acc", "winogrande_acc", "piqa_acc",
+                  "arc_easy_acc", "arc_challenge_acc"}
+    for name, model in PYTHIA["models"].items():
+        for field in required | benchmarks:
+            assert field in model, f"Pythia {name} missing {field}"
+
+
+def test_pythia_no_hellaswag():
+    """Pythia official evals do NOT include HellaSwag."""
+    for name, model in PYTHIA["models"].items():
+        assert "hellaswag_acc" not in model, f"Pythia {name} should not have hellaswag"
+
+
+def test_pythia_non_emb_params_less_than_total():
+    """Non-embedding params should be less than total params."""
+    for name, model in PYTHIA["models"].items():
+        assert model["non_emb_params"] < model["params"], f"Pythia {name}"
+
+
+def test_overlapping_benchmarks():
+    """Cerebras-GPT and Pythia should share at least 4 benchmark keys."""
+    cgpt_keys = set(get_benchmark_keys(CEREBRAS_GPT))
+    pythia_keys = set(get_benchmark_keys(PYTHIA))
+    overlap = cgpt_keys & pythia_keys
+    assert len(overlap) >= 4, f"Only {len(overlap)} overlapping benchmarks: {overlap}"
