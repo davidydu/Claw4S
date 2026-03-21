@@ -133,17 +133,49 @@ def generate_report(results: dict, output_path: str = "results/report.md") -> st
             f"tokenizer compression."
         )
 
-    # Piecewise finding
+    # Tail breakdown finding (aggregate)
+    tail_zero_count = sum(
+        1 for a in analyses
+        if abs(a["piecewise_fit"]["tail"]["alpha"]) < 0.01
+    )
+    if tail_zero_count > 0:
+        lines.append(
+            f"- In {tail_zero_count}/{len(analyses)} analyses, the tail region "
+            f"(bottom 10% of ranks) has near-zero alpha, indicating a flat "
+            f"frequency plateau where many tokens appear exactly once. "
+            f"This is the primary mode of Zipf breakdown."
+        )
+
+    # Extreme tail alphas (notable outliers)
+    extreme_tails = [
+        a for a in analyses
+        if a["piecewise_fit"]["tail"]["alpha"] > 2.0
+    ]
+    if extreme_tails:
+        for a in extreme_tails:
+            pw = a["piecewise_fit"]
+            lines.append(
+                f"- {a['corpus']} ({a['tokenizer']}): extreme tail alpha="
+                f"{pw['tail']['alpha']:.1f} (vs head={pw['head']['alpha']:.3f}), "
+                f"indicating severe frequency collapse in rare tokens."
+            )
+
+    # Head-body divergence (show top 3 most divergent)
+    divergences = []
     for a in analyses:
         pw = a["piecewise_fit"]
-        head_alpha = pw["head"]["alpha"]
-        tail_alpha = pw["tail"]["alpha"]
-        if abs(tail_alpha - head_alpha) > 0.3:
-            lines.append(
-                f"- For {a['corpus']} ({a['tokenizer']}): head alpha={head_alpha:.3f} "
-                f"vs tail alpha={tail_alpha:.3f}, indicating Zipf breakdown "
-                f"in the {'head' if head_alpha > tail_alpha else 'tail'} region."
-            )
+        div = abs(pw["body"]["alpha"] - pw["head"]["alpha"])
+        if div > 0.3:
+            divergences.append((a, div))
+    divergences.sort(key=lambda x: -x[1])
+    for a, div in divergences[:3]:
+        pw = a["piecewise_fit"]
+        lines.append(
+            f"- {a['corpus']} ({a['tokenizer']}): head-body alpha divergence="
+            f"{div:.3f} (head={pw['head']['alpha']:.3f}, "
+            f"body={pw['body']['alpha']:.3f}), suggesting different "
+            f"frequency regimes for common vs mid-frequency tokens."
+        )
 
     lines.append("")
 
