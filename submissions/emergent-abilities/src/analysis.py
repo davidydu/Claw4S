@@ -23,6 +23,8 @@ from src.metrics import (
     token_edit_distance,
     sigmoid_fit,
     linear_fit,
+    compute_aic,
+    compute_bic,
 )
 
 
@@ -147,6 +149,17 @@ def compute_nonlinearity_scores() -> dict[str, dict]:
         rss_lin_cont = float(np.sum(lin_res_cont ** 2))
         rss_sig_cont = float(np.sum(sig_res_cont ** 2))
 
+        # AIC/BIC model comparison (linear: 2 params, sigmoid: 4 params)
+        n = len(entries)
+        k_lin = 2   # slope, intercept
+        k_sig = 4   # L, k, x0, b
+        # Guard against zero RSS (perfect fit) to avoid log(0)
+        eps = 1e-30
+        aic_lin_disc = compute_aic(n, max(rss_lin_disc, eps), k_lin)
+        aic_sig_disc = compute_aic(n, max(rss_sig_disc, eps), k_sig)
+        bic_lin_disc = compute_bic(n, max(rss_lin_disc, eps), k_lin)
+        bic_sig_disc = compute_bic(n, max(rss_sig_disc, eps), k_sig)
+
         scores[task_name] = {
             "msi": msi,
             "linear_r2_discontinuous": lin_r2_disc,
@@ -159,7 +172,13 @@ def compute_nonlinearity_scores() -> dict[str, dict]:
             "rss_sigmoid_disc": rss_sig_disc,
             "rss_linear_cont": rss_lin_cont,
             "rss_sigmoid_cont": rss_sig_cont,
-            "n_points": len(entries),
+            "aic_linear_disc": aic_lin_disc,
+            "aic_sigmoid_disc": aic_sig_disc,
+            "bic_linear_disc": bic_lin_disc,
+            "bic_sigmoid_disc": bic_sig_disc,
+            "sigmoid_preferred_aic": aic_sig_disc < aic_lin_disc,
+            "sigmoid_preferred_bic": bic_sig_disc < bic_lin_disc,
+            "n_points": n,
         }
 
     return scores

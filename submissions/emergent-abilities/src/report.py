@@ -83,7 +83,7 @@ def generate_report(results: dict) -> str:
     ratio = demo["per_token_acc"][0] / max(demo["exact_match"][0], 1e-10)
     lines.append(f"- The exact-match metric suppresses performance by {ratio:.1f}x at small scale")
     lines.append("")
-    lines.append("This confirms Schaeffer et al.'s core claim: the nonlinear mapping p -> p^n")
+    lines.append("This is consistent with Schaeffer et al.'s core claim: the nonlinear mapping p -> p^n")
     lines.append("creates the appearance of a phase transition from smoothly improving performance.")
     lines.append("")
 

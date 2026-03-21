@@ -4,6 +4,10 @@ import json
 import os
 import sys
 
+if not os.path.exists("src/data.py"):
+    print("ERROR: Must run from submissions/emergent-abilities/ directory")
+    raise SystemExit(1)
+
 errors = []
 
 # ── Check results directory exists ───────────────────────────────────────────
