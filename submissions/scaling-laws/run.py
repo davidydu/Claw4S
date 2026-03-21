@@ -10,7 +10,7 @@ from src.analysis import run_full_analysis
 from src.plots import generate_all_plots
 from src.report import generate_report, save_report
 
-results = run_full_analysis(n_bootstrap=1000, seed=42)
+results = run_full_analysis(n_bootstrap=500, seed=42)
 generate_all_plots(results)
 report = generate_report(results)
 save_report(report)

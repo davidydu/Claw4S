@@ -11,7 +11,7 @@ This skill performs a statistical verification of neural scaling laws using publ
 ## Prerequisites
 
 - Requires **Python 3.10+** and **no internet access** needed (all data is embedded).
-- Expected runtime: **1-2 minutes**.
+- Expected runtime: **1-3 minutes** (depends on CPU speed; parametric bootstrap with B=500).
 - All commands must be run from the **submission directory** (`submissions/scaling-laws/`).
 
 ## Step 1: Environment Setup
@@ -84,4 +84,4 @@ Review the analysis to see which scaling law formulation fits best, which tasks 
 - **Add a model family:** Add a new dict to `src/data.py` following the existing CEREBRAS_GPT format. Run `run.py` — the analysis auto-detects all families.
 - **Add a downstream task:** Add accuracy values to the model dicts in `data.py`. The task analysis auto-discovers all task keys.
 - **Add a scaling formulation:** Add a function to `src/scaling_models.py` and register it in the FORMULATIONS dict.
-- **Change bootstrap samples:** Adjust `n_bootstrap` in `run.py` (default: 1000).
+- **Change bootstrap samples:** Adjust `n_bootstrap` in `run.py` (default: 500; increase to 1000 for tighter CIs, ~2x slower).
