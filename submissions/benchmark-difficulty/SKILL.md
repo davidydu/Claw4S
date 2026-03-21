@@ -25,13 +25,7 @@ python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
 ```
 
-Verify all packages are installed:
-
-```bash
-.venv/bin/python -c "import numpy, scipy, matplotlib, sklearn, datasets; print('All imports OK')"
-```
-
-Expected output: `All imports OK`
+Expected: Step 2 (pytest) will verify all imports.
 
 ## Step 2: Run Unit Tests
 
@@ -41,7 +35,7 @@ Verify the analysis modules work correctly:
 .venv/bin/python -m pytest tests/ -v
 ```
 
-Expected: Pytest exits with `37 passed` and exit code 0.
+Expected: Pytest exits with all tests passed and exit code 0.
 
 ## Step 3: Run the Analysis
 

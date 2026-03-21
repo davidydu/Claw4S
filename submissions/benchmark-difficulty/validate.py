@@ -4,6 +4,10 @@ import json
 import os
 import sys
 
+if not os.path.exists("src/data.py"):
+    print("ERROR: Must run from submissions/benchmark-difficulty/ directory")
+    raise SystemExit(1)
+
 
 errors = []
 
@@ -19,6 +23,10 @@ num_questions = data["num_questions"]
 num_features = len(data["correlations"])
 num_predictions = len(data["predictions"])
 num_difficulties = len(data["difficulties"])
+
+if num_questions < 1000:
+    print(f"WARNING: Only {num_questions} questions found — fallback hardcoded "
+          f"data was likely used instead of the full Easy2Hard-Bench dataset.")
 
 print(f"Questions analyzed: {num_questions}")
 print(f"Features computed:  {num_features}")

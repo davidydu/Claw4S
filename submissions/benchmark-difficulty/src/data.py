@@ -149,6 +149,7 @@ def load_arc_with_difficulty(use_hardcoded=False):
         ds = load_dataset(
             "furonghuang-lab/Easy2Hard-Bench",
             "E2H-ARC",
+            revision="55bc0d2fb10954151e669d2026b87fa896f2fa26",
         )
         data = []
         for row in ds["eval"]:
@@ -164,7 +165,7 @@ def load_arc_with_difficulty(use_hardcoded=False):
                 "difficulty": float(row["rating"]),
             })
         return data
-    except Exception as e:
+    except (ConnectionError, OSError, ImportError, ValueError) as e:
         import traceback
         print(f"Warning: Could not load from HuggingFace ({e}), "
               f"using hardcoded sample.")
