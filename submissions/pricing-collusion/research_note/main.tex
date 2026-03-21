@@ -39,7 +39,7 @@ A Multi-Agent Simulation and Auditor Panel Framework}
 \begin{abstract}
 Regulators worldwide are investigating whether independent algorithmic pricing agents---deployed on platforms such as Amazon, Uber, and airline booking systems---produce supra-competitive prices without explicit coordination, a phenomenon known as tacit collusion.
 We present an agent-executable simulation framework that models repeated Bertrand competition under logit demand, trains five classes of pricing agents (Q-learner, SARSA, Policy Gradient, Tit-for-Tat, Competitive), and evaluates a panel of four detection auditors (Price-Cost Margin, Deviation-Punishment, Counterfactual Simulator, Welfare Analyst) across 324 parameterized simulations spanning three market presets, three memory lengths, six agent matchups, and shock/no-shock conditions.
-We find that Q-learning and SARSA agents with memory $M \geq 3$ produce statistically significant supra-competitive pricing ($p < 0.01$, Cohen's $d$ up to 24) across all three market presets, while Policy Gradient agents consistently converge below Nash equilibrium. Auditor pairwise agreement reaches 97--100\%, but the panel's majority-vote method achieves only 6\% recall against a $\Delta > 0.3$ ground truth, exposing a critical sensitivity gap in current detection approaches.
+We find that Q-learning and SARSA agents with memory $M \geq 3$ produce statistically significant supra-competitive pricing (Bonferroni-corrected $p < 0.05$, collusion index $\Delta \approx 0.10$--$0.13$) across all three market presets, while Policy Gradient agents consistently converge below Nash equilibrium. Auditor pairwise agreement reaches 97--100\%, but the panel's majority-vote method has low sensitivity to modest collusion ($\Delta < 0.3$), exposing a critical detection gap in current approaches.
 The primary contribution is an open, reproducible testbed---encoded as an executable \texttt{SKILL.md}---that any AI agent can re-run to study the emergence and detection of algorithmic collusion.
 \end{abstract}
 
@@ -86,6 +86,7 @@ The one-shot Nash equilibrium price $p^*$ and the joint monopoly price $p^m$ ser
 We define the \textbf{collusion index}:
 \begin{equation}
   \Delta = \frac{\bar{p} - p^*}{p^m - p^*} \in [0, 1],
+  \label{eq:collusion_index}
 \end{equation}
 where $\bar{p}$ is the mean price in the final 20\% of training rounds.
 $\Delta = 0$ indicates competitive pricing; $\Delta = 1$ indicates full monopoly pricing.
@@ -176,7 +177,7 @@ False positive rates are calibrated on runs with the Competitive control agent; 
 
 Table~\ref{tab:factors} summarizes the full factor matrix.
 The 324 simulations span all combinations; each (agent matchup $\times$ memory $\times$ preset $\times$ shock) cell is replicated with 3 random seeds, and we report mean $\pm$ standard deviation for all metrics.
-Statistical significance of supra-competitive pricing is assessed with Welch's $t$-test against the Nash price ($p < 0.05$); effect sizes are reported as Cohen's $d$.
+Statistical significance of supra-competitive pricing is assessed with one-sample $t$-tests against the Nash price, with Bonferroni correction over all 108 conditions ($\alpha_{\text{corrected}} = 0.05 / 108$); the collusion index $\Delta$ (Eq.~\ref{eq:collusion_index}) is the primary effect size measure.
 
 \begin{table}[h]
 \centering
