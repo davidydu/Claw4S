@@ -12,6 +12,24 @@
 
 ---
 
+## Spec → Plan Module Mapping
+
+The spec defines 8 `src/` modules; this plan consolidates into 6 for simplicity:
+
+| Spec Module | Plan Module | What Moved |
+|-------------|-------------|-----------|
+| `data.py` | `data.py` | As-is |
+| `scaling_models.py` | `scaling_models.py` | + AIC/BIC/adj-R²/LOO-CV from `model_selection.py` |
+| `fitting.py` | `fitting.py` | As-is |
+| `model_selection.py` | → merged into `scaling_models.py` | |
+| `task_analysis.py` | → merged into `analysis.py` | Bounded power-law, sigmoid, breakpoint detection |
+| `extrapolation.py` | → merged into `analysis.py` | Train-small-predict-large |
+| `cross_family.py` | → merged into `analysis.py` | Cross-family transfer |
+| `plots.py` | `plots.py` | As-is |
+| `report.py` | `report.py` | As-is |
+
+---
+
 ## File Map
 
 ```
@@ -63,11 +81,19 @@ pytest==8.3.5
 
 ```python
 # conftest.py — ensures pytest can import from src/
+import sys
+import os
+
+sys.path.insert(0, os.path.dirname(__file__))
 ```
 
 - [ ] **Step 3: Create empty __init__.py files**
 
 `src/__init__.py` and `tests/__init__.py` — both empty.
+
+- [ ] **Step 3b: Verify .gitignore coverage**
+
+Check that the repo-level `.gitignore` covers `results/`, `.venv/`, `__pycache__/` for nested submission directories. If not, create `submissions/scaling-laws/.gitignore` with those entries.
 
 - [ ] **Step 4: Create venv and install deps**
 
@@ -161,6 +187,16 @@ def test_get_family_data_returns_arrays():
     assert isinstance(losses, np.ndarray)
     assert len(params) == 7
     assert len(losses) == 7
+
+
+def test_get_training_tokens_returns_array():
+    """get_training_tokens should return token counts for Chinchilla fitting."""
+    import numpy as np
+    from src.data import get_training_tokens
+    tokens = get_training_tokens(CEREBRAS_GPT)
+    assert isinstance(tokens, np.ndarray)
+    assert len(tokens) == 7
+    assert tokens[0] < tokens[-1]  # should increase with model size
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
@@ -207,7 +243,7 @@ CEREBRAS_GPT: dict = {
         },
         "256M": {
             "params": 256e6,
-            "training_tokens": 5.12e9,
+            "training_tokens": 5.1e9,  # Rounded in paper; verify exact value from HF model card
             "pile_test_loss": 2.299,
             "lambada_acc": 0.293,
             "hellaswag_acc": 0.274,
@@ -294,6 +330,17 @@ def get_family_data(
     return np.array(params), np.array(values)
 
 
+def get_training_tokens(family: dict) -> np.ndarray:
+    """Extract training token counts as array (for Chinchilla formulation)."""
+    tokens = []
+    for model in family["models"].values():
+        if "training_tokens" in model:
+            tokens.append(model["training_tokens"])
+        elif "training_tokens_per_model" in family:
+            tokens.append(family["training_tokens_per_model"])
+    return np.array(tokens)
+
+
 def get_benchmark_keys(family: dict) -> list[str]:
     """Return list of benchmark keys present in a model family."""
     first_model = next(iter(family["models"].values()))
@@ -325,9 +372,24 @@ The Pythia benchmark values must be extracted from the EleutherAI GitHub repo JS
 
 - [ ] **Step 1: Fetch Pythia benchmark values**
 
-Use WebFetch or Bash to download the JSON evaluation files from the EleutherAI GitHub repo for all 8 model sizes. Extract the 0-shot accuracy values for: LAMBADA (acc), WinoGrande (acc), PIQA (acc), ARC-Easy (acc), ARC-Challenge (acc_norm).
+Download JSON evaluation files from the EleutherAI GitHub repo raw URLs:
+
+```
+https://raw.githubusercontent.com/EleutherAI/pythia/main/evals/pythia-v1/pythia-{size}/zero-shot/{size}_step143000.json
+```
+
+For the 1B model, use: `pythia-1b-bf16/zero-shot/1b-bf16_step143000.json`
+
+From each JSON, extract the accuracy values at these paths:
+- LAMBADA: `["results"]["lambada_openai"]["acc"]`
+- WinoGrande: `["results"]["winogrande"]["acc"]`
+- PIQA: `["results"]["piqa"]["acc"]`
+- ARC-Easy: `["results"]["arc_easy"]["acc"]`
+- ARC-Challenge: `["results"]["arc_challenge"]["acc_norm"]`
 
 Note: HellaSwag is NOT available in the official Pythia evals.
+
+Add `"training_tokens": 300e9` to each Pythia model dict for consistency (all sizes trained on ~300B tokens).
 
 - [ ] **Step 2: Write failing tests for Pythia data**
 
@@ -511,6 +573,23 @@ def test_adjusted_r_squared_less_than_r_squared():
     ss_tot = np.sum((y - np.mean(y)) ** 2)
     r2 = 1 - ss_res / ss_tot
     assert adj_r2 <= r2
+
+
+def test_adjusted_r_squared_returns_nan_when_degenerate():
+    """Adjusted R² should return NaN when n <= k + 1."""
+    y = np.array([1.0, 2.0])
+    y_pred = np.array([1.1, 1.9])
+    adj_r2 = adjusted_r_squared(y, y_pred, k=3)
+    assert np.isnan(adj_r2)
+
+
+def test_leave_one_out_cv():
+    """LOO-CV on perfect power-law data should have near-zero error."""
+    from src.scaling_models import leave_one_out_cv
+    n = np.array([1e8, 3e8, 1e9, 3e9, 1e10, 3e10, 1e11])
+    y = 5.0 * np.power(n, -0.07) + 1.5
+    cv_error = leave_one_out_cv("kaplan", n, y)
+    assert cv_error < 0.01  # near-perfect fit should give near-zero CV error
 ```
 
 - [ ] **Step 2: Run tests to verify failure**
@@ -601,12 +680,38 @@ def adjusted_r_squared(y: np.ndarray, y_pred: np.ndarray, k: int) -> float:
     """Adjusted R² that penalizes number of parameters k.
 
     adj_R² = 1 - (1 - R²) * (n - 1) / (n - k - 1)
+    Returns NaN if n <= k + 1 (degenerate case).
     """
     n = len(y)
+    if n <= k + 1:
+        return float("nan")
     ss_res = np.sum((y - y_pred) ** 2)
     ss_tot = np.sum((y - np.mean(y)) ** 2)
     r2 = 1.0 - ss_res / ss_tot
     return 1.0 - (1.0 - r2) * (n - 1) / (n - k - 1)
+
+
+def leave_one_out_cv(name: str, n: np.ndarray, y: np.ndarray, d: np.ndarray | None = None) -> float:
+    """Leave-one-out cross-validation error for a scaling law formulation.
+
+    Returns mean absolute prediction error across all LOO folds.
+    Uses fit_scaling_law from fitting module (imported here to avoid circular deps).
+    """
+    from src.fitting import fit_scaling_law
+    errors = []
+    for i in range(len(n)):
+        n_train = np.delete(n, i)
+        y_train = np.delete(y, i)
+        d_train = np.delete(d, i) if d is not None else None
+        result = fit_scaling_law(name, n_train, y_train, d=d_train)
+        if result.converged:
+            formulation = FORMULATIONS[name]
+            if formulation["needs_d"] and d is not None:
+                y_pred = formulation["func"](np.array([n[i]]), np.array([d[i]]), *result.param_values)
+            else:
+                y_pred = formulation["func"](np.array([n[i]]), *result.param_values)
+            errors.append(abs(y_pred[0] - y[i]))
+    return np.mean(errors) if errors else float("nan")
 ```
 
 - [ ] **Step 4: Run tests to verify they pass**
@@ -734,6 +839,9 @@ git commit -m "feat(scaling-laws): NLS fitting with parametric bootstrap and con
 # tests/test_analysis.py
 import numpy as np
 from src.analysis import (
+    fit_bounded_power_law,
+    fit_sigmoid,
+    detect_breakpoint,
     run_loss_scaling,
     run_task_scaling,
     run_cross_metric_correlation,
@@ -742,6 +850,43 @@ from src.analysis import (
     run_full_analysis,
 )
 
+
+# --- Synthetic unit tests (fast, test fitting mechanics) ---
+
+def test_fit_bounded_power_law_recovers_params():
+    """Bounded power-law acc(N) = 1 - a*N^(-alpha) should recover known params."""
+    np.random.seed(42)
+    n = np.array([1e8, 3e8, 1e9, 3e9, 1e10, 3e10, 1e11])
+    true_a, true_alpha = 50.0, 0.05
+    y = 1.0 - true_a * np.power(n, -true_alpha)
+    y += np.random.normal(0, 0.005, len(y))
+    result = fit_bounded_power_law(n, y)
+    assert result["converged"]
+    assert abs(result["params"]["alpha"] - true_alpha) < 0.02
+
+
+def test_fit_sigmoid_recovers_params():
+    """Sigmoid acc(N) = L / (1 + exp(-k*(log(N) - x0))) should recover shape."""
+    n = np.array([1e8, 3e8, 1e9, 3e9, 1e10, 3e10, 1e11])
+    log_n = np.log(n)
+    y = 0.8 / (1.0 + np.exp(-1.5 * (log_n - np.log(1e9))))
+    result = fit_sigmoid(n, y)
+    assert result["converged"]
+    assert 0 < result["params"]["L"] < 1.0  # bounded
+
+
+def test_detect_breakpoint_finds_planted_break():
+    """Breakpoint detection should find a change in slope at the planted location."""
+    n = np.array([1e8, 3e8, 1e9, 3e9, 1e10, 3e10, 1e11])
+    log_n = np.log(n)
+    # Two different slopes with break between index 3 and 4
+    y = np.where(log_n < np.log(5e9), 0.01 * log_n, 0.05 * log_n - 0.5)
+    result = detect_breakpoint(n, y)
+    assert "breakpoint_idx" in result
+    assert result["breakpoint_idx"] in [3, 4]  # near the planted break
+
+
+# --- Integration tests (use real data, slower) ---
 
 def test_run_loss_scaling_returns_expected_structure():
     """Loss scaling should return fits for all three formulations."""
@@ -765,6 +910,7 @@ def test_run_task_scaling_returns_per_task_results():
     for task_name, task_result in result.items():
         assert "bounded_power_law" in task_result
         assert "sigmoid" in task_result
+        assert "breakpoint" in task_result
 
 
 def test_run_full_analysis_returns_all_phases():
@@ -785,14 +931,20 @@ Expected: FAIL — `ModuleNotFoundError`
 
 - [ ] **Step 3: Implement src/analysis.py**
 
-Implement the 5-phase analysis pipeline:
+Implement task-level fitting functions + 5-phase analysis pipeline:
 
-1. `run_loss_scaling(family, n_bootstrap=1000, seed=42)` — fits 3 formulations to Cerebras-GPT losses, runs bootstrap, returns params + CIs + model selection
-2. `run_task_scaling(family, n_bootstrap=1000, seed=42)` — for each benchmark, fits bounded power-law `acc(N) = 1 - a*N^(-alpha)` and sigmoid `acc(N) = L / (1 + exp(-k*(log(N) - x0)))`, runs bootstrap
-3. `run_cross_metric_correlation(family)` — computes Δloss vs Δaccuracy, Pearson/Spearman correlations
+**Task-level fitting functions:**
+- `fit_bounded_power_law(n, y) -> dict` — fits `acc(N) = 1 - a*N^(-alpha)`, returns params, adj_r_squared, converged
+- `fit_sigmoid(n, y) -> dict` — fits `acc(N) = L / (1 + exp(-k*(log(N) - x0)))`, returns params, adj_r_squared, converged
+- `detect_breakpoint(n, y) -> dict` — exhaustive search over all possible breakpoints between consecutive model sizes. Two-segment linear regression in log-space, select breakpoint minimizing total RSS. Returns breakpoint_idx, rss, segments. Acknowledge low statistical power with n=7 in the report.
+
+**5-phase pipeline:**
+1. `run_loss_scaling(family, n_bootstrap=1000, seed=42)` — fits 3 formulations to Cerebras-GPT losses, runs bootstrap, returns params + CIs + model selection. **Uses `get_training_tokens(family)` to pass `d` array for Chinchilla formulation.**
+2. `run_task_scaling(family, n_bootstrap=1000, seed=42)` — for each benchmark, calls `fit_bounded_power_law`, `fit_sigmoid`, and `detect_breakpoint`, runs bootstrap on the first two
+3. `run_cross_metric_correlation(family)` — computes Δloss vs Δaccuracy, Pearson/Spearman correlations, plus rank correlation across all sizes
 4. `run_extrapolation_risk(family, n_train=4, n_bootstrap=1000, seed=42)` — fits on smallest `n_train` models, predicts rest, reports MAPE and prediction intervals
 5. `run_cross_family_transfer(primary, secondary, n_bootstrap=1000, seed=42)` — fits task scaling on primary (Cerebras-GPT), predicts secondary (Pythia) benchmarks, reports transfer error
-6. `run_full_analysis(n_bootstrap=1000, seed=42)` — orchestrates all 5 phases, prints `[1/5]` through `[5/5]` banners, saves `results/results.json`, returns full results dict with metadata (timestamp, versions, seed)
+6. `run_full_analysis(n_bootstrap=1000, seed=42)` — orchestrates all 5 phases, prints `[1/5]` through `[5/5]` banners, creates `results/` and `results/figures/` directories via `os.makedirs(exist_ok=True)`, saves `results/results.json`, returns full results dict with metadata (timestamp, versions, seed)
 
 Each phase catches exceptions independently — a failure in one phase doesn't block others.
 
@@ -858,11 +1010,33 @@ Implement `generate_report(results: dict) -> str` that produces a markdown repor
 
 Also implement `save_report(report: str, path: str = "results/report.md")`.
 
-- [ ] **Step 2: Commit**
+- [ ] **Step 2: Add smoke test**
+
+Add to `tests/test_analysis.py`:
+
+```python
+def test_generate_report_has_expected_sections():
+    """Report should contain all major sections."""
+    from src.report import generate_report
+    results = run_full_analysis(n_bootstrap=10, seed=42)
+    report = generate_report(results)
+    assert isinstance(report, str)
+    assert len(report) > 100
+    assert "Loss Scaling" in report
+    assert "Task Scaling" in report
+    assert "Extrapolation" in report
+```
+
+- [ ] **Step 3: Run test**
+
+Run: `.venv/bin/python -m pytest tests/test_analysis.py::test_generate_report_has_expected_sections -v`
+Expected: PASS
+
+- [ ] **Step 4: Commit**
 
 ```bash
-git add submissions/scaling-laws/src/report.py
-git commit -m "feat(scaling-laws): markdown report generator"
+git add submissions/scaling-laws/src/report.py submissions/scaling-laws/tests/test_analysis.py
+git commit -m "feat(scaling-laws): markdown report generator with smoke test"
 ```
 
 ---
@@ -880,6 +1054,10 @@ git commit -m "feat(scaling-laws): markdown report generator"
 
 Usage: .venv/bin/python run.py
 """
+import os
+
+os.makedirs("results/figures", exist_ok=True)
+
 from src.analysis import run_full_analysis
 from src.plots import generate_all_plots
 from src.report import generate_report, save_report
