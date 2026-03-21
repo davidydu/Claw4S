@@ -40,7 +40,7 @@ Verify the analysis modules work correctly:
 .venv/bin/python -m pytest tests/ -v
 ```
 
-Expected: All tests pass (33 tests across 4 files). Integration tests run actual curve fitting, so this step may take 30-60 seconds.
+Expected: All tests pass. Integration tests run actual curve fitting, so this step may take 30-60 seconds.
 
 ## Step 3: Run the Analysis
 

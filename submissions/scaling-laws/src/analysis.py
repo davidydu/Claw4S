@@ -159,7 +159,7 @@ def detect_breakpoint(n: np.ndarray, y: np.ndarray) -> dict:
 # ---------------------------------------------------------------------------
 
 def run_loss_scaling(
-    family: dict, n_bootstrap: int = 1000, seed: int = 42
+    family: dict, n_bootstrap: int = 500, seed: int = 42
 ) -> dict:
     """Fit Kaplan, Chinchilla, and corrected scaling laws to loss data."""
     n_params, losses = get_family_data(family, "pile_test_loss")
@@ -188,7 +188,7 @@ def run_loss_scaling(
 # ---------------------------------------------------------------------------
 
 def run_task_scaling(
-    family: dict, n_bootstrap: int = 1000, seed: int = 42
+    family: dict, n_bootstrap: int = 500, seed: int = 42
 ) -> dict:
     """Fit bounded power-law, sigmoid, and breakpoint detection per benchmark."""
     benchmarks = get_benchmark_keys(family)
@@ -281,7 +281,7 @@ def run_cross_metric_correlation(family: dict) -> dict:
 # ---------------------------------------------------------------------------
 
 def run_extrapolation_risk(
-    family: dict, n_train: int = 4, n_bootstrap: int = 1000, seed: int = 42
+    family: dict, n_train: int = 4, n_bootstrap: int = 500, seed: int = 42
 ) -> dict:
     """Fit on the n_train smallest models; predict the rest. Measure MAPE."""
     # Loss extrapolation (Kaplan formulation)
@@ -349,7 +349,7 @@ def run_extrapolation_risk(
 
 def run_cross_family_transfer(
     primary: dict, secondary: dict,
-    n_bootstrap: int = 1000, seed: int = 42,
+    n_bootstrap: int = 500, seed: int = 42,
 ) -> dict:
     """Fit bounded power-law on primary family, predict secondary family accuracy."""
     primary_benchmarks = set(get_benchmark_keys(primary))
@@ -407,7 +407,7 @@ class _NumpyEncoder(json.JSONEncoder):
 # Full pipeline
 # ---------------------------------------------------------------------------
 
-def run_full_analysis(n_bootstrap: int = 1000, seed: int = 42) -> dict:
+def run_full_analysis(n_bootstrap: int = 500, seed: int = 42) -> dict:
     """Run all 5 analysis phases. Save results to results/results.json."""
     import scipy
 
