@@ -4,6 +4,10 @@ Usage: .venv/bin/python run.py
 """
 import os
 
+if not os.path.exists("src/data.py"):
+    print("ERROR: Must run from submissions/scaling-laws/ directory")
+    raise SystemExit(1)
+
 os.makedirs("results/figures", exist_ok=True)
 
 from src.analysis import run_full_analysis

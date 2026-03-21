@@ -118,6 +118,8 @@ def get_family_data(
         if metric in model:
             params.append(model["params"])
             values.append(model[metric])
+    if not params:
+        raise ValueError(f"Metric '{metric}' not found in any model of family '{family.get('name', 'unknown')}'")
     return np.array(params), np.array(values)
 
 

@@ -115,8 +115,8 @@ def _plot_loss_scaling(results: dict, output_dir: str) -> None:
                     n_dense, y_curve, color=color, linewidth=2,
                     label=f"{form_name.capitalize()} (adj-R²={r2_str})",
                 )
-            except Exception:
-                pass  # Skip formulation if curve evaluation fails
+            except Exception as exc:
+                print(f"  WARNING: Could not plot curve: {type(exc).__name__}: {exc}")
 
     ax.set_xscale("log")
     ax.set_yscale("log")
@@ -234,7 +234,8 @@ def _plot_residuals(results: dict, output_dir: str) -> None:
             else:
                 y_pred = np.full_like(y_loss, np.nan)
             residuals_loss = y_loss - y_pred
-        except Exception:
+        except Exception as exc:
+            print(f"  WARNING: Could not plot curve: {type(exc).__name__}: {exc}")
             residuals_loss = np.full_like(y_loss, np.nan)
     else:
         residuals_loss = np.full_like(y_loss, np.nan)

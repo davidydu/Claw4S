@@ -4,7 +4,23 @@
 from __future__ import annotations
 
 import os
-from datetime import datetime
+from datetime import datetime, timezone
+
+
+def _fmt(v):
+    """Format a number to 4 decimal places, or 'n/a' if not possible."""
+    try:
+        return f"{v:.4f}"
+    except (TypeError, ValueError):
+        return "n/a"
+
+
+def _fmt3(v):
+    """Format a number to 3 decimal places, or 'n/a' if not possible."""
+    try:
+        return f"{v:.3f}"
+    except (TypeError, ValueError):
+        return "n/a"
 
 
 def generate_report(results: dict) -> str:
@@ -27,7 +43,7 @@ def generate_report(results: dict) -> str:
     # Title & metadata
     # ------------------------------------------------------------------ #
     metadata = results.get("metadata", {})
-    timestamp = metadata.get("timestamp", datetime.utcnow().isoformat())
+    timestamp = metadata.get("timestamp", datetime.now(timezone.utc).isoformat())
     seed = metadata.get("seed", "n/a")
 
     lines.append("# Scaling Laws Analysis Report")
@@ -37,10 +53,11 @@ def generate_report(results: dict) -> str:
     # Summary
     # ------------------------------------------------------------------ #
     lines.append("## Summary\n")
+    n_boot_str = str(metadata.get("n_bootstrap", "N/A"))
     lines.append(
         "We verified neural scaling laws using published data from Cerebras-GPT "
         "(7 sizes) and Pythia (8 sizes). Three loss-scaling formulations (Kaplan, "
-        "Chinchilla, Corrected) were fit with parametric bootstrapping (B=1000) and "
+        f"Chinchilla, Corrected) were fit with parametric bootstrapping (B={n_boot_str}) and "
         "compared via AIC/BIC. Task-level accuracy scaling was modelled with a "
         "bounded power-law and a sigmoid, and a piecewise breakpoint was detected "
         "for each benchmark. Cross-metric correlation between loss improvement and "
@@ -95,18 +112,6 @@ def generate_report(results: dict) -> str:
             star = " *" if name == best_aic_name else ""
             label = name.capitalize() + star
 
-            def _fmt(v):
-                try:
-                    return f"{v:.4f}"
-                except (TypeError, ValueError):
-                    return "n/a"
-
-            def _fmt3(v):
-                try:
-                    return f"{v:.3f}"
-                except (TypeError, ValueError):
-                    return "n/a"
-
             row = (
                 f"| {label} | {_fmt(alpha)} | {alpha_ci_str} "
                 f"| {_fmt(l_inf)} | {_fmt3(adj_r2)} | {_fmt(aic)} | {_fmt(bic)} |"
@@ -143,12 +148,6 @@ def generate_report(results: dict) -> str:
             sig_r2 = sig.get("adj_r_squared", float("nan"))
             bp_idx = bp.get("breakpoint_idx", "n/a")
 
-            def _fmt3(v):
-                try:
-                    return f"{v:.3f}"
-                except (TypeError, ValueError):
-                    return "n/a"
-
             row = (
                 f"| {task_name} | {_fmt3(pl_r2)} | {_fmt3(sig_r2)} "
                 f"| {bp_idx} |"
@@ -171,12 +170,6 @@ def generate_report(results: dict) -> str:
         sr   = cross.get("spearman_r", float("nan"))
         sp   = cross.get("spearman_p", float("nan"))
 
-        def _fmt3(v):
-            try:
-                return f"{v:.3f}"
-            except (TypeError, ValueError):
-                return "n/a"
-
         lines.append(
             f"Pearson r = {_fmt3(pr)} (p = {_fmt3(pp)}); "
             f"Spearman rho = {_fmt3(sr)} (p = {_fmt3(sp)}) "
@@ -194,12 +187,6 @@ def generate_report(results: dict) -> str:
     if extrap:
         loss_mape = extrap.get("loss_mape", float("nan"))
         task_mape = extrap.get("task_mape_avg", float("nan"))
-
-        def _fmt3(v):
-            try:
-                return f"{v:.3f}"
-            except (TypeError, ValueError):
-                return "n/a"
 
         try:
             ratio = loss_mape / task_mape
@@ -224,12 +211,6 @@ def generate_report(results: dict) -> str:
     if cf:
         avg_err = cf.get("avg_transfer_error", float("nan"))
 
-        def _fmt3(v):
-            try:
-                return f"{v:.3f}"
-            except (TypeError, ValueError):
-                return "n/a"
-
         lines.append(
             f"Average transfer error (Cerebras-GPT → Pythia) = {_fmt3(avg_err)}.\n"
         )
@@ -242,7 +223,7 @@ def generate_report(results: dict) -> str:
     lines.append("## Methodology\n")
     lines.append(
         "Loss-scaling parameters were estimated by nonlinear least-squares with "
-        "parametric bootstrap (B=1000) to construct 95% confidence intervals. "
+        f"parametric bootstrap (B={n_boot_str}) to construct 95% confidence intervals. "
         "Model selection used AIC and BIC to penalise over-parameterisation. "
         "Task accuracy was fit with a bounded power-law (acc(N) = 1 − a·N^(−α)) "
         "and a sigmoid in log-N space; the better fit was chosen by adjusted R². "

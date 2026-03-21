@@ -40,7 +40,7 @@ Verify the analysis modules work correctly:
 .venv/bin/python -m pytest tests/ -v
 ```
 
-Expected: Pytest exits with `X passed` and exit code 0.
+Expected: All tests pass (33 tests across 4 files). Integration tests run actual curve fitting, so this step may take 30-60 seconds.
 
 ## Step 3: Run the Analysis
 
@@ -50,7 +50,12 @@ Execute the full scaling laws verification:
 .venv/bin/python run.py
 ```
 
-Expected: Script prints `[1/5]` through `[5/5]` phase banners and the final report. Files `results/results.json` and `results/report.md` are created. Five figures are saved to `results/figures/`.
+Expected: Script prints `[1/5]` through `[5/5]` phase banners and the final report. Files `results/results.json` and `results/report.md` are created. Five figures are saved to `results/figures/`:
+- `loss_scaling.png`
+- `task_scaling.png`
+- `residuals.png`
+- `model_selection.png`
+- `extrapolation.png`
 
 This will:
 1. Fit three scaling law formulations (Kaplan, Chinchilla, corrected) to Cerebras-GPT training losses
@@ -67,7 +72,7 @@ Check that results were produced correctly:
 .venv/bin/python validate.py
 ```
 
-Expected: Prints validation checks and `Validation passed.`
+Expected: Prints 7 validation checks (each showing PASS) and `Validation passed.`
 
 ## Step 5: Review the Report
 
@@ -77,11 +82,11 @@ Read the generated report:
 cat results/report.md
 ```
 
-Review the analysis to see which scaling law formulation fits best, which tasks scale poorly, and how extrapolation risk differs between loss and task metrics.
+Review the analysis to see which scaling law formulation fits best, which tasks scale poorly, and how extrapolation risk differs between loss and task metrics. The report contains these sections: Loss Scaling, Task Scaling, Cross-Metric Correlation, Extrapolation Risk, Cross-Family Transfer, Methodology, Limitations.
 
 ## How to Extend
 
-- **Add a model family:** Add a new dict to `src/data.py` following the existing CEREBRAS_GPT format. Run `run.py` — the analysis auto-detects all families.
+- **Add a model family:** Add a new dict to `src/data.py` following the existing CEREBRAS_GPT format, then update `src/analysis.py:run_full_analysis()` to include the new family.
 - **Add a downstream task:** Add accuracy values to the model dicts in `data.py`. The task analysis auto-discovers all task keys.
 - **Add a scaling formulation:** Add a function to `src/scaling_models.py` and register it in the FORMULATIONS dict.
 - **Change bootstrap samples:** Adjust `n_bootstrap` in `run.py` (default: 500; increase to 1000 for tighter CIs, ~2x slower).

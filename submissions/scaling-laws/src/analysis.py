@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 
 import numpy as np
 from scipy import stats
-from scipy.optimize import curve_fit
+from scipy.optimize import curve_fit, OptimizeWarning
 
 from src.data import (
     CEREBRAS_GPT,
@@ -43,7 +43,7 @@ def fit_bounded_power_law(n: np.ndarray, y: np.ndarray) -> dict:
 
     try:
         with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
+            warnings.simplefilter("error", OptimizeWarning)
             popt, _ = curve_fit(
                 _model, n, y,
                 p0=[50.0, 0.05],
@@ -58,7 +58,7 @@ def fit_bounded_power_law(n: np.ndarray, y: np.ndarray) -> dict:
             "converged": True,
             "y_pred": y_pred,
         }
-    except (RuntimeError, ValueError):
+    except (RuntimeError, ValueError, OptimizeWarning):
         return {
             "params": {"a": float("nan"), "alpha": float("nan")},
             "adj_r_squared": float("nan"),
@@ -84,7 +84,7 @@ def fit_sigmoid(n: np.ndarray, y: np.ndarray) -> dict:
 
     try:
         with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
+            warnings.simplefilter("error", OptimizeWarning)
             popt, _ = curve_fit(
                 _model, n, y,
                 p0=[L0, k0, x0_init],
@@ -99,7 +99,7 @@ def fit_sigmoid(n: np.ndarray, y: np.ndarray) -> dict:
             "converged": True,
             "y_pred": y_pred,
         }
-    except (RuntimeError, ValueError):
+    except (RuntimeError, ValueError, OptimizeWarning):
         return {
             "params": {"L": float("nan"), "k": float("nan"), "x0": float("nan")},
             "adj_r_squared": float("nan"),
@@ -419,32 +419,40 @@ def run_full_analysis(n_bootstrap: int = 1000, seed: int = 42) -> dict:
     print("[1/5] Fitting loss scaling laws...")
     try:
         results["loss_scaling"] = run_loss_scaling(CEREBRAS_GPT, n_bootstrap=n_bootstrap, seed=seed)
-    except Exception as e:
-        print(f"  ERROR in loss scaling: {e}")
+    except (ValueError, RuntimeError, np.linalg.LinAlgError) as e:
+        import traceback
+        print(f"  ERROR in phase: {e}")
+        traceback.print_exc()
         results["loss_scaling"] = {"error": str(e)}
 
     # Phase 2
     print("[2/5] Fitting task-level scaling curves...")
     try:
         results["task_scaling"] = run_task_scaling(CEREBRAS_GPT, n_bootstrap=n_bootstrap, seed=seed)
-    except Exception as e:
-        print(f"  ERROR in task scaling: {e}")
+    except (ValueError, RuntimeError, np.linalg.LinAlgError) as e:
+        import traceback
+        print(f"  ERROR in phase: {e}")
+        traceback.print_exc()
         results["task_scaling"] = {"error": str(e)}
 
     # Phase 3
     print("[3/5] Computing cross-metric correlations...")
     try:
         results["cross_metric"] = run_cross_metric_correlation(CEREBRAS_GPT)
-    except Exception as e:
-        print(f"  ERROR in cross-metric: {e}")
+    except (ValueError, RuntimeError, np.linalg.LinAlgError) as e:
+        import traceback
+        print(f"  ERROR in phase: {e}")
+        traceback.print_exc()
         results["cross_metric"] = {"error": str(e)}
 
     # Phase 4
     print("[4/5] Evaluating extrapolation risk...")
     try:
         results["extrapolation"] = run_extrapolation_risk(CEREBRAS_GPT, n_bootstrap=n_bootstrap, seed=seed)
-    except Exception as e:
-        print(f"  ERROR in extrapolation: {e}")
+    except (ValueError, RuntimeError, np.linalg.LinAlgError) as e:
+        import traceback
+        print(f"  ERROR in phase: {e}")
+        traceback.print_exc()
         results["extrapolation"] = {"error": str(e)}
 
     # Phase 5
@@ -453,8 +461,10 @@ def run_full_analysis(n_bootstrap: int = 1000, seed: int = 42) -> dict:
         results["cross_family"] = run_cross_family_transfer(
             CEREBRAS_GPT, PYTHIA, n_bootstrap=n_bootstrap, seed=seed,
         )
-    except Exception as e:
-        print(f"  ERROR in cross-family transfer: {e}")
+    except (ValueError, RuntimeError, np.linalg.LinAlgError) as e:
+        import traceback
+        print(f"  ERROR in phase: {e}")
+        traceback.print_exc()
         results["cross_family"] = {"error": str(e)}
 
     # Metadata

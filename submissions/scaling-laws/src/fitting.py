@@ -103,6 +103,7 @@ def fit_scaling_law(
 
     # All restarts failed — return an unconverged placeholder.
     if best_popt is None:
+        print(f"  WARNING: All {n_restarts} restarts failed for '{name}'. Returning unconverged result.")
         return FitResult(
             name=name,
             params={p: float("nan") for p in param_names},

@@ -62,6 +62,8 @@ def compute_aic(n: int, k: int, rss: float) -> float:
     """Akaike Information Criterion. Lower is better.
     AIC = n * ln(RSS/n) + 2k
     """
+    if rss <= 0:
+        return float("-inf")  # perfect fit
     return n * np.log(rss / n) + 2 * k
 
 
@@ -69,6 +71,8 @@ def compute_bic(n: int, k: int, rss: float) -> float:
     """Bayesian Information Criterion. Lower is better.
     BIC = n * ln(RSS/n) + k * ln(n)
     """
+    if rss <= 0:
+        return float("-inf")  # perfect fit
     return n * np.log(rss / n) + k * np.log(n)
 
 

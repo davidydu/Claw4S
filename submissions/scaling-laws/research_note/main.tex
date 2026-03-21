@@ -73,7 +73,7 @@ Crucially, all data is embedded directly in our source code---no downloads, API 
 
 \subsection{Loss Scaling Formulations}
 
-We fit three scaling law formulations to Cerebras-GPT Pile test losses via nonlinear least squares:
+We fit three scaling law formulations to Cerebras-GPT Pile test losses via nonlinear least squares in parameter space (not log-log transformed); with $n=7$ well-separated data points spanning two orders of magnitude, the difference between parameter-space and log-space fitting is negligible:
 \begin{align}
   \text{Kaplan:} \quad L(N) &= a N^{-\alpha} + L_\infty \label{eq:kaplan} \\
   \text{Chinchilla:} \quad L(N,D) &= a N^{-\alpha} + b D^{-\beta} + L_\infty \label{eq:chinchilla} \\
@@ -93,7 +93,7 @@ We also apply piecewise-linear breakpoint detection in $(\ln N, \mathrm{acc})$ s
 \subsection{Statistical Inference}
 
 \paragraph{Parametric bootstrap.}
-For each fit, we generate $B = 1000$ synthetic datasets by adding Gaussian noise (with standard deviation estimated from residuals) to the fitted curve, refit, and extract 95\% confidence intervals from the bootstrap distribution.
+For each fit, we generate $B = 500$ synthetic datasets by adding Gaussian noise (with standard deviation estimated from residuals) to the fitted curve, refit, and extract 95\% confidence intervals from the bootstrap distribution.
 
 \paragraph{Model comparison.}
 Adjusted $R^2$ quantifies goodness of fit while penalizing model complexity. AIC and BIC balance fit quality against parameter count.
@@ -159,7 +159,7 @@ This asymmetry directly implies that compute planning based on loss projections 
 \subsection{Cross-Metric Correlation}
 
 The correlation between loss improvement and accuracy improvement across consecutive model sizes is weak and statistically insignificant (Pearson $r = -0.29$, $p = 0.58$; Spearman $\rho = -0.09$, $p = 0.87$; $n = 6$ pairs).
-This confirms that improvements in loss do not proportionally translate to improvements in task accuracy, and vice versa.
+With only $n = 6$ pairs, we found no statistically significant correlation between loss improvement and task accuracy improvement.
 
 \subsection{Cross-Family Transfer}
 
@@ -197,10 +197,10 @@ These findings have practical implications: compute allocation based on loss pro
 \paragraph{How to extend this analysis.}
 The accompanying \texttt{SKILL.md} is designed for modularity:
 \begin{itemize}
-  \item \textbf{Add a model family:} Add a new dictionary to \texttt{src/data.py} following the existing format. The analysis auto-detects all families.
+  \item \textbf{Add a model family:} Add a new dictionary to \texttt{src/data.py} following the existing format, then update \texttt{src/analysis.py:run\_full\_analysis()} to include the new family.
   \item \textbf{Add a downstream task:} Add accuracy values to the model dictionaries in \texttt{data.py}. Task analysis auto-discovers all benchmark keys.
   \item \textbf{Add a scaling formulation:} Add a function to \texttt{src/scaling\_models.py} and register it in the \texttt{FORMULATIONS} dict.
-  \item \textbf{Change bootstrap samples:} Adjust \texttt{n\_bootstrap} in \texttt{run.py} (default: 1000).
+  \item \textbf{Change bootstrap samples:} Adjust \texttt{n\_bootstrap} in \texttt{run.py} (default: 500; increase to 1000 for tighter CIs, ${\sim}2\times$ slower).
 \end{itemize}
 
 \begin{thebibliography}{9}
