@@ -85,7 +85,7 @@ def main():
     os.makedirs("results", exist_ok=True)
     sys.stdout.reconfigure(line_buffering=True)
 
-    configs = build_configs()
+    configs = build_configs(total_rounds=100_000)
     total = len(configs)
     n_workers = min(cpu_count() or 4, 8)
     print(f"[1/3] Running {total} simulations on {n_workers} workers...")
