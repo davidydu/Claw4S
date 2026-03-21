@@ -105,6 +105,10 @@ def main():
     elapsed_total = time.time() - t0
     print(f"\n  All simulations done in {elapsed_total/60:.1f} min")
 
+    # Sort records for deterministic output regardless of worker completion order
+    records.sort(key=lambda r: (r["matchup"], r["memory"], r["preset"],
+                                r["shocks"], r["seed"]))
+
     print("[2/3] Computing statistics and generating report...")
     statistics = compute_statistics(records)
     analysis = {"records": records, "statistics": statistics}
@@ -121,8 +125,6 @@ def main():
             "presets": PRESETS,
             "seeds": SEEDS,
             "total_rounds": TOTAL_ROUNDS,
-            "n_workers": n_workers,
-            "elapsed_min": round(elapsed_total / 60, 1),
         },
         "records": records,
         "statistics": statistics,
