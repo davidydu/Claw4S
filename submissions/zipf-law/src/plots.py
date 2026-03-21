@@ -85,19 +85,21 @@ def plot_piecewise_comparison(
     x = np.arange(n)
     width = 0.25
 
-    fig, ax = plt.subplots(figsize=(max(10, n * 1.5), 6))
+    fig, ax = plt.subplots(figsize=(max(12, n * 0.6), 7))
 
     for i, (region, color) in enumerate(zip(regions, colors)):
-        alphas = [r["piecewise_fit"][region]["alpha"] for r in results]
+        # Clip extreme values for readability
+        alphas = [min(r["piecewise_fit"][region]["alpha"], 3.0) for r in results]
         ax.bar(x + i * width, alphas, width, label=f"{region.capitalize()}", color=color)
 
     ax.set_xlabel("Corpus x Tokenizer", fontsize=12)
-    ax.set_ylabel("Zipf Exponent (alpha)", fontsize=12)
+    ax.set_ylabel("Zipf Exponent (alpha, capped at 3.0)", fontsize=12)
     ax.set_title("Piecewise Zipf Exponents by Region", fontsize=14)
     ax.set_xticks(x + width)
-    ax.set_xticklabels(labels, rotation=45, ha="right", fontsize=8)
+    ax.set_xticklabels(labels, rotation=60, ha="right", fontsize=7)
     ax.legend(fontsize=10)
     ax.axhline(y=1.0, color="gray", linestyle="--", alpha=0.5, label="Zipf (alpha=1)")
+    ax.set_ylim(-0.1, 3.2)
     ax.grid(True, axis="y", alpha=0.3)
 
     plt.tight_layout()
