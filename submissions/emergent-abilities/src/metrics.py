@@ -7,8 +7,10 @@ token edit distance) reveal the smooth improvement.
 """
 
 import math
+import warnings
+
 import numpy as np
-from scipy.optimize import curve_fit
+from scipy.optimize import curve_fit, OptimizeWarning
 
 
 # ── Scoring functions ────────────────────────────────────────────────────────
@@ -107,15 +109,17 @@ def sigmoid_fit(
     b0 = float(np.min(y))
 
     try:
-        popt, _ = curve_fit(
-            _sigmoid, x, y,
-            p0=[L0, k0, x0_guess, b0],
-            maxfev=10000,
-            bounds=(
-                [0, -10, float(np.min(x)) - 10, -1],
-                [2, 10, float(np.max(x)) + 10, 1],
-            ),
-        )
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", OptimizeWarning)
+            popt, _ = curve_fit(
+                _sigmoid, x, y,
+                p0=[L0, k0, x0_guess, b0],
+                maxfev=10000,
+                bounds=(
+                    [0, -10, float(np.min(x)) - 10, -1],
+                    [2, 10, float(np.max(x)) + 10, 1],
+                ),
+            )
     except RuntimeError:
         # Fallback: return poor fit
         popt = [L0, k0, x0_guess, b0]
