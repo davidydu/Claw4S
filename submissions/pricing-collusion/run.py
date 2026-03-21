@@ -21,23 +21,13 @@ MEMORIES = [1, 3, 5]
 PRESETS = ["e-commerce", "ride-share", "commodity"]
 SEEDS = list(range(3))
 SHOCK_CONDITIONS = [False, True]
-# Adaptive rounds: learning matchups get 200k for stronger convergence,
-# non-learning matchups get 100k (sufficient for their dynamics).
-ROUNDS_BY_MATCHUP = {
-    "QQ": 200_000,
-    "SS": 200_000,
-    "QS": 200_000,
-    "PG-PG": 100_000,
-    "Q-TFT": 100_000,
-    "Q-Competitive": 100_000,
-}
+TOTAL_ROUNDS = 100_000
 
 
 def build_configs():
-    """Build the full experiment matrix with adaptive round counts."""
+    """Build the full experiment matrix."""
     configs = []
     for matchup in MATCHUPS:
-        total_rounds = ROUNDS_BY_MATCHUP[matchup]
         for memory in MEMORIES:
             for preset in PRESETS:
                 for shocks in SHOCK_CONDITIONS:
@@ -45,7 +35,7 @@ def build_configs():
                         configs.append(ExperimentConfig(
                             matchup=matchup, memory=memory, preset=preset,
                             shocks=shocks, seed=seed,
-                            total_rounds=total_rounds,
+                            total_rounds=TOTAL_ROUNDS,
                         ))
     return configs
 
@@ -85,7 +75,7 @@ def main():
     os.makedirs("results", exist_ok=True)
     sys.stdout.reconfigure(line_buffering=True)
 
-    configs = build_configs(total_rounds=100_000)
+    configs = build_configs()
     total = len(configs)
     n_workers = min(cpu_count() or 4, 8)
     print(f"[1/3] Running {total} simulations on {n_workers} workers...")
@@ -115,10 +105,6 @@ def main():
     elapsed_total = time.time() - t0
     print(f"\n  All simulations done in {elapsed_total/60:.1f} min")
 
-    # Sort records for deterministic output regardless of worker completion order
-    records.sort(key=lambda r: (r["matchup"], r["memory"], r["preset"],
-                                r["shocks"], r["seed"]))
-
     print("[2/3] Computing statistics and generating report...")
     statistics = compute_statistics(records)
     analysis = {"records": records, "statistics": statistics}
@@ -134,7 +120,9 @@ def main():
             "memories": MEMORIES,
             "presets": PRESETS,
             "seeds": SEEDS,
-            "rounds_by_matchup": ROUNDS_BY_MATCHUP,
+            "total_rounds": TOTAL_ROUNDS,
+            "n_workers": n_workers,
+            "elapsed_min": round(elapsed_total / 60, 1),
         },
         "records": records,
         "statistics": statistics,
