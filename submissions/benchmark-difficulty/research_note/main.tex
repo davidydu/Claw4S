@@ -1,0 +1,169 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{natbib}
+\usepackage{xcolor}
+
+\title{Can Structural Features Predict Benchmark Difficulty for LLMs?\\
+\large An Information-Theoretic Analysis of ARC-Challenge Questions}
+
+\author{
+Yun Du\textsuperscript{1} \and
+Lina Ji\textsuperscript{1} \and
+Claw\textsuperscript{2}
+\\[4pt]
+\textsuperscript{1}Stanford University \quad
+\textsuperscript{2}AI4Science Catalyst Institute
+}
+
+\date{March 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+We investigate whether structural and information-theoretic features of multiple-choice benchmark questions can predict which questions are difficult for large language models (LLMs), without running any model. Using 1{,}172 ARC-Challenge questions annotated with Item Response Theory (IRT) difficulty scores from Easy2Hard-Bench, we extract 12 surface-level features---including answer entropy, lexical overlap, negation count, and Flesch-Kincaid grade level---and train a Random Forest regressor. Our cross-validated Spearman correlation of $\rho = 0.127 \pm 0.023$ and near-zero $R^2$ demonstrate that \textbf{structural features alone are insufficient to predict LLM difficulty}. This negative result is itself informative: it provides quantitative evidence that LLM benchmark difficulty is primarily determined by semantic reasoning demands rather than surface-level textual properties. Among structural features, negation count shows the only statistically significant correlation ($\rho = 0.071$, $p < 0.02$), suggesting that negation adds a small but measurable reasoning burden.
+\end{abstract}
+
+\section{Introduction}
+
+As the AI community develops increasingly sophisticated benchmarks to evaluate LLMs, a natural question arises: \emph{what makes a benchmark question hard?} If difficulty could be predicted from structural properties of the question text alone, this would have important implications for benchmark design, test-set curation, and understanding model capabilities.
+
+Prior work has applied Item Response Theory (IRT) to estimate per-question difficulty from LLM evaluation results \citep{wang2024easy2hard}. However, these approaches require running many models on each question. We ask the complementary question: can we predict IRT difficulty scores from \emph{text features alone}, without any model evaluation?
+
+We focus on the ARC-Challenge benchmark \citep{clark2018think}, a standard science reasoning dataset, using IRT difficulty scores from the Easy2Hard-Bench dataset \citep{wang2024easy2hard}, which estimates difficulty from thousands of LLM evaluations on the Open LLM Leaderboard.
+
+\section{Methods}
+
+\subsection{Data}
+
+We use the E2H-ARC split of Easy2Hard-Bench \citep{wang2024easy2hard}, containing 1{,}172 ARC-Challenge questions with IRT difficulty ratings normalized to $[0, 1]$. Difficulty scores were estimated using IRT and Glicko-2 models from per-question accuracy data across thousands of LLMs.
+
+\subsection{Feature Extraction}
+
+For each question, we extract 12 structural features without running any LLM:
+
+\begin{enumerate}
+    \item \textbf{question\_length}: Character count of question text
+    \item \textbf{word\_count}: Number of words in the question
+    \item \textbf{avg\_word\_length}: Mean word length (vocabulary complexity proxy)
+    \item \textbf{answer\_entropy}: Shannon entropy over answer option character lengths
+    \item \textbf{num\_choices}: Number of answer options (3, 4, or 5)
+    \item \textbf{lexical\_overlap}: Jaccard similarity between question and answer words
+    \item \textbf{negation\_count}: Count of negation words (not, never, except, etc.)
+    \item \textbf{question\_type}: Encoded question starter (what/which/how/why/etc.)
+    \item \textbf{flesch\_kincaid\_grade}: Readability grade level
+    \item \textbf{unique\_word\_ratio}: Lexical diversity (unique/total words)
+    \item \textbf{max\_option\_length\_ratio}: Ratio of longest to shortest answer option
+    \item \textbf{stem\_overlap}: Jaccard similarity between question and correct answer
+\end{enumerate}
+
+\subsection{Analysis}
+
+We compute Spearman rank correlations between each feature and IRT difficulty. We train a Random Forest regressor (100 trees, max depth 10, min samples leaf 3, seed 42) and evaluate using 5-fold cross-validation with three metrics: $R^2$, mean absolute error (MAE), and Spearman $\rho$.
+
+\section{Results}
+
+\subsection{Feature Correlations}
+
+Table~\ref{tab:correlations} shows Spearman correlations between structural features and IRT difficulty. Only \textbf{negation\_count} achieves statistical significance ($p < 0.05$), with a weak positive correlation ($\rho = 0.071$). All other features have $|\rho| < 0.04$.
+
+\begin{table}[h]
+\centering
+\caption{Spearman correlations between structural features and IRT difficulty ($n = 1{,}172$).}
+\label{tab:correlations}
+\begin{tabular}{lrrl}
+\toprule
+Feature & $\rho$ & $p$-value & Significant? \\
+\midrule
+negation\_count & $+0.071$ & $0.015$ & Yes \\
+max\_option\_length\_ratio & $+0.038$ & $0.196$ & No \\
+answer\_entropy & $-0.037$ & $0.201$ & No \\
+num\_choices & $+0.037$ & $0.206$ & No \\
+avg\_word\_length & $+0.035$ & $0.227$ & No \\
+lexical\_overlap & $+0.031$ & $0.297$ & No \\
+flesch\_kincaid\_grade & $+0.027$ & $0.359$ & No \\
+question\_type & $-0.015$ & $0.605$ & No \\
+stem\_overlap & $+0.014$ & $0.642$ & No \\
+question\_length & $+0.011$ & $0.709$ & No \\
+unique\_word\_ratio & $+0.005$ & $0.864$ & No \\
+word\_count & $+0.002$ & $0.947$ & No \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Prediction Performance}
+
+The Random Forest model achieves high training $R^2$ (0.510) but near-zero cross-validated performance (Table~\ref{tab:model}), indicating severe overfitting. The cross-validated Spearman $\rho = 0.127$ indicates a weak but non-trivial rank correlation.
+
+\begin{table}[h]
+\centering
+\caption{Difficulty prediction model performance.}
+\label{tab:model}
+\begin{tabular}{lcc}
+\toprule
+Metric & Training & Cross-Validated (5-fold) \\
+\midrule
+$R^2$ & 0.510 & $0.007 \pm 0.010$ \\
+MAE & 0.155 & $0.223 \pm 0.007$ \\
+Spearman $\rho$ & --- & $0.127 \pm 0.023$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Feature Importance}
+
+The Random Forest feature importances (Mean Decrease in Impurity) rank Flesch-Kincaid grade (0.156), average word length (0.128), and answer entropy (0.121) as the top three features. However, given the near-zero cross-validated $R^2$, these importances primarily reflect overfitting patterns rather than generalizable predictive signal.
+
+\section{Discussion}
+
+Our key finding is a \textbf{negative result}: structural features of benchmark questions cannot meaningfully predict which questions are difficult for LLMs. The cross-validated $R^2$ of 0.007 means that structural features explain less than 1\% of the variance in difficulty. This is consistent with the intuition that LLM difficulty arises from \emph{reasoning demands}---the depth of inference, domain knowledge, and logical chains required---rather than from surface properties like question length or vocabulary complexity.
+
+The one significant finding---negation count's positive correlation with difficulty---aligns with known challenges LLMs face with negation. Questions containing ``NOT,'' ``except,'' or ``never'' require negating a default inference, adding a reasoning step that structural features can detect.
+
+\subsection{Implications}
+
+\begin{enumerate}
+    \item \textbf{Benchmark design:} Surface-level filtering (by length, readability, etc.) cannot substitute for empirical difficulty estimation via model evaluation.
+    \item \textbf{IRT validation:} The fact that IRT scores are not predictable from text properties supports the validity of IRT-based difficulty estimation as capturing genuine reasoning difficulty.
+    \item \textbf{Feature engineering:} Future work on difficulty prediction should focus on semantic features (e.g., knowledge graph distance, reasoning chain depth) rather than structural properties.
+\end{enumerate}
+
+\subsection{Limitations}
+
+\begin{itemize}
+    \item IRT difficulty scores are derived from LLM (not human) performance.
+    \item Only ARC-Challenge was analyzed; results may differ for other benchmarks.
+    \item Our 12 features are a subset of possible structural features; additional text features (e.g., dependency parse depth, named entity count) might improve prediction.
+    \item The Random Forest may not capture all non-linear relationships; other models could perform better.
+\end{itemize}
+
+\section{Conclusion}
+
+We provide quantitative evidence that structural features of multiple-choice questions---including question length, answer entropy, lexical overlap, and readability---cannot predict LLM difficulty ($R^2 = 0.007$, Spearman $\rho = 0.127$ cross-validated). This negative result underscores that benchmark difficulty is a \emph{semantic} property, not a structural one, and supports the continued use of model-based difficulty estimation methods like IRT for benchmark curation.
+
+\bibliographystyle{plainnat}
+\begin{thebibliography}{9}
+
+\bibitem[Clark et al.(2018)]{clark2018think}
+Clark, P., Cowhey, I., Etzioni, O., et al. (2018).
+\newblock Think you have solved question answering? Try ARC, the AI2 Reasoning Challenge.
+\newblock \emph{arXiv preprint arXiv:1803.05457}.
+
+\bibitem[Wang et al.(2024)]{wang2024easy2hard}
+Wang, J., et al. (2024).
+\newblock Easy2Hard-Bench: Standardized difficulty labels for profiling LLM performance and generalization.
+\newblock \emph{NeurIPS 2024, Datasets and Benchmarks Track}.
+
+\bibitem[Ethayarajh \& Choi(2022)]{ethayarajh2022understanding}
+Ethayarajh, K. \& Choi, Y. (2022).
+\newblock Understanding dataset difficulty with $\mathcal{V}$-usable information.
+\newblock \emph{ICML 2022}.
+
+\end{thebibliography}
+
+\end{document}
