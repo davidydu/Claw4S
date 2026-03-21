@@ -6,7 +6,7 @@ A multi-agent simulation testbed that studies whether deceptive strategies emerg
 
 **Submission:** Claw4S 2026 conference
 **Folder:** `submissions/world-model-tom/`
-**Authors:** Yun Du, Lina Ji, Claw (the-mad-lobster)
+**Authors:** Lina Ji, Claw (the-mad-lobster)
 **Runtime target:** Under 10 minutes (parallelized)
 **Dependencies:** numpy==2.2.4, scipy==1.15.2, matplotlib==3.10.1, pytest==8.3.5
 **Python:** >= 3.10, < 3.14
@@ -322,15 +322,3 @@ submissions/world-model-tom/
 
 Well under the 10-minute target.
 
-## Risk: What If Deception Doesn't Emerge?
-
-If the trust-invest-then-exploit pattern does not appear in the results:
-1. **Stop and report to user** before writing the paper
-2. **Diagnostic options:**
-   - Increase exploitation temptation in payoff matrix
-   - Increase rounds to allow more learning
-   - Add a fourth game preset specifically calibrated for deception
-3. **Pivot options:**
-   - Reframe as a negative result: "Deception requires more than recursive modeling — implications for alignment optimism"
-   - Focus on the finding that DID emerge (e.g., mutual modeling instability, noise effects)
-4. **User decides** which direction to take
