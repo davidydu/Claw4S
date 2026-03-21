@@ -5,6 +5,9 @@ Writes the report to output_path and returns the report as a string.
 """
 
 import os
+import statistics
+
+from scipy.stats import mannwhitneyu
 
 
 def generate_report(results: dict, output_path: str = "results/report.md") -> str:
@@ -82,10 +85,12 @@ def generate_report(results: dict, output_path: str = "results/report.md") -> st
         r2s = [a["global_fit"]["r_squared"] for a in ctype_analyses]
         avg_alpha = sum(alphas) / len(alphas) if alphas else 0
         avg_r2 = sum(r2s) / len(r2s) if r2s else 0
+        std_alpha = statistics.stdev(alphas) if len(alphas) >= 2 else 0.0
+        std_r2 = statistics.stdev(r2s) if len(r2s) >= 2 else 0.0
 
         lines.append(f"### {ctype.replace('_', ' ').title()}")
-        lines.append(f"- Average alpha: {avg_alpha:.3f}")
-        lines.append(f"- Average R^2: {avg_r2:.4f}")
+        lines.append(f"- Average alpha: {avg_alpha:.3f} (std dev: {std_alpha:.3f})")
+        lines.append(f"- Average R^2: {avg_r2:.4f} (std dev: {std_r2:.4f})")
         lines.append(f"- N analyses: {len(ctype_analyses)}")
         lines.append("")
 
@@ -110,16 +115,32 @@ def generate_report(results: dict, output_path: str = "results/report.md") -> st
     code_analyses = [a for a in analyses if a["corpus_type"] == "code"]
 
     if nl_analyses and code_analyses:
-        nl_avg_alpha = sum(a["global_fit"]["alpha"] for a in nl_analyses) / len(nl_analyses)
-        code_avg_alpha = sum(a["global_fit"]["alpha"] for a in code_analyses) / len(code_analyses)
+        nl_alphas = [a["global_fit"]["alpha"] for a in nl_analyses]
+        code_alphas = [a["global_fit"]["alpha"] for a in code_analyses]
+        nl_avg_alpha = sum(nl_alphas) / len(nl_alphas)
+        code_avg_alpha = sum(code_alphas) / len(code_alphas)
+        nl_std = statistics.stdev(nl_alphas) if len(nl_alphas) >= 2 else 0.0
+        code_std = statistics.stdev(code_alphas) if len(code_alphas) >= 2 else 0.0
         diff = nl_avg_alpha - code_avg_alpha
         if abs(diff) > 0.05:
             direction = "higher" if diff > 0 else "lower"
             lines.append(
                 f"- Natural language has {direction} average Zipf exponent "
-                f"({nl_avg_alpha:.3f}) than code ({code_avg_alpha:.3f}), "
+                f"({nl_avg_alpha:.3f} +/- {nl_std:.3f}) than code "
+                f"({code_avg_alpha:.3f} +/- {code_std:.3f}), "
                 f"indicating {'steeper' if diff > 0 else 'flatter'} "
                 f"frequency distributions."
+            )
+        # Mann-Whitney U test for code vs NL alpha difference
+        if len(nl_alphas) >= 2 and len(code_alphas) >= 2:
+            u_stat, u_pvalue = mannwhitneyu(
+                code_alphas, nl_alphas, alternative="two-sided"
+            )
+            lines.append(
+                f"- Mann-Whitney U test (code vs NL alpha): "
+                f"U = {u_stat:.1f}, p = {u_pvalue:.4f}"
+                + (" (significant at p < 0.05)" if u_pvalue < 0.05 else " (not significant at p < 0.05)")
+                + "."
             )
 
     if correlation and abs(correlation.get("pearson_r", 0)) > 0.3:

@@ -4,6 +4,10 @@ import json
 import os
 import sys
 
+if not os.path.exists("src/zipf_analysis.py"):
+    print("ERROR: Must run from submissions/zipf-law/ directory")
+    raise SystemExit(1)
+
 errors = []
 
 # --- Check results.json exists ---
@@ -33,6 +37,20 @@ if meta["num_corpora"] < 3:
 # --- Check analyses count ---
 if len(analyses) < 6:
     errors.append(f"Expected >= 6 analyses, got {len(analyses)}")
+
+# --- Check expected count (tokenizers * corpora) ---
+expected_count = meta["num_tokenizers"] * meta["num_corpora"]
+if len(analyses) < expected_count:
+    shortfall = expected_count - len(analyses)
+    msg = (
+        f"Expected {expected_count} analyses "
+        f"({meta['num_tokenizers']} tokenizers x {meta['num_corpora']} corpora), "
+        f"got {len(analyses)} — {shortfall} may have failed silently"
+    )
+    if shortfall > expected_count * 0.1:
+        errors.append(msg)
+    else:
+        print(f"  WARNING: {msg}")
 
 # --- Check each analysis ---
 corpus_types_seen = set()

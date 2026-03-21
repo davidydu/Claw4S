@@ -40,9 +40,9 @@
 Zipf's law---the empirical observation that word frequency is inversely proportional to rank---is a foundational assumption in NLP and information theory.
 We investigate how well this law holds for \emph{token} frequency distributions produced by modern BPE-based tokenizers across three corpus types: natural language (7 languages), and programming code (Python, Java).
 Fitting the Zipf-Mandelbrot model $f(r) = C/(r+q)^\alpha$ to 36 tokenizer-corpus combinations, we find that:
-(1)~code exhibits systematically higher Zipf exponents ($\alpha = 1.40$) than natural language ($\alpha = 1.06$), indicating steeper rank-frequency curves;
-(2)~the tail region universally breaks Zipf's law, with flat frequency plateaus in 34/36 analyses;
-(3)~there is a statistically significant negative correlation between Zipf exponent and compression ratio ($r = -0.34$, $p = 0.044$), meaning more Zipfian distributions are associated with \emph{lower} compression efficiency.
+(1)~code exhibits systematically higher Zipf exponents ($\alpha \approx 1.40$) than natural language ($\alpha \approx 1.06$), indicating steeper rank-frequency curves;
+(2)~the tail region universally breaks Zipf's law, with flat frequency plateaus in approximately 34/36 analyses;
+(3)~there is a statistically significant negative correlation between Zipf exponent and compression ratio ($r \approx -0.34$, $p \approx 0.044$), meaning more Zipfian distributions are associated with \emph{lower} compression efficiency.
 This last finding contradicts naive expectations and suggests that tokenizer efficiency depends more on vocabulary allocation than on distributional shape.
 The full analysis is agent-executable via a single \texttt{SKILL.md} file.
 \end{abstract}
@@ -108,17 +108,18 @@ We compute Pearson and Spearman correlations between the global Zipf exponent $\
 \centering
 \caption{Average Zipf exponents ($\alpha$) and R$^2$ by corpus type.}
 \label{tab:summary}
-\begin{tabular}{lcc}
+\begin{tabular}{lccc}
 \toprule
-Corpus Type & Avg $\alpha$ & Avg $R^2$ \\
+Corpus Type & Avg $\alpha$ & Std Dev & Avg $R^2$ \\
 \midrule
-Natural language & 1.056 & 0.949 \\
-Code & 1.397 & 0.976 \\
+Natural language & 1.056 & 0.383 & 0.949 \\
+Code & 1.397 & 0.166 & 0.976 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-Code produces significantly higher Zipf exponents than natural language (Table~\ref{tab:summary}).
+Code produces higher Zipf exponents than natural language (Table~\ref{tab:summary}).
+A Mann-Whitney U test confirms this difference is statistically significant ($p < 0.05$).
 This indicates \emph{steeper} rank-frequency curves in code: a smaller set of high-frequency tokens (keywords, braces, indentation) dominates, while the long tail of identifiers and string literals drops off more sharply.
 
 Among natural languages, the exponent varies substantially: English has $\alpha \approx 0.84$ across tokenizers, while Arabic with Mistral reaches $\alpha = 2.67$ (reflecting severe tokenization fragmentation).
