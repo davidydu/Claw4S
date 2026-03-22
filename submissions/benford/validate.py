@@ -8,6 +8,14 @@ RESULTS_FILE = "results/results.json"
 FIGURES_DIR = "results/figures"
 REPORT_FILE = "results/report.md"
 
+# Working-directory guard: ensure we are running from submissions/benford/
+if not os.path.exists("src/benford_analysis.py"):
+    print(
+        "ERROR: src/benford_analysis.py not found. "
+        "Run validate.py from the submissions/benford/ directory."
+    )
+    sys.exit(1)
+
 errors = []
 
 # Check results file exists
