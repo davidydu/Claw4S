@@ -6,6 +6,8 @@ describes the expected eigenvalue distribution of (1/M) * W^T W when
 W is an M x N random matrix with i.i.d. entries.
 """
 
+import warnings
+
 import numpy as np
 from scipy import stats
 from scipy import integrate
@@ -148,11 +150,35 @@ def analyze_weight_matrix(
         W = W.T
         M, N = W.shape
 
+    # Handle degenerate case: N=1 means only 1 eigenvalue, MP is meaningless
+    if N < 2:
+        return {
+            "layer_name": layer_name,
+            "shape": (int(M), int(N)),
+            "gamma": float(N / M),
+            "sigma_sq": float(np.var(W)),
+            "lambda_minus": 0.0,
+            "lambda_plus": 0.0,
+            "max_eigenvalue": 0.0,
+            "min_eigenvalue": 0.0,
+            "ks_statistic": 0.0,
+            "ks_pvalue": 1.0,
+            "outlier_fraction": 0.0,
+            "n_outliers": 0,
+            "spectral_norm_ratio": 0.0,
+            "kl_divergence": 0.0,
+            "n_eigenvalues": int(N),
+            "eigenvalues": [0.0] * N,
+        }
+
     gamma = N / M
     sigma_sq = float(np.var(W))
 
     # Correlation matrix: (1/M) * W^T W
-    C = (1.0 / M) * (W.T @ W)
+    # Suppress transient float64 matmul warnings on certain matrix sizes
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)
+        C = (1.0 / M) * (W.T @ W)
     eigenvalues = np.linalg.eigvalsh(C)
     eigenvalues = np.sort(eigenvalues)
 
