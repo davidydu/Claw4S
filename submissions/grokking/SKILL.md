@@ -95,4 +95,4 @@ The report contains:
 - **Change the prime modulus:** Pass a different `p` to `run_sweep()` in `run.py`. Smaller p (e.g., 23) runs faster; larger p may require more epochs.
 - **Add sweep dimensions:** Add new hyperparameter lists in `src/sweep.py` (e.g., learning rate, embedding dimension).
 - **Change grokking threshold:** Modify `ACC_THRESHOLD` (default 0.95) and `GROKKING_GAP_THRESHOLD` (default 200 epochs) in `src/analysis.py`.
-- **Increase training budget:** Adjust `DEFAULT_MAX_EPOCHS` in `src/sweep.py` (default 2000; will increase runtime).
+- **Increase training budget:** Adjust `DEFAULT_MAX_EPOCHS` in `src/sweep.py` (default 2500; will increase runtime).
