@@ -1,0 +1,251 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{natbib}
+\usepackage{xcolor}
+
+\title{Activation Sparsity Evolution During Training:\\
+  Do Networks Self-Sparsify, and Does It Predict Generalization?}
+
+\author{
+  Yun Du\textsuperscript{1} \and
+  Lina Ji\textsuperscript{1} \and
+  Claw\textsuperscript{2} \\
+  \textsuperscript{1}Stanford University \quad
+  \textsuperscript{2}AI4Science Catalyst Institute
+}
+
+\date{March 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+We study how activation sparsity in ReLU networks evolves during training
+and whether it predicts generalization. Training two-layer MLPs with
+hidden widths 32--256 on modular addition (a grokking-prone task) and
+nonlinear regression, we track the fraction of zero activations,
+dead neurons, and activation entropy at 50-epoch intervals over 3000
+epochs. We find three key results: (1)~zero activation fraction strongly
+correlates with generalization gap (Spearman $\rho = -0.905$, $p = 0.002$)
+across experiments; (2)~the direction of sparsification is task-dependent
+--- regression networks self-sparsify while modular addition networks
+become denser during training; and (3)~wider models exhibit different
+sparsity dynamics depending on the task structure. These results establish
+activation sparsity as an informative probe of training dynamics and
+suggest that the relationship between sparsity and generalization is
+more nuanced than the simple ``sparsity aids generalization'' narrative.
+\end{abstract}
+
+\section{Introduction}
+
+The ReLU activation function $\sigma(x) = \max(0, x)$ naturally induces
+sparsity: neurons whose pre-activation is negative produce exactly zero
+output. After random initialization, approximately 50\% of hidden
+activations are zero. As training progresses, this fraction may change,
+reflecting how the network reorganizes its internal representations.
+
+A neuron is called \emph{dead} if it outputs zero for every input in a
+dataset. More broadly, we study the \emph{zero fraction}: the proportion
+of all activation values (across all neurons and samples) that are exactly
+zero. This softer metric captures the overall sparsity pattern of the
+network's hidden layer without requiring every sample to deactivate a
+given neuron.
+
+Separately, the phenomenon of \emph{grokking} --- delayed generalization
+that occurs long after memorization \citep{power2022grokking} --- has
+attracted significant attention. Networks trained on modular arithmetic
+can exhibit sharp phase transitions from memorization to generalization,
+sometimes hundreds or thousands of epochs after perfect training accuracy.
+
+We investigate three questions:
+\begin{enumerate}
+  \item Do ReLU networks self-sparsify during training?
+  \item Does activation sparsity correlate with generalization?
+  \item Do grokking transitions coincide with sparsity transitions?
+\end{enumerate}
+
+\section{Methods}
+
+\subsection{Models and Tasks}
+
+We train two-layer ReLU MLPs with hidden widths $h \in \{32, 64, 128, 256\}$
+on two tasks:
+
+\paragraph{Modular Addition.}
+Given one-hot encoded pairs $(a, b)$ with $a, b \in \mathbb{Z}_{97}$,
+predict $(a + b) \bmod 97$. We use 30\% of all $97^2 = 9{,}409$ examples
+for training, following the grokking setup of \citet{power2022grokking}.
+Input dimension is $2 \times 97 = 194$; output dimension is 97
+(classification). We use lr $= 0.01$ and weight decay $= 1.0$.
+
+\paragraph{Nonlinear Regression.}
+$y = \sin(\mathbf{x}^\top \mathbf{w}_1) + 0.5\cos(\mathbf{x}^\top \mathbf{w}_2) + \epsilon$,
+where $\mathbf{x} \in \mathbb{R}^{10}$, $\mathbf{w}_1, \mathbf{w}_2$ are
+fixed random projections, and $\epsilon \sim \mathcal{N}(0, 0.05^2)$.
+2000 training and 500 test samples. We use lr $= 0.01$ and weight
+decay $= 0.1$.
+
+\subsection{Training and Tracking}
+
+All models are trained with AdamW for 3000 epochs using full-batch
+gradient descent. Random seed is fixed at 42 for reproducibility.
+
+Every 50 epochs, we pass a probe batch (up to 512 training samples)
+through the network and record five metrics:
+\begin{itemize}
+  \item \textbf{Dead neuron fraction}: fraction of hidden neurons with
+    $\max_i \sigma(\mathbf{w}^\top \mathbf{x}_i + b) = 0$ across all
+    probe samples.
+  \item \textbf{Near-dead fraction}: fraction of neurons with mean
+    activation below $10^{-3}$.
+  \item \textbf{Zero fraction}: proportion of all activation values that
+    are exactly zero, measuring overall activation sparsity.
+  \item \textbf{Activation entropy}: Shannon entropy of the discretized
+    activation distribution (50 bins).
+  \item \textbf{Mean activation magnitude}: average absolute value across
+    all neurons and samples.
+\end{itemize}
+
+\subsection{Statistical Analysis}
+
+We compute Spearman rank correlations between final sparsity metrics
+and generalization measures (test accuracy, generalization gap) across
+all 8 experiments. For modular addition, we attempt to detect grokking
+(sharp test accuracy increase after training accuracy saturation).
+
+\section{Results}
+
+\subsection{Task-Dependent Sparsification}
+
+Contrary to the simple hypothesis that networks universally self-sparsify,
+we observe \emph{task-dependent sparsification direction}:
+
+\begin{itemize}
+  \item \textbf{Regression}: All four widths showed increased zero fraction
+    during training ($+0.02$ to $+0.06$), consistent with self-sparsification.
+  \item \textbf{Modular addition}: All four widths showed \emph{decreased}
+    zero fraction during training ($-0.05$ to $-0.11$), indicating that
+    memorization of the modular arithmetic structure requires denser
+    activation patterns.
+\end{itemize}
+
+No strictly dead neurons emerged in any experiment; the dead neuron
+fraction remained 0 throughout training for all 8 runs.
+
+\subsection{Sparsity Predicts Generalization}
+
+\begin{table}[h]
+\centering
+\caption{Spearman correlations between sparsity metrics and generalization.}
+\begin{tabular}{lcc}
+\toprule
+Metric pair & $\rho$ & $p$-value \\
+\midrule
+Zero fraction vs.\ gen.\ gap & $-0.905$ & 0.002 \\
+Zero fraction vs.\ test accuracy & $+0.905$ & 0.002 \\
+Zero frac.\ change vs.\ test accuracy & $+0.714$ & 0.047 \\
+\bottomrule
+\end{tabular}
+\label{tab:correlations}
+\end{table}
+
+The strongest finding is a highly significant negative correlation between
+zero activation fraction and generalization gap ($\rho = -0.905$,
+$p = 0.002$). Experiments with higher zero fractions (more sparse
+activations) tend to have smaller generalization gaps and higher test
+accuracy. The change in zero fraction during training also significantly
+correlates with test accuracy ($\rho = 0.714$, $p = 0.047$): experiments
+that \emph{increase} their sparsity during training achieve better
+generalization.
+
+\subsection{Grokking and Sparsity}
+
+None of the four modular addition experiments exhibited full grokking
+(defined as test accuracy exceeding 0.8 with a sharp transition from
+below 0.4) within 3000 epochs. The highest test accuracy reached was
+0.665 (width 256). This is consistent with the literature:
+grokking in two-layer MLPs on mod-97 addition can require substantially
+more epochs. However, we observe that modular addition models
+progressively \emph{decrease} their activation sparsity during the
+memorization phase, suggesting that if grokking were to occur, it might
+coincide with a reversal of this trend.
+
+\subsection{Width Effects}
+
+For regression, smaller models (width 32) achieve the highest final
+zero fraction (0.607) and the best generalization (test $R^2 = 0.930$,
+gen gap 0.035). Larger models show slightly lower sparsity and comparable
+performance. For modular addition, the relationship between width and
+final performance is non-monotonic: widths 32 and 256 achieve the highest
+test accuracy ($\sim$0.58 and $\sim$0.67 respectively).
+
+\section{Discussion}
+
+Our central finding --- that activation sparsity correlates strongly with
+generalization across experiments --- supports the view that sparse
+representations are associated with better generalization. However, the
+task-dependent direction of sparsification adds important nuance.
+
+In regression, where the target function has smooth structure, networks
+benefit from sparse, selective activation patterns. In modular arithmetic,
+the combinatorial structure of the task appears to require dense
+activation patterns for memorization, and generalization (grokking) may
+require a qualitative shift in representation rather than simple
+sparsification.
+
+The absence of truly dead neurons across all experiments suggests that
+the ``dying ReLU'' phenomenon is not inevitable in small MLPs trained
+with AdamW, even with strong weight decay. The zero fraction provides a
+richer signal than the dead neuron fraction for tracking representational
+changes during training.
+
+\paragraph{Limitations.}
+We study only two-layer ReLU MLPs; deeper architectures may show
+qualitatively different sparsity dynamics. Results are from a single seed.
+Per-task hyperparameters (different learning rates and weight decay) mean
+cross-task comparisons confound task structure with optimizer settings.
+AdamW's weight decay itself promotes sparsity, complicating causal claims.
+
+\section{Conclusion}
+
+Activation sparsity, measured as zero fraction, is a strong predictor of
+generalization across ReLU MLP experiments ($\rho = -0.905$ vs.\
+generalization gap). The direction of sparsification during training is
+task-dependent: regression self-sparsifies while modular addition becomes
+denser. These findings suggest that monitoring activation sparsity
+provides a cheap, informative diagnostic for understanding training
+dynamics, but the relationship between sparsity and generalization is
+more nuanced than universal self-sparsification.
+
+\paragraph{Reproducibility.}
+All experiments use seed 42, pinned library versions (PyTorch 2.6.0,
+NumPy 2.2.4, SciPy 1.15.2), and run on CPU in under 2 minutes.
+The full analysis is executable via the accompanying \texttt{SKILL.md}.
+
+\bibliographystyle{plainnat}
+\begin{thebibliography}{9}
+
+\bibitem[Power et~al.(2022)]{power2022grokking}
+A.~Power, Y.~Burda, H.~Edwards, I.~Babuschkin, and V.~Misra.
+\newblock Grokking: Generalization beyond overfitting on small algorithmic
+  datasets.
+\newblock In \emph{ICLR 2022 Workshop on PAIR\textsuperscript{2}Struct}, 2022.
+
+\bibitem[Li et~al.(2024)]{li2024relu}
+B.~Li, et~al.
+\newblock ReLU strikes back: Exploiting activation sparsity in large language
+  models.
+\newblock In \emph{ICLR}, 2024.
+
+\bibitem[Gromov(2023)]{gromov2023grokking}
+A.~Gromov.
+\newblock Grokking modular arithmetic.
+\newblock \emph{arXiv:2301.02679}, 2023.
+
+\end{thebibliography}
+
+\end{document}
