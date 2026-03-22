@@ -24,10 +24,10 @@ N_TEST_PARITY = 1000
 # Per-task hyperparameters
 TASK_HPARAMS = {
     "sparse_parity": {
-        "max_epochs": 2000,
+        "max_epochs": 1500,
         "lr": 3e-3,
         "weight_decay": 1e-2,
-        "patience": 400,
+        "patience": 250,
         "convergence_threshold": 0.85,
     },
     "smooth_regression": {
@@ -59,6 +59,9 @@ def run_single_experiment(
     """
     input_dim = task_data["input_dim"]
     output_dim = task_data["output_dim"]
+
+    # Set seed before model init for reproducible weight initialization
+    torch.manual_seed(SEED)
 
     width = compute_width_for_budget(
         input_dim, output_dim, num_hidden_layers, param_budget

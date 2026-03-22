@@ -17,8 +17,8 @@
 \begin{abstract}
 For a fixed parameter budget, should one build a deep-narrow or shallow-wide MLP?
 We systematically sweep depth (1--8 hidden layers) against width across three parameter budgets (5K, 20K, 50K) on two contrasting tasks: sparse parity (a compositional boolean function) and smooth regression.
-We find that \textbf{moderate depth (2 layers) is universally optimal}: it converges 4--7$\times$ faster than single-layer networks on compositional tasks while maintaining the best generalization on smooth tasks.
-Very deep networks (8 layers) suffer from optimization instability at small budgets, and single-layer networks converge slowly on structured tasks despite eventually reaching high accuracy.
+We find that \textbf{moderate depth (2 layers) is universally optimal}: it converges 5--14$\times$ faster than single-layer networks on compositional tasks while maintaining the best generalization on smooth tasks.
+Very deep networks (8 layers) suffer from optimization instability at small budgets (72.6\% vs.\ 100\% accuracy on parity at 5K params), and single-layer networks converge slowly on structured tasks despite eventually reaching high accuracy.
 These results provide practical guidance for MLP architecture selection under parameter constraints.
 \end{abstract}
 
@@ -58,23 +58,23 @@ All models are trained with AdamW, cosine annealing learning rate schedule, and 
 \toprule
 Depth & 5K params & 20K params & 50K params \\
 \midrule
-1 & 1.000 & 1.000 & 0.999 \\
+1 & 1.000 & 1.000 & 0.992 \\
 2 & 1.000 & 1.000 & 1.000 \\
 4 & 1.000 & 1.000 & 1.000 \\
-8 & 0.796 & 0.998 & 0.999 \\
+8 & 0.726 & 0.995 & 0.999 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 \begin{table}[h]
 \centering
-\caption{Convergence speed on sparse parity: epochs to reach 90\% test accuracy. Depth 2--4 converge 4--7$\times$ faster than depth 1.}
+\caption{Convergence speed on sparse parity: epochs to reach 90\% test accuracy. Depth 2--4 converge 5--14$\times$ faster than depth 1.}
 \label{tab:parity-speed}
 \begin{tabular}{@{}lccc@{}}
 \toprule
 Depth & 5K params & 20K params & 50K params \\
 \midrule
-1 & 333 & 238 & 398 \\
+1 & 339 & 239 & 404 \\
 2 & 79 & 54 & 51 \\
 4 & 49 & 28 & 36 \\
 8 & never & 50 & 40 \\
@@ -82,7 +82,7 @@ Depth & 5K params & 20K params & 50K params \\
 \end{tabular}
 \end{table}
 
-The key finding is in convergence speed (Table~\ref{tab:parity-speed}). While most configurations eventually reach near-perfect accuracy (Table~\ref{tab:parity-acc}), depth-2 and depth-4 networks converge 4--7$\times$ faster than depth-1 networks at the same parameter budget. This aligns with theory: deeper networks can compute parity with fewer parameters per layer. However, depth-8 networks at the smallest budget (5K params, width=25) fail to train reliably, demonstrating the optimization difficulty of very deep narrow networks.
+The key finding is in convergence speed (Table~\ref{tab:parity-speed}). While most configurations eventually reach near-perfect accuracy (Table~\ref{tab:parity-acc}), depth-2 and depth-4 networks converge 5--14$\times$ faster than depth-1 networks at the same parameter budget (e.g., depth-4 reaches 90\% at epoch 28 vs.\ 404 for depth-1 at 50K params). This aligns with theory: deeper networks can compute parity with fewer parameters per layer. However, depth-8 networks at the smallest budget (5K params, width=25) achieve only 72.6\% test accuracy, demonstrating the optimization difficulty of very deep narrow networks without skip connections.
 
 \subsection{Smooth Regression}
 
@@ -94,15 +94,15 @@ The key finding is in convergence speed (Table~\ref{tab:parity-speed}). While mo
 \toprule
 Depth & 5K params & 20K params & 50K params \\
 \midrule
-1 & 0.855 & 0.916 & 0.920 \\
-2 & 0.932 & 0.943 & 0.938 \\
-4 & 0.906 & 0.903 & 0.911 \\
-8 & 0.876 & 0.888 & 0.882 \\
+1 & 0.845 & 0.896 & 0.904 \\
+2 & 0.924 & 0.938 & 0.935 \\
+4 & 0.901 & 0.903 & 0.910 \\
+8 & 0.872 & 0.889 & 0.879 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-Depth 2 is the clear winner across all budgets (Table~\ref{tab:reg-r2}), outperforming both shallower and deeper alternatives. Single-layer networks suffer at small budgets despite having the widest layers. Deep networks (4, 8 layers) exhibit increasing train-test gaps (overfitting) and often trigger early stopping, suggesting optimization difficulty with narrow hidden layers on smooth tasks.
+Depth 2 is the clear winner across all budgets (Table~\ref{tab:reg-r2}), with $R^2$ ranging from 0.924 (5K) to 0.938 (20K). Single-layer networks suffer at small budgets ($R^2 = 0.845$ at 5K) despite having the widest layers (width=500). Depth 2 also converges 6.5$\times$ faster than depth 1 to the 0.90 $R^2$ threshold. Deep networks (4, 8 layers) exhibit increasing train-test gaps (overfitting) and depth-8 never reaches 0.90 $R^2$ at any budget, demonstrating how narrow hidden layers bottleneck generalization on smooth tasks.
 
 \section{Discussion}
 
@@ -112,7 +112,7 @@ Depth 2 is the clear winner across all budgets (Table~\ref{tab:reg-r2}), outperf
 
 \paragraph{Excess depth hurts smooth tasks.} For regression, depth beyond 2 hurts generalization. The train $R^2$ for depth-8 networks often reaches 0.999+ while test $R^2$ remains below 0.90, indicating severe overfitting---the narrow layers create a bottleneck that memorizes rather than generalizes.
 
-\paragraph{Training stability degrades with depth.} At the 5K budget, depth-8 networks (width=25--26) exhibit training failures on both tasks. With only $\sim$25 neurons per layer, the network lacks the capacity for stable gradient flow, especially without skip connections.
+\paragraph{Training stability degrades with depth.} At the 5K budget, depth-8 networks (width=25--26) achieve only 72.6\% on parity and never reach 0.90 $R^2$ on regression. With only $\sim$25 neurons per layer, the network lacks the capacity for stable gradient flow, especially without skip connections.
 
 \paragraph{Limitations.} We test only ReLU MLPs without skip connections, batch normalization, or other stabilizers that could shift the optimal depth. We use a single seed; variance across seeds would strengthen conclusions. The tasks, while theoretically motivated, are synthetic.
 

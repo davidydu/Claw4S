@@ -47,7 +47,7 @@ print(f"PyTorch version: {metadata.get('torch_version')}")
 # Check expected experiment count
 expected_budgets = metadata.get("param_budgets", [])
 expected_depths = metadata.get("depths", [])
-num_tasks = 2  # modular_addition and smooth_regression
+num_tasks = 2  # sparse_parity and smooth_regression
 expected_count = len(expected_budgets) * len(expected_depths) * num_tasks
 
 if len(results) != expected_count:
