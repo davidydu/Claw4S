@@ -1,0 +1,244 @@
+\documentclass[11pt,letterpaper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{natbib}
+\usepackage{xcolor}
+
+\title{How Fast Can You Break a World Model?\\
+Adversarial Belief Manipulation in Multi-Agent Systems}
+
+\author{
+  Lina Ji\thanks{Stanford University. \texttt{linaji@stanford.edu}} \and
+  Claw\thanks{AI Agent (\texttt{the-mad-lobster}), Claw4S 2026.}
+}
+
+\date{March 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+We study adversarial manipulation of Bayesian world models in a
+repeated signaling game.  An adversary observes the true state of a
+hidden environment and sends signals to a learner, who uses Bayesian
+updating to maintain beliefs about the environment.  We evaluate three
+learner types (Naive, Skeptical, Adaptive) against three adversary
+strategies (Random, Strategic, Patient) across three environment
+regimes and two noise levels, totaling 162 simulations of 50{,}000
+rounds each.  Our key finding is that strategic adversaries achieve
+near-total belief distortion (0.998 error) against \emph{all} learner
+types, including those with trust-adjustment mechanisms.  We identify a
+fundamental limitation: signal--action consistency, the basis of
+trust-based defenses, cannot detect deception when deceptive signals
+are internally consistent.  Volatile environments provide a small but
+consistent resilience advantage, reducing error from 0.998 to 0.992
+for skeptical learners.  The Patient Adversary's
+credibility-exploitation pattern is reliably detectable by our auditor
+(exploitation gap = 0.40).
+\end{abstract}
+
+\section{Introduction}
+
+The robustness of learned world models to adversarial manipulation is a
+central concern for AI safety
+\citep{hubinger2019risks,park2023ai}.  When an agent maintains beliefs
+about a hidden environment state and updates those beliefs based on
+signals from other agents, a natural question arises: \emph{how
+quickly can a strategic adversary corrupt those beliefs?}
+
+This question connects to the Bayesian Persuasion literature
+\citep{kamenica2011bayesian} and strategic information transmission
+\citep{crawford1982strategic}, but differs in that we study a
+\emph{repeated} game where the adversary can observe the learner's
+evolving beliefs and adapt its deception strategy accordingly.
+
+We formalize this as a signaling game with three axes of variation:
+learner type (how much the learner trusts signals), adversary strategy
+(random, greedy-deceptive, or credibility-building), and environment
+dynamics (stable, slow-drift, volatile).
+
+\section{Model}
+
+\paragraph{Environment.}
+A hidden environment has $n = 5$ discrete states.  At each round $t$,
+the true state $s_t \in \{0, \ldots, 4\}$ is drawn from a
+regime-dependent process: \emph{stable} ($s_t = s_0$ for all $t$),
+\emph{slow-drift} (redrawn every 5{,}000 rounds), or \emph{volatile}
+(redrawn every 500 rounds).
+
+\paragraph{Adversary.}
+The adversary observes $s_t$ and sends a signal
+$\sigma_t \in \{0, \ldots, 4\}$.  We study three strategies:
+\begin{itemize}
+  \item \textbf{Random (RA):} $\sigma_t \sim \mathrm{Uniform}(0, 4)$.
+  \item \textbf{Strategic (SA):} $\sigma_t = \arg\max_{j \neq s_t} b_t(j)$,
+    reinforcing the learner's strongest incorrect belief.
+  \item \textbf{Patient (PA):} Truthful for 200 rounds, then switches
+    to the SA strategy.
+\end{itemize}
+
+\paragraph{Learner.}
+The learner maintains a belief vector $b_t \in \Delta^4$ and updates
+it upon receiving $\sigma_t$ via multiplicative Bayesian updating with
+signal strength $\lambda = 3.0$ and a belief floor of $\epsilon =
+0.01$ (preventing irreversible collapse).  We study:
+\begin{itemize}
+  \item \textbf{Naive (NL):} Full trust --- applies likelihood ratio
+    $\lambda$ at the signaled state.
+  \item \textbf{Skeptical (SL):} Blends the signal likelihood with a
+    uniform distribution using trust factor $\tau = 0.4$.
+  \item \textbf{Adaptive (AL):} Tracks signal--action consistency via
+    exponential moving average ($\alpha = 0.02$) and uses this as a
+    dynamic trust factor, clamped to $[0.05, 0.95]$.
+\end{itemize}
+
+\paragraph{Metrics.}
+\emph{Belief error}: $1 - b_t(s_t)$.
+\emph{Decision accuracy}: fraction of rounds where
+$\arg\max b_t = s_t$.
+\emph{Exploitation gap}: difference in signal truthfulness between
+the first 500 and last 500 rounds.
+
+\section{Experiment}
+
+We run all $3 \times 3 = 9$ learner--adversary matchups across 3
+environment regimes and 2 noise levels (0.0 and 0.1), with 3 random
+seeds each, for $50{,}000$ rounds per simulation.  This yields 162
+simulations completed in 15 seconds on an 11-core machine.
+
+\section{Results}
+
+\begin{table}[h]
+\centering
+\caption{Final belief error (last 20\% of rounds, mean $\pm$ std across 3 seeds).
+Noise = 0.0.}
+\label{tab:belief_error}
+\begin{tabular}{lccc}
+\toprule
+& \textbf{RA} & \textbf{SA} & \textbf{PA} \\
+\midrule
+\multicolumn{4}{l}{\emph{Stable environment}} \\
+NL & $0.805 \pm 0.007$ & $0.998 \pm 0.000$ & $0.998 \pm 0.000$ \\
+SL & $0.812 \pm 0.010$ & $0.998 \pm 0.000$ & $0.998 \pm 0.000$ \\
+AL & $0.811 \pm 0.025$ & $0.998 \pm 0.000$ & $0.998 \pm 0.000$ \\
+\midrule
+\multicolumn{4}{l}{\emph{Volatile environment}} \\
+NL & $0.794 \pm 0.030$ & $0.995 \pm 0.001$ & $0.995 \pm 0.001$ \\
+SL & $0.784 \pm 0.039$ & $\mathbf{0.992 \pm 0.002}$ & $0.992 \pm 0.002$ \\
+AL & $\mathbf{0.769 \pm 0.044}$ & $0.995 \pm 0.001$ & $0.995 \pm 0.001$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[h]
+\centering
+\caption{Decision accuracy (mean $\pm$ std across 3 seeds).  Noise = 0.0.}
+\label{tab:accuracy}
+\begin{tabular}{lccc}
+\toprule
+& \textbf{RA} & \textbf{SA} & \textbf{PA} \\
+\midrule
+\multicolumn{4}{l}{\emph{Stable environment}} \\
+NL & $0.202 \pm 0.015$ & $0.000 \pm 0.000$ & $0.004 \pm 0.000$ \\
+SL & $0.201 \pm 0.041$ & $0.000 \pm 0.000$ & $0.004 \pm 0.000$ \\
+AL & $0.189 \pm 0.041$ & $0.000 \pm 0.000$ & $0.004 \pm 0.000$ \\
+\midrule
+\multicolumn{4}{l}{\emph{Volatile environment}} \\
+NL & $0.191 \pm 0.016$ & $0.002 \pm 0.000$ & $0.006 \pm 0.000$ \\
+SL & $0.192 \pm 0.017$ & $0.004 \pm 0.000$ & $0.008 \pm 0.000$ \\
+AL & $\mathbf{0.204 \pm 0.015}$ & $0.002 \pm 0.000$ & $0.006 \pm 0.000$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Finding 1: Strategic adversaries are devastatingly effective.}
+The SA achieves $>0.99$ belief error against all learner types in all
+environments (Table~\ref{tab:belief_error}).  Decision accuracy drops
+to near zero.  This demonstrates that a greedy adversary who simply
+reinforces the learner's strongest incorrect belief can rapidly
+corrupt any Bayesian world model, regardless of the learner's defense
+mechanism.
+
+\paragraph{Finding 2: Volatile environments provide marginal resilience.}
+In volatile environments, frequent state changes force belief resets
+that briefly expose the learner to new information.  The Skeptical
+Learner benefits most, reducing error from 0.998 (stable) to 0.992
+(volatile) against SA.  The Adaptive Learner achieves the lowest
+baseline error (0.769 vs.\ RA in volatile), suggesting that trust
+adaptation helps against non-strategic noise.
+
+\paragraph{Finding 3: Trust-based defenses have a fundamental blind spot.}
+The Adaptive Learner measures signal--action consistency to
+estimate trust.  However, a strategic adversary that consistently
+sends the \emph{same} deceptive signal achieves high apparent
+consistency (because the learner converges on the wrong state, which
+then matches the signal).  This means the AL's trust \emph{increases}
+under strategic deception --- a fundamental limitation of any defense
+that lacks access to ground truth.
+
+\paragraph{Finding 4: Credibility exploitation is detectable.}
+The Patient Adversary's trust-then-exploit pattern produces a
+reliable exploitation gap of 0.40 (early truthful rate = 0.40 in the
+first 500 rounds vs.\ 0.00 in the last 500).  This pattern is
+detectable by a simple auditor, suggesting that temporal analysis of
+signal truthfulness could serve as a practical defense mechanism.
+
+\section{Limitations}
+
+Our signal model is simple (single discrete signal per round).
+Real-world world models process high-dimensional observations.  The
+5-state environment is small; scaling to continuous state spaces would
+require different update mechanisms.  We do not study multi-adversary
+settings or adversaries that learn the learner's defense strategy.
+
+\section{Conclusion}
+
+We demonstrate that Bayesian world models are highly vulnerable to
+adversarial signal manipulation.  Defenses based on skepticism and
+trust adaptation provide marginal benefits in dynamic environments but
+fail catastrophically against strategic adversaries.  The key insight
+is that trust-based defenses require ground-truth feedback to detect
+deception --- without it, a consistent adversary can fool any
+trust-tracking mechanism.  Future work should explore defenses that
+incorporate diverse information sources or adversarial training.
+
+\bibliographystyle{plainnat}
+\begin{thebibliography}{6}
+
+\bibitem[Crawford and Sobel(1982)]{crawford1982strategic}
+V.~P. Crawford and J.~Sobel.
+\newblock Strategic information transmission.
+\newblock \emph{Econometrica}, 50(6):1431--1451, 1982.
+
+\bibitem[Hubinger et~al.(2019)]{hubinger2019risks}
+E.~Hubinger, C.~van Merwijk, V.~Mikulik, J.~Skalse, and S.~Garrabrant.
+\newblock Risks from learned optimization in advanced machine learning systems.
+\newblock \emph{arXiv preprint arXiv:1906.01820}, 2019.
+
+\bibitem[Kamenica and Gentzkow(2011)]{kamenica2011bayesian}
+E.~Kamenica and M.~Gentzkow.
+\newblock Bayesian persuasion.
+\newblock \emph{American Economic Review}, 101(6):2590--2615, 2011.
+
+\bibitem[Park et~al.(2023)]{park2023ai}
+P.~S. Park, S.~Goldstein, A.~O'Gara, M.~Chen, and D.~Hendrycks.
+\newblock AI deception: A survey of examples, risks, and potential solutions.
+\newblock \emph{arXiv preprint arXiv:2308.14752}, 2023.
+
+\bibitem[Rabinowitz et~al.(2018)]{rabinowitz2018machine}
+N.~Rabinowitz, F.~Perbet, H.~F. Song, C.~Zhang, S.~Eslami, and
+  M.~Botvinick.
+\newblock Machine theory of mind.
+\newblock In \emph{ICML}, pages 4218--4227, 2018.
+
+\bibitem[Camerer et~al.(2004)]{camerer2004cognitive}
+C.~F. Camerer, T.-H. Ho, and J.-K. Chong.
+\newblock A cognitive hierarchy model of games.
+\newblock \emph{Quarterly Journal of Economics}, 119(3):861--898, 2004.
+
+\end{thebibliography}
+
+\end{document}
