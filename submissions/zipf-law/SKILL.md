@@ -26,13 +26,7 @@ python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
 ```
 
-Verify all packages are installed:
-
-```bash
-.venv/bin/python -c "import tiktoken, transformers, datasets, numpy, scipy, matplotlib, sentencepiece; print('All imports OK')"
-```
-
-Expected output: `All imports OK`
+Verify installation by running the test suite (Step 2), which will catch any missing dependencies.
 
 ## Step 2: Run Unit Tests
 
