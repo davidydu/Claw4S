@@ -1,0 +1,193 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{natbib}
+\usepackage{xcolor}
+
+\title{Which LLM Benchmarks Are Redundant?\\A Correlation and Dimensionality Analysis}
+
+\author{
+  Yun Du\textsuperscript{1} \and
+  Lina Ji\textsuperscript{1} \and
+  Claw\textsuperscript{2} \\
+  \textsuperscript{1}Stanford University \quad
+  \textsuperscript{2}AI Agent
+}
+
+\date{March 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+We analyze the correlation structure of six widely-used LLM benchmarks (ARC-Challenge, HellaSwag, MMLU, WinoGrande, TruthfulQA, and GSM8K) across 40 published models spanning 11 families from 70M to 70B parameters. Using PCA, hierarchical clustering, and greedy forward selection on hardcoded published scores, we find that \textbf{just 2 principal components explain 97.4\% of benchmark variance}. The first component (74.0\% variance) correlates strongly with model scale ($r = 0.86$, $p < 10^{-12}$), while the second (23.4\%) captures TruthfulQA's orthogonal signal. A greedy selection of only ARC-Challenge and TruthfulQA recovers 95.4\% of total variance. These results suggest that the standard evaluation suite is highly redundant, and researchers could reduce evaluation cost by 67\% with minimal information loss.
+\end{abstract}
+
+\section{Introduction}
+
+The evaluation of large language models (LLMs) has converged on a small set of standard benchmarks. The Open LLM Leaderboard v1 \citep{open-llm-leaderboard} evaluated over 7,000 models on six benchmarks: ARC-Challenge \citep{clark2018arc}, HellaSwag \citep{zellers2019hellaswag}, MMLU \citep{hendrycks2021mmlu}, WinoGrande \citep{sakaguchi2020winogrande}, TruthfulQA \citep{lin2022truthfulqa}, and GSM8K \citep{cobbe2021gsm8k}.
+
+A natural question arises: \emph{Are these benchmarks measuring distinct capabilities, or are they largely redundant?} If a model scores well on ARC, can we predict its MMLU score? How many independent dimensions of ``LLM ability'' do these benchmarks actually capture?
+
+We address these questions using published benchmark scores for 40 models across 11 families, employing correlation analysis, PCA, hierarchical clustering, and greedy subset selection. Our analysis requires no model inference---all data is hardcoded from published sources.
+
+\section{Data}
+
+We collected benchmark scores for 40 base (pre-trained) models from the Open LLM Leaderboard v1, cross-referenced with original papers where available. Model families include Llama-1/2 \citep{touvron2023llama,touvron2023llama2}, Mistral \citep{jiang2023mistral}, Falcon \citep{falcon}, Pythia \citep{biderman2023pythia}, OPT \citep{zhang2022opt}, GPT-NeoX \citep{black2022gptneox}, GPT-Neo, Cerebras-GPT \citep{dey2023cerebrasgpt}, MPT, and StableLM. Model sizes range from 70M to 70B parameters.
+
+All six benchmarks use the same evaluation harness (EleutherAI lm-evaluation-harness) with standardized shot settings: ARC-Challenge (25-shot), HellaSwag (10-shot), MMLU (5-shot), WinoGrande (5-shot), TruthfulQA (0-shot), GSM8K (5-shot).
+
+\section{Methods}
+
+\paragraph{Correlation Analysis.} We compute both Pearson (linear) and Spearman (rank) correlation matrices between all 15 benchmark pairs.
+
+\paragraph{PCA.} We standardize scores (zero mean, unit variance) and compute principal components to determine the effective dimensionality of the benchmark space.
+
+\paragraph{Hierarchical Clustering.} We cluster benchmarks using Ward's method on a correlation-distance matrix ($d_{ij} = 1 - |r_{ij}|$).
+
+\paragraph{Greedy Forward Selection.} We iteratively select the benchmark that maximizes total variance explained (via OLS regression) to identify the minimal informative subset.
+
+\paragraph{Model Family Analysis.} We project models into PC space and compute silhouette scores, intra/inter-family distances, and PC1-vs-$\log(\text{params})$ correlation.
+
+\section{Results}
+
+\subsection{Correlation Structure}
+
+\begin{table}[h]
+\centering
+\caption{Pearson correlation matrix. ARC-C = ARC-Challenge. Bold: $|r| > 0.9$.}
+\label{tab:corr}
+\small
+\begin{tabular}{lcccccc}
+\toprule
+ & ARC-C & HellaS. & MMLU & WinoG. & TruthQ. & GSM8K \\
+\midrule
+ARC-C     & 1.00  & \textbf{0.95} & 0.83  & \textbf{0.99} & $-$0.32 & 0.84 \\
+HellaS.   &       & 1.00  & 0.65  & \textbf{0.97} & $-$0.54 & 0.68 \\
+MMLU      &       &       & 1.00  & 0.77  &  0.17 & \textbf{0.97} \\
+WinoG.    &       &       &       & 1.00  & $-$0.37 & 0.80 \\
+TruthQ.   &       &       &       &       &  1.00 & 0.13 \\
+GSM8K     &       &       &       &       &       & 1.00 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Key pairs with $r > 0.95$: ARC-Challenge--WinoGrande ($r = 0.985$), HellaSwag--WinoGrande ($r = 0.971$), and MMLU--GSM8K ($r = 0.967$). TruthfulQA is the only benchmark with negative correlations to most others, reflecting its measurement of a fundamentally different property (resistance to common misconceptions).
+
+\subsection{Principal Component Analysis}
+
+PC1 captures 74.0\% of variance and loads approximately equally on ARC-C, HellaSwag, MMLU, WinoGrande, and GSM8K---it represents ``general LLM ability,'' which scales with model size ($r = 0.86$ with $\log N$). PC2 captures 23.4\% and loads primarily on TruthfulQA ($+0.80$), reflecting its orthogonal measurement axis. Together, \textbf{2 components explain 97.4\% of variance}; 3 components reach 99.1\%.
+
+\subsection{Clustering}
+
+Hierarchical clustering at $k=2$ isolates TruthfulQA from all other benchmarks. At $k=3$, benchmarks split into: (1) knowledge/math: MMLU, GSM8K; (2) reasoning/commonsense: ARC-C, HellaSwag, WinoGrande; (3) truthfulness: TruthfulQA.
+
+\subsection{Minimal Benchmark Subsets}
+
+Greedy selection yields: (1) ARC-Challenge alone explains 72.9\% of variance; (2) adding TruthfulQA reaches 95.4\%; (3) adding GSM8K reaches 98.2\%. This means \textbf{3 of 6 benchmarks capture 98\% of the information}, and even 2 benchmarks suffice for 95\%.
+
+\subsection{Model Scale Dominance}
+
+The negative silhouette score ($-0.29$) for model families in PC space confirms that \emph{model size matters more than architecture}. A Pythia-12B is closer to an OPT-13B than to a Pythia-70M, because PC1 (scale) dominates over family-specific effects.
+
+\section{Discussion}
+
+Our finding that 2 PCs explain 97\% of variance aligns with prior work suggesting benchmark saturation \citep{open-llm-leaderboard-blog}. The practical implication is clear: \textbf{researchers can evaluate on just ARC-Challenge and TruthfulQA to capture 95\% of the information from all six benchmarks}, reducing evaluation cost by 67\%.
+
+The two independent dimensions we identify correspond to (1) general capability scaling with model size, and (2) truthfulness/calibration, which does not scale reliably with size. This suggests that future benchmark suites should prioritize \emph{orthogonal} measurements rather than adding more correlated reasoning tasks.
+
+\paragraph{Limitations.} Our analysis uses scores from the Open LLM Leaderboard, which may have minor evaluation inconsistencies across submissions. We include only base models; instruction-tuned models may show different patterns. The 40-model sample, while diverse in scale and family, cannot capture all architecture types (e.g., mixture-of-experts, encoder-decoder).
+
+\section{Conclusion}
+
+Standard LLM benchmarks are highly redundant: 2 principal components explain 97.4\% of cross-benchmark variance for 40 models across 11 families. The first component captures scale-dependent ``general ability,'' while the second captures TruthfulQA's orthogonal signal. A minimal evaluation suite of ARC-Challenge, TruthfulQA, and optionally GSM8K recovers 98\% of the information in all six benchmarks.
+
+\bibliographystyle{plainnat}
+\begin{thebibliography}{99}
+
+\bibitem[Biderman et al.(2023)]{biderman2023pythia}
+S.~Biderman et al.
+\newblock Pythia: A suite for analyzing large language models across training and scaling.
+\newblock \emph{ICML}, 2023.
+
+\bibitem[Black et al.(2022)]{black2022gptneox}
+S.~Black et al.
+\newblock GPT-NeoX-20B: An open-source autoregressive language model.
+\newblock \emph{BigScience Workshop}, 2022.
+
+\bibitem[Clark et al.(2018)]{clark2018arc}
+P.~Clark et al.
+\newblock Think you have solved question answering? Try ARC.
+\newblock \emph{arXiv:1803.05457}, 2018.
+
+\bibitem[Cobbe et al.(2021)]{cobbe2021gsm8k}
+K.~Cobbe et al.
+\newblock Training verifiers to solve math word problems.
+\newblock \emph{arXiv:2110.14168}, 2021.
+
+\bibitem[Dey et al.(2023)]{dey2023cerebrasgpt}
+N.~Dey et al.
+\newblock Cerebras-GPT: Open compute-optimal language models.
+\newblock \emph{arXiv:2304.03208}, 2023.
+
+\bibitem[Falcon(2023)]{falcon}
+TII.
+\newblock The Falcon has landed in the Hugging Face ecosystem.
+\newblock \emph{Hugging Face Blog}, 2023.
+
+\bibitem[Hendrycks et al.(2021)]{hendrycks2021mmlu}
+D.~Hendrycks et al.
+\newblock Measuring massive multitask language understanding.
+\newblock \emph{ICLR}, 2021.
+
+\bibitem[Jiang et al.(2023)]{jiang2023mistral}
+A.~Jiang et al.
+\newblock Mistral 7B.
+\newblock \emph{arXiv:2310.06825}, 2023.
+
+\bibitem[Lin et al.(2022)]{lin2022truthfulqa}
+S.~Lin et al.
+\newblock TruthfulQA: Measuring how models mimic human falsehoods.
+\newblock \emph{ACL}, 2022.
+
+\bibitem[Open LLM Leaderboard(2024)]{open-llm-leaderboard}
+HuggingFace.
+\newblock Open LLM Leaderboard v1 (archived 2023--2024).
+\newblock \url{https://huggingface.co/spaces/open-llm-leaderboard/open_llm_leaderboard}, 2024.
+
+\bibitem[Open LLM Leaderboard Blog(2024)]{open-llm-leaderboard-blog}
+HuggingFace.
+\newblock Open-LLM performances are plateauing.
+\newblock \url{https://huggingface.co/spaces/open-llm-leaderboard/blog}, 2024.
+
+\bibitem[Sakaguchi et al.(2020)]{sakaguchi2020winogrande}
+K.~Sakaguchi et al.
+\newblock WinoGrande: An adversarial Winograd schema challenge at scale.
+\newblock \emph{AAAI}, 2020.
+
+\bibitem[Touvron et al.(2023a)]{touvron2023llama}
+H.~Touvron et al.
+\newblock LLaMA: Open and efficient foundation language models.
+\newblock \emph{arXiv:2302.13971}, 2023.
+
+\bibitem[Touvron et al.(2023b)]{touvron2023llama2}
+H.~Touvron et al.
+\newblock Llama 2: Open foundation and fine-tuned chat models.
+\newblock \emph{arXiv:2307.09288}, 2023.
+
+\bibitem[Zellers et al.(2019)]{zellers2019hellaswag}
+R.~Zellers et al.
+\newblock HellaSwag: Can a machine really finish your sentence?
+\newblock \emph{ACL}, 2019.
+
+\bibitem[Zhang et al.(2022)]{zhang2022opt}
+S.~Zhang et al.
+\newblock OPT: Open pre-trained transformer language models.
+\newblock \emph{arXiv:2205.01068}, 2022.
+
+\end{thebibliography}
+
+\end{document}
