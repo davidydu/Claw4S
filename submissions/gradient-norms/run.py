@@ -36,6 +36,9 @@ LR = 1e-3
 WEIGHT_DECAY = 0.1
 N_EPOCHS = 3000
 SEED = 42
+# Extra seeds for variance analysis on modular addition (grokking task)
+VARIANCE_SEEDS = [42, 123, 7]
+VARIANCE_EPOCHS = 2000  # shorter runs for variance (transitions happen by epoch ~600)
 
 RESULTS_DIR = "results"
 os.makedirs(RESULTS_DIR, exist_ok=True)
@@ -47,15 +50,16 @@ print(f"Tasks: modular_addition (mod 97), regression")
 print(f"Fractions: {FRACTIONS}")
 print(f"Hidden dim: {HIDDEN_DIM}, LR: {LR}, WD: {WEIGHT_DECAY}")
 print(f"Epochs: {N_EPOCHS}, Seed: {SEED}")
+print(f"Variance seeds (modular addition): {VARIANCE_SEEDS}")
 print("=" * 60)
 
 all_results = []
 all_analyses = []
 t0 = time.time()
 
-# --- Modular addition runs ---
+# --- Modular addition runs (primary seed) ---
 for frac in FRACTIONS:
-    print(f"\n[1/2] Training modular_addition, frac={frac:.0%} ...")
+    print(f"\n[1/3] Training modular_addition, frac={frac:.0%} ...")
     dataset = make_modular_addition_dataset(frac=frac, seed=SEED)
     result = train_and_track(
         dataset,
@@ -74,9 +78,9 @@ for frac in FRACTIONS:
           f"Metric transition: epoch {analysis['metric_transition_epoch']}, "
           f"Lag: {analysis['lag_epochs']} epochs")
 
-# --- Regression runs ---
+# --- Regression runs (primary seed) ---
 for frac in FRACTIONS:
-    print(f"\n[2/2] Training regression, frac={frac:.0%} ...")
+    print(f"\n[2/3] Training regression, frac={frac:.0%} ...")
     dataset = make_regression_dataset(frac=frac, seed=SEED)
     result = train_and_track(
         dataset,
@@ -94,6 +98,44 @@ for frac in FRACTIONS:
     print(f"  Grad transition: epoch {analysis['gnorm_transition_epoch']}, "
           f"Metric transition: epoch {analysis['metric_transition_epoch']}, "
           f"Lag: {analysis['lag_epochs']} epochs")
+
+# --- Multi-seed variance analysis (modular addition only) ---
+print(f"\n[3/3] Multi-seed variance analysis (modular addition) ...")
+import numpy as _np
+
+variance_data: dict[float, list[int]] = {frac: [] for frac in FRACTIONS}
+for seed in VARIANCE_SEEDS:
+    for frac in FRACTIONS:
+        print(f"  seed={seed}, frac={frac:.0%} ...", end=" ")
+        dataset = make_modular_addition_dataset(frac=frac, seed=seed)
+        result = train_and_track(
+            dataset,
+            hidden_dim=HIDDEN_DIM,
+            lr=LR,
+            weight_decay=WEIGHT_DECAY,
+            n_epochs=VARIANCE_EPOCHS,
+            seed=seed,
+        )
+        analysis = analyze_run(result)
+        variance_data[frac].append(analysis["lag_epochs"])
+        print(f"lag={analysis['lag_epochs']}")
+
+print("\n  Multi-seed lag statistics (modular addition):")
+print(f"  {'Frac':>5}  {'Mean Lag':>9}  {'Std Dev':>8}  {'Min':>6}  {'Max':>6}")
+variance_summary = {}
+for frac in FRACTIONS:
+    lags = variance_data[frac]
+    mean_lag = _np.mean(lags)
+    std_lag = _np.std(lags, ddof=1) if len(lags) > 1 else 0.0
+    print(f"  {frac:>4.0%}  {mean_lag:>9.1f}  {std_lag:>8.1f}  {min(lags):>6d}  {max(lags):>6d}")
+    variance_summary[str(frac)] = {
+        "seeds": VARIANCE_SEEDS,
+        "lags": lags,
+        "mean": float(mean_lag),
+        "std": float(std_lag),
+        "min": min(lags),
+        "max": max(lags),
+    }
 
 elapsed = time.time() - t0
 print(f"\n--- Training complete in {elapsed:.1f}s ---")
@@ -147,6 +189,8 @@ for r, a in zip(all_results, all_analyses):
         "final_test_metric": a["final_test_metric"],
     }
     summary_data["runs"].append(run_summary)
+
+summary_data["variance_analysis"] = variance_summary
 
 with open(os.path.join(RESULTS_DIR, "results.json"), "w") as f:
     json.dump(summary_data, f, indent=2)

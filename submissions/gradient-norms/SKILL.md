@@ -45,13 +45,13 @@ Expected: All tests pass. Pytest exits with `X passed` and exit code 0. Tests co
 
 ## Step 3: Run the Experiment
 
-Execute the full gradient norm phase transition experiment (6 training runs):
+Execute the full gradient norm phase transition experiment (6 primary runs + 9 variance runs):
 
 ```bash
 .venv/bin/python run.py
 ```
 
-Expected: Script prints training progress for each of the 6 runs (2 tasks x 3 fractions), generates plots, and saves results. Final output includes a summary table showing gradient transition epoch, metric transition epoch, and lag for each run. Exits with code 0. Files created:
+Expected: Script prints training progress for each of the 6 primary runs (2 tasks x 3 fractions), then runs multi-seed variance analysis (3 seeds x 3 fractions for modular addition), generates plots, and saves results. Final output includes a summary table showing gradient transition epoch, metric transition epoch, and lag for each run, plus multi-seed lag statistics. Runtime: ~3 minutes on CPU. Exits with code 0. Files created:
 
 - `results/results.json` -- structured experiment results
 - `results/run_modular_addition_frac*.png` -- per-run gradient norm + accuracy overlay (3 files)

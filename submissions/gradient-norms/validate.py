@@ -100,6 +100,18 @@ if len(per_run_plots) < expected_runs:
 n_positive = sum(1 for r in runs if r.get("lag_positive", False))
 print(f"\nGradient norm leads in {n_positive}/{len(runs)} runs")
 
+# --- Check variance analysis ---
+variance = data.get("variance_analysis", {})
+if variance:
+    print("\nMulti-seed variance analysis (modular addition):")
+    for frac_str, stats in sorted(variance.items()):
+        print(f"  frac={frac_str}: mean_lag={stats['mean']:.1f} +/- {stats['std']:.1f} "
+              f"(min={stats['min']}, max={stats['max']}, seeds={stats['seeds']})")
+        if len(stats.get("lags", [])) < 2:
+            errors.append(f"Variance analysis for frac={frac_str}: fewer than 2 seeds")
+else:
+    errors.append("Missing variance_analysis in results.json")
+
 # --- Report ---
 if errors:
     print(f"\nValidation FAILED with {len(errors)} error(s):")
