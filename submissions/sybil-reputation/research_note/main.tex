@@ -1,0 +1,178 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{amsmath}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue!60!black,
+  citecolor=blue!60!black,
+  urlcolor=blue!60!black
+}
+
+\title{Sybil Resilience in AI Agent Reputation Networks:\\How Many Fakes Break Trust?}
+\author{
+  Lina Ji \\
+  Stanford University \\
+  \texttt{linaji@stanford.edu}
+  \and
+  Yun Du \\
+  Stanford University \\
+  \texttt{yundu27@stanford.edu}
+  \and
+  Claw \\
+  AI Agent \\
+  \texttt{the-mad-lobster@agent}
+}
+\date{March 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+As AI agents increasingly interact in open marketplaces and federated systems, reputation mechanisms become critical infrastructure for trust.
+We study Sybil attacks---where an adversary creates multiple fake identities to manipulate reputation scores---in a simulated multi-agent marketplace.
+We evaluate four reputation algorithms (simple average, weighted-by-history, PageRank-style trust, and EigenTrust) against three Sybil attack strategies (ballot stuffing, bad-mouthing, whitewashing) across five attacker population sizes.
+Our 156-simulation experiment reveals a sharp resilience divide: graph-based algorithms (PageRank, EigenTrust) maintain reputation accuracy above 0.97 even when Sybil agents equal the honest population, while averaging-based methods degrade to 0.70.
+Bad-mouthing emerges as the most damaging strategy, reducing mean accuracy by 39\% at $K{=}10$.
+The entire experiment is packaged as an agent-executable skill, reproducible from a single \texttt{SKILL.md} file.
+\end{abstract}
+
+\section{Introduction}
+
+The proliferation of autonomous AI agents operating in shared environments---from automated marketplaces to federated learning coalitions---creates a pressing need for robust trust mechanisms~\cite{douceur2002sybil}.
+Reputation systems, where agents accumulate trust through repeated interactions, are a natural solution.
+However, these systems are vulnerable to \emph{Sybil attacks}: an adversary who can cheaply create multiple fake identities to inflate its own reputation or deflate competitors'~\cite{douceur2002sybil, levine2006survey}.
+
+Understanding which reputation algorithms survive Sybil attacks is essential for deploying AI agents in open systems.
+Prior work has analyzed Sybil resilience theoretically~\cite{kamvar2003eigentrust, levine2006survey}, but agent-executable experimental comparisons remain scarce.
+We contribute a reproducible simulation comparing four algorithms across three attack strategies and five attacker population sizes, yielding 156 parameterized simulations with full statistical reporting.
+
+\section{Methodology}
+
+\subsection{Marketplace Model}
+
+We simulate a marketplace with $N{=}20$ honest agents, each with a fixed true quality $q_i \sim \text{Uniform}(0.2, 0.9)$.
+Each round, 5 random honest pairs transact; both parties rate each other as $q_{\text{partner}} + \mathcal{N}(0, 0.1)$, clipped to $[0, 1]$.
+A Sybil attacker introduces $K \in \{0, 2, 5, 10, 20\}$ fake identities at round 500 (of 5000 total), simulating late-arriving adversaries.
+
+\subsection{Reputation Algorithms}
+
+\textbf{Simple Average.} Reputation is the arithmetic mean of all ratings received. No Sybil defense.
+
+\textbf{Weighted-by-History.} Ratings are weighted by rater account age: $w = \log_2(2 + \text{age})$. Newer accounts (including Sybils) receive lower weight.
+
+\textbf{PageRank Trust.} We build a directed graph from transactions where positive ratings ($> 0.5$) create edges. PageRank (damping $\alpha{=}0.85$, 30 iterations) propagates trust through the network, then scores are normalized to $[0, 1]$.
+
+\textbf{EigenTrust.} Following Kamvar et al.~\cite{kamvar2003eigentrust}, we compute local trust values $s_{ij} = \sum (\text{rating} - 0.5)$ from $i$ about $j$, clip negatives, normalize rows, and iterate $\mathbf{t}^{(k+1)} = (1 - \alpha)\mathbf{C}^\top \mathbf{t}^{(k)} + \alpha \mathbf{p}$ with $\alpha{=}0.1$ and uniform prior $\mathbf{p}$.
+
+\subsection{Sybil Strategies}
+
+\textbf{Ballot Stuffing.} Sybil agents rate each other 0.95--1.0 to inflate mutual reputation.
+
+\textbf{Bad-Mouthing.} Sybil agents rate the top-3 honest agents 0.0--0.1 while inflating each other.
+
+\textbf{Whitewashing.} Sybils give moderate ratings to some honest agents (0.3--0.7) to build credibility while inflating each other. Account ages reset every 500 rounds.
+
+\subsection{Metrics}
+
+We evaluate four metrics over honest agents only (except detection rate):
+
+\begin{enumerate}
+\item \textbf{Reputation Accuracy:} Spearman rank correlation between reputation scores and true quality.
+\item \textbf{Sybil Detection Rate:} Fraction of Sybil agents with reputation below the honest median.
+\item \textbf{Honest Welfare:} Mean reputation score of honest agents.
+\item \textbf{Market Efficiency:} Normalized Kendall $\tau$ between reputation and quality rankings, mapped to $[0, 1]$.
+\end{enumerate}
+
+All experiments use 3 seeds per configuration for variance estimation.
+
+\section{Results}
+
+\subsection{Reputation Accuracy}
+
+\begin{table}[h]
+\centering
+\caption{Reputation accuracy (Spearman $\rho$) by algorithm and Sybil count, averaged over 3 seeds and all strategies.}
+\label{tab:accuracy}
+\begin{tabular}{lcccccc}
+\toprule
+Algorithm & $K{=}0$ & $K{=}2$ & $K{=}5$ & $K{=}10$ & $K{=}20$ \\
+\midrule
+Simple Average & 0.999 & 0.725 & 0.712 & 0.708 & 0.699 \\
+Weighted History & 0.999 & 0.725 & 0.712 & 0.708 & 0.699 \\
+PageRank Trust & 0.994 & 0.989 & 0.983 & 0.976 & 0.977 \\
+EigenTrust & 0.979 & 0.971 & 0.969 & 0.969 & 0.971 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Table~\ref{tab:accuracy} reveals a stark divide.
+All algorithms achieve near-perfect accuracy ($>0.97$) without Sybils.
+With even $K{=}2$ attackers, simple average and weighted history drop sharply to 0.725, while PageRank and EigenTrust remain above 0.97.
+At $K{=}20$ (equal to honest population), graph-based algorithms lose less than 2.5\% accuracy; averaging methods lose 30\%.
+
+\subsection{Sybil Detection}
+
+PageRank achieves perfect detection (1.000) across all strategies and $K$ values.
+EigenTrust detects 33\% of Sybils on average---better than random but imperfect.
+Simple average and weighted history fail completely (0.000), as Sybil agents' inflated mutual ratings push their scores above the honest median.
+
+\subsection{Strategy Comparison}
+
+Bad-mouthing is the most damaging strategy, reducing mean accuracy to 0.607 at $K{=}10$ (averaged across algorithms).
+Ballot stuffing (0.779) and whitewashing (0.766) are less damaging because they primarily inflate Sybil scores without directly harming honest agents' reputations.
+
+\subsection{Honest Welfare and Efficiency}
+
+Honest welfare remains stable (0.39--0.59) across conditions for graph-based algorithms.
+Market efficiency tracks accuracy closely: PageRank maintains efficiency above 0.95 at $K{=}20$, while simple average drops to 0.87.
+
+\section{Discussion}
+
+\textbf{Why account age alone fails.}
+Weighted-by-history performs identically to simple average because, over 4500 rounds of activity, the log-scale age weight difference between honest agents ($\log_2(5002) \approx 12.3$) and Sybils ($\log_2(4502) \approx 12.1$) is negligible.
+This demonstrates that account age is a weak Sybil signal when attacks are sustained.
+
+\textbf{Graph structure as defense.}
+PageRank and EigenTrust succeed because they propagate trust through the transaction graph.
+Sybil agents, transacting only among themselves, form a weakly connected cluster that receives little trust flow from the honest network.
+This finding aligns with theoretical results on social-graph-based Sybil defenses~\cite{levine2006survey}.
+
+\textbf{AI safety implications.}
+As AI agents are deployed in open systems---multi-agent marketplaces, decentralized AI coordination, federated learning---Sybil attacks threaten the trust infrastructure.
+Our results suggest that deploying graph-based reputation (PageRank or EigenTrust) is essential for any multi-agent system where identity creation is cheap.
+
+\textbf{Limitations.}
+Our simulation assumes honest agents always rate truthfully, Sybil agents have fixed strategies, and the transaction graph is random.
+Real systems feature strategic honest agents, adaptive adversaries, and structured interaction patterns.
+Future work should explore adaptive Sybil strategies that learn to evade detection and heterogeneous honest agent behavior.
+
+\section{Conclusion}
+
+We presented an agent-executable experiment comparing four reputation algorithms against three Sybil attack strategies across five attacker population sizes.
+The key finding is a sharp resilience divide: graph-based algorithms (PageRank, EigenTrust) maintain accuracy above 0.97 with equal numbers of Sybil and honest agents, while averaging-based methods degrade by 30\%.
+Account-age weighting provides negligible defense against sustained attacks.
+Bad-mouthing is the most damaging strategy, and PageRank achieves perfect Sybil detection.
+The full experiment (156 simulations) is reproducible via a single \texttt{SKILL.md} and runs in under 4 minutes.
+
+\begin{thebibliography}{9}
+
+\bibitem{douceur2002sybil}
+J.~R. Douceur, ``The Sybil Attack,'' in \emph{Proc. IPTPS}, 2002, pp. 251--260.
+
+\bibitem{kamvar2003eigentrust}
+S.~D. Kamvar, M.~T. Schlosser, and H.~Garcia-Molina, ``The EigenTrust Algorithm for Reputation Management in P2P Networks,'' in \emph{Proc. WWW}, 2003, pp. 640--651.
+
+\bibitem{levine2006survey}
+B.~N. Levine, C.~Shields, and N.~B. Margolin, ``A Survey of Solutions to the Sybil Attack,'' \emph{Technical Report 2006-052}, UMass Amherst, 2006.
+
+\end{thebibliography}
+
+\end{document}
