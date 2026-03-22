@@ -84,9 +84,11 @@ def generate_report(results: dict) -> str:
 
         lines.append("")
 
-        # Convergence speed table
+        # Convergence speed table — use task-specific threshold from metadata
+        task_hp = task_hparams.get(task, {})
+        conv_thresh = task_hp.get("convergence_threshold", 0.90)
         lines.append(f"### Convergence Speed (Epochs to {metric_label} "
-                      f">= 0.90)")
+                      f">= {conv_thresh:.2f})")
         lines.append("")
         lines.append(header)
         lines.append(sep)
