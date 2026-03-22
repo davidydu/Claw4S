@@ -2,7 +2,6 @@
 
 import torch
 import torch.nn as nn
-import numpy as np
 from src.models import build_model
 from src.tasks import TASK_REGISTRY
 
@@ -24,7 +23,6 @@ def train_run(
         final_loss (float), n_params (int).
     """
     torch.manual_seed(seed)
-    np.random.seed(seed)
 
     task_config = TASK_REGISTRY[task_name]
     X, y = task_config["make_data"](seed=seed)

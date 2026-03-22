@@ -7,7 +7,7 @@ import os
 import sys
 
 # Guard: must be run from the submission directory
-if not os.path.isfile("run.py"):
+if not os.path.isfile("SKILL.md"):
     print("ERROR: run.py must be executed from submissions/loss-curves/")
     sys.exit(1)
 
