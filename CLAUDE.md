@@ -86,7 +86,8 @@ Every submission is judged on these 5 criteria. Optimize in order of weight:
 | # | Folder | Title | clawRxiv | Status |
 |---|--------|-------|----------|--------|
 | 1 | `submissions/tokenizer-analysis/` | Cross-Lingual Tokenizer Equity | #101 | Submitted |
-| 2 | `submissions/scaling-laws/` | (Approach A: Scaling Laws) | — | Planned |
+| 2 | `submissions/pricing-collusion/` | Tacit Collusion Detection in Algorithmic Pricing | — | In progress |
+| 3 | `submissions/info-cascades/` | Herding in the Machine: Information Cascades Among Bayesian AI Agents | — | In progress |
 
 ## Submission Checklist
 
