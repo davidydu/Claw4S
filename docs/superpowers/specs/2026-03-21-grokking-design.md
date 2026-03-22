@@ -18,7 +18,7 @@ Following Liu et al. (Omnigrok), we classify each training run into one of four 
 1. **Confusion**: Neither train nor test accuracy reaches 95%. Model fails to learn.
 2. **Memorization**: Train accuracy > 95% but test accuracy < 95% at end of training. Overfits without generalizing.
 3. **Grokking**: Train accuracy reaches 95% first, then test accuracy reaches 95% later (delayed generalization). The gap between these epochs is the "grokking gap."
-4. **Comprehension**: Both train and test accuracy reach 95%, with test following quickly (within 500 epochs of train). Fast generalization without grokking delay.
+4. **Comprehension**: Both train and test accuracy reach 95%, with test following quickly (within 200 epochs of train). Fast generalization without grokking delay.
 
 ## 3. Experimental Design
 
@@ -32,7 +32,7 @@ Following Liu et al. (Omnigrok), we classify each training run into one of four 
 ### 3.2 Model: Tiny MLP
 - Architecture: Embedding(p, d_embed) for each input, concatenate, MLP with 1 hidden layer, output p classes
 - Embedding dimension: fixed at 16
-- Hidden dimension: variable (sweep parameter), values: [32, 64, 128]
+- Hidden dimension: variable (sweep parameter), values: [16, 32, 64]
 - Activation: ReLU
 - Total parameters: roughly 2*p*d_embed + d_embed*2*d_hidden + d_hidden*p
   - For d_hidden=32: ~2*97*16 + 32*32 + 32*97 = 3104 + 1024 + 3104 = ~7.2K params
@@ -76,8 +76,8 @@ Total: 5 * 4 * 3 = 60 training runs
 For each run, classify into one of four phases:
 - **Confusion**: final train_acc < 95% AND final test_acc < 95%
 - **Memorization**: final train_acc >= 95% AND final test_acc < 95%
-- **Grokking**: epoch_train_95 exists AND epoch_test_95 exists AND grokking_gap > 500
-- **Comprehension**: epoch_train_95 exists AND epoch_test_95 exists AND grokking_gap <= 500
+- **Grokking**: epoch_train_95 exists AND epoch_test_95 exists AND grokking_gap > 200
+- **Comprehension**: epoch_train_95 exists AND epoch_test_95 exists AND grokking_gap <= 200
 
 ### 4.3 Aggregate Outputs
 - Phase diagram heatmaps (2D slices): weight_decay x dataset_fraction for each hidden_dim

@@ -46,11 +46,11 @@ We use a one-hidden-layer MLP with learned embeddings:
   \item A final linear layer maps to $p$ output logits
 \end{enumerate}
 
-Parameter counts range from ${\sim}7{,}200$ ($h = 32$) to ${\sim}19{,}600$ ($h = 128$), all well under 100K.
+Parameter counts range from ${\sim}4{,}800$ ($h = 16$) to ${\sim}12{,}500$ ($h = 64$), all well under 100K.
 
 \subsection{Training}
 
-We use the AdamW optimizer \citep{loshchilov2019adamw} with learning rate $10^{-3}$, $\beta = (0.9, 0.98)$, and cross-entropy loss. Training uses full-batch gradient descent (all training examples in each batch), following the standard grokking setup. Each run trains for up to 5{,}000 epochs with early stopping when both train and test accuracy exceed 99\% for three consecutive evaluation points. Metrics are logged every 100 epochs.
+We use the AdamW optimizer \citep{loshchilov2019adamw} with learning rate $10^{-3}$, $\beta = (0.9, 0.98)$, and cross-entropy loss. Training uses full-batch gradient descent (all training examples in each batch), following the standard grokking setup. Each run trains for up to 2{,}500 epochs with early stopping when both train and test accuracy exceed 99\% for three consecutive evaluation points. Metrics are logged every 100 epochs.
 
 \subsection{Phase Classification}
 
@@ -58,8 +58,8 @@ We classify each training run into one of four phases:
 \begin{itemize}
   \item \textbf{Confusion}: Final training accuracy $< 95\%$. The model fails to memorize.
   \item \textbf{Memorization}: Training accuracy $\geq 95\%$ but test accuracy $< 95\%$. Overfitting without generalization.
-  \item \textbf{Grokking}: Both accuracies reach $95\%$, but test accuracy lags train by $> 500$ epochs. Delayed generalization.
-  \item \textbf{Comprehension}: Both accuracies reach $95\%$ with test lagging by $\leq 500$ epochs. Fast generalization.
+  \item \textbf{Grokking}: Both accuracies reach $95\%$, but test accuracy lags train by $> 200$ epochs. Delayed generalization.
+  \item \textbf{Comprehension}: Both accuracies reach $95\%$ with test lagging by $\leq 200$ epochs. Fast generalization.
 \end{itemize}
 
 \subsection{Hyperparameter Sweep}
@@ -68,7 +68,7 @@ We sweep over:
 \begin{itemize}
   \item Weight decay $\lambda \in \{0, 10^{-3}, 10^{-2}, 10^{-1}, 1.0\}$ (5 values)
   \item Dataset fraction $f \in \{0.3, 0.5, 0.7, 0.9\}$ (4 values)
-  \item Hidden dimension $h \in \{32, 64, 128\}$ (3 values)
+  \item Hidden dimension $h \in \{16, 32, 64\}$ (3 values)
 \end{itemize}
 
 This yields $5 \times 4 \times 3 = 60$ training runs, all with seed fixed to 42 for full reproducibility.
@@ -97,7 +97,7 @@ Larger dataset fractions facilitate generalization. With $f = 0.3$ (30\% trainin
 
 \subsection{Role of Model Width}
 
-Wider models ($h = 128$) tend to grok or comprehend more readily than narrow models ($h = 32$) at the same weight decay and dataset fraction. This suggests that overparameterization, when combined with appropriate regularization, facilitates the transition to generalizing solutions.
+Wider models ($h = 64$) tend to grok or comprehend more readily than narrow models ($h = 16$) at the same weight decay and dataset fraction. This suggests that overparameterization, when combined with appropriate regularization, facilitates the transition to generalizing solutions.
 
 \section{Discussion}
 

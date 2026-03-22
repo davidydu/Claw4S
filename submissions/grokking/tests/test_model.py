@@ -16,22 +16,22 @@ class TestGrokkingMLP:
         out = model(x)
         assert out.shape == (batch, p)
 
+    def test_parameter_count_h16(self):
+        """Hidden dim 16 should be well under 100K params."""
+        model = GrokkingMLP(p=97, embed_dim=16, hidden_dim=16)
+        count = model.count_parameters()
+        assert count < 100_000
+        assert count > 0
+
     def test_parameter_count_h32(self):
         """Hidden dim 32 should be well under 100K params."""
         model = GrokkingMLP(p=97, embed_dim=16, hidden_dim=32)
         count = model.count_parameters()
         assert count < 100_000
-        assert count > 0
 
     def test_parameter_count_h64(self):
         """Hidden dim 64 should be well under 100K params."""
         model = GrokkingMLP(p=97, embed_dim=16, hidden_dim=64)
-        count = model.count_parameters()
-        assert count < 100_000
-
-    def test_parameter_count_h128(self):
-        """Hidden dim 128 should be well under 100K params."""
-        model = GrokkingMLP(p=97, embed_dim=16, hidden_dim=128)
         count = model.count_parameters()
         assert count < 100_000
 

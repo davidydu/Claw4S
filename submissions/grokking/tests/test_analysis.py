@@ -53,23 +53,23 @@ class TestClassifyPhase:
         """High train, high test, small gap -> COMPREHENSION."""
         r = _make_result(
             train_acc=0.99, test_acc=0.98,
-            epoch_train_95=200, epoch_test_95=400,
+            epoch_train_95=200, epoch_test_95=350,
         )
         assert classify_phase(r) == Phase.COMPREHENSION
 
     def test_grokking_boundary(self):
-        """Gap of exactly 500 -> COMPREHENSION (not grokking)."""
+        """Gap of exactly 200 -> COMPREHENSION (not grokking)."""
         r = _make_result(
             train_acc=0.99, test_acc=0.98,
-            epoch_train_95=200, epoch_test_95=700,
+            epoch_train_95=200, epoch_test_95=400,
         )
         assert classify_phase(r) == Phase.COMPREHENSION
 
     def test_grokking_just_above_boundary(self):
-        """Gap of 501 -> GROKKING."""
+        """Gap of 201 -> GROKKING."""
         r = _make_result(
             train_acc=0.99, test_acc=0.98,
-            epoch_train_95=200, epoch_test_95=701,
+            epoch_train_95=200, epoch_test_95=401,
         )
         assert classify_phase(r) == Phase.GROKKING
 

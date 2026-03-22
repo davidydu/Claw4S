@@ -77,7 +77,8 @@ def main() -> None:
 
     # Step 3: Generate plots
     print("[3/4] Generating plots...")
-    for hd in [32, 64, 128]:
+    hidden_dims = sorted(set(r["config"]["hidden_dim"] for r in results))
+    for hd in hidden_dims:
         plot_phase_diagram(results, hd, f"results/phase_diagram_h{hd}.png")
     plot_grokking_curves(results, "results/grokking_curves.png")
     print()

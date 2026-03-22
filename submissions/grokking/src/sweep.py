@@ -18,13 +18,13 @@ from src.train import TrainConfig, train_model
 # Default sweep grid
 DEFAULT_WEIGHT_DECAYS = [0.0, 0.001, 0.01, 0.1, 1.0]
 DEFAULT_DATASET_FRACTIONS = [0.3, 0.5, 0.7, 0.9]
-DEFAULT_HIDDEN_DIMS = [32, 64, 128]
+DEFAULT_HIDDEN_DIMS = [16, 32, 64]
 
 # Fixed hyperparameters
 DEFAULT_P = 97
 DEFAULT_EMBED_DIM = 16
 DEFAULT_LR = 1e-3
-DEFAULT_MAX_EPOCHS = 5000
+DEFAULT_MAX_EPOCHS = 2500
 DEFAULT_SEED = 42
 
 

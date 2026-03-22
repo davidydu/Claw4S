@@ -26,7 +26,7 @@ ACC_THRESHOLD = 0.95
 
 # Minimum gap (in epochs) between train and test reaching threshold
 # to classify as grokking vs comprehension
-GROKKING_GAP_THRESHOLD = 500
+GROKKING_GAP_THRESHOLD = 200
 
 
 def classify_phase(result: TrainResult) -> Phase:

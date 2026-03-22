@@ -13,7 +13,7 @@ This skill trains tiny neural networks on modular arithmetic and studies the "gr
 - Requires **Python 3.10+**.
 - **No internet access needed** — all data is generated locally (modular arithmetic).
 - **No GPU needed** — models are tiny (<20K parameters), trained on CPU.
-- Expected runtime: **2-3 minutes** (60 training runs on CPU).
+- Expected runtime: **5-7 minutes** (60 training runs, up to 2500 epochs each, on CPU).
 - All commands must be run from the **submission directory** (`submissions/grokking/`).
 
 ## Step 1: Environment Setup
@@ -52,7 +52,7 @@ Execute the full phase diagram sweep:
 .venv/bin/python run.py
 ```
 
-Expected: Script runs 60 training experiments (5 weight decays x 4 dataset fractions x 3 hidden dims), prints progress for each run, and exits with code 0. Output files are created in `results/`.
+Expected: Script runs 60 training experiments (5 weight decays x 4 dataset fractions x 3 hidden dims [16, 32, 64]), prints progress for each run, and exits with code 0. Output files are created in `results/`.
 
 This will:
 1. Generate modular addition dataset (all (a,b) pairs for a,b in 0..96, computing (a+b) mod 97)
@@ -94,5 +94,5 @@ The report contains:
 - **Change the arithmetic operation:** Modify `generate_modular_addition_data()` in `src/data.py` to compute `(a * b) % p` instead of `(a + b) % p`.
 - **Change the prime modulus:** Pass a different `p` to `run_sweep()` in `run.py`. Smaller p (e.g., 23) runs faster; larger p may require more epochs.
 - **Add sweep dimensions:** Add new hyperparameter lists in `src/sweep.py` (e.g., learning rate, embedding dimension).
-- **Change grokking threshold:** Modify `ACC_THRESHOLD` and `GROKKING_GAP_THRESHOLD` in `src/analysis.py`.
-- **Increase training budget:** Adjust `DEFAULT_MAX_EPOCHS` in `src/sweep.py` (will increase runtime).
+- **Change grokking threshold:** Modify `ACC_THRESHOLD` (default 0.95) and `GROKKING_GAP_THRESHOLD` (default 200 epochs) in `src/analysis.py`.
+- **Increase training budget:** Adjust `DEFAULT_MAX_EPOCHS` in `src/sweep.py` (default 2000; will increase runtime).

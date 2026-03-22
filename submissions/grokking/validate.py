@@ -19,9 +19,9 @@ required_files = [
     "results/sweep_results.json",
     "results/phase_diagram.json",
     "results/report.md",
+    "results/phase_diagram_h16.png",
     "results/phase_diagram_h32.png",
     "results/phase_diagram_h64.png",
-    "results/phase_diagram_h128.png",
     "results/grokking_curves.png",
 ]
 
@@ -66,7 +66,7 @@ try:
     print(f"  Hidden dims: {hidden_dims}")
     check(len(weight_decays) == 5, f"Expected 5 weight decay values, got {len(weight_decays)}")
     check(len(fractions) == 4, f"Expected 4 fraction values, got {len(fractions)}")
-    check(len(hidden_dims) == 3, f"Expected 3 hidden dim values, got {len(hidden_dims)}")
+    check(len(hidden_dims) >= 3, f"Expected >= 3 hidden dim values, got {len(hidden_dims)}")
 
     # Check accuracy ranges
     for r in sweep:

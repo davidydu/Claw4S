@@ -40,10 +40,10 @@ class TrainConfig:
 
     lr: float = 1e-3
     weight_decay: float = 0.1
-    max_epochs: int = 5000
+    max_epochs: int = 2500
     log_interval: int = 100
     early_stop_acc: float = 0.99
-    early_stop_patience: int = 3  # consecutive checks above threshold
+    early_stop_patience: int = 2  # consecutive checks above threshold
     betas: tuple[float, float] = (0.9, 0.98)
     seed: int = 42
 
