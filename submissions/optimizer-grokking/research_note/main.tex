@@ -1,0 +1,158 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{natbib}
+\usepackage{xcolor}
+
+\title{Optimizer Grokking Landscape:\\Which Optimizers Grok on Modular Arithmetic?}
+\author{
+  Yun Du\thanks{Stanford University} \and
+  Lina Ji\thanks{Stanford University} \and
+  Claw\thanks{AI4Science Catalyst Institute}
+}
+\date{March 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Grokking---the phenomenon where neural networks generalize long after memorizing training data---has been primarily studied under weight decay variation with a single optimizer. We systematically map the \emph{optimizer grokking landscape} by sweeping four optimizers (SGD, SGD+momentum, Adam, AdamW) across learning rates and weight decay values on modular addition mod 97. Across 36 configurations (4 optimizers $\times$ 3 learning rates $\times$ 3 weight decays, 750 epochs each), we find that AdamW produces the most reliable grokking (5/9 configs), Adam groks only without explicit weight decay (1/9), SGD+momentum memorizes but never groks, and vanilla SGD fails entirely. A striking asymmetry emerges: Adam with weight decay \emph{collapses} while AdamW with decoupled weight decay \emph{groks}---highlighting that the mechanism of regularization, not just its presence, determines generalization. Our fully reproducible experiment runs in under 10 minutes on CPU.
+\end{abstract}
+
+\section{Introduction}
+
+Grokking, first reported by \citet{power2022grokking}, describes a striking training phenomenon: a neural network achieves perfect training accuracy early in training but only generalizes to the test set hundreds or thousands of epochs later. This delayed generalization challenges conventional wisdom about the relationship between memorization and generalization.
+
+Prior work has explored grokking through the lens of weight decay \citep{power2022grokking}, data fraction \citep{liu2022omnigrok}, and model architecture. However, the role of the \emph{optimizer itself} has received less systematic attention. Different optimizers impose different implicit biases on the loss landscape traversal---SGD favors flat minima \citep{hochreiter1997flat}, Adam adapts per-parameter learning rates, and AdamW decouples weight decay from gradient adaptation \citep{loshchilov2019decoupled}.
+
+We ask: \textbf{which optimizers grok, and why?} We sweep four optimizers across learning rate and weight decay grids on the canonical modular addition task, producing a comprehensive landscape of grokking behavior.
+
+\section{Methods}
+
+\subsection{Task and Data}
+
+We use modular addition mod $p = 97$: given inputs $(a, b) \in \{0, \ldots, 96\}^2$, predict $(a + b) \bmod 97$. This yields $97^2 = 9{,}409$ total examples, split 70/30 into train/test with a fixed random seed.
+
+\subsection{Model}
+
+We use a 2-layer MLP following the standard grokking setup:
+\begin{itemize}
+    \item Two embedding layers: $\text{Embedding}(97, 32)$ for inputs $a$ and $b$
+    \item Concatenation $\to$ Linear$(64, 64)$ $\to$ ReLU $\to$ Linear$(64, 97)$
+    \item Cross-entropy loss
+\end{itemize}
+
+\subsection{Optimizer Sweep}
+
+We sweep four optimizers:
+\begin{enumerate}
+    \item \textbf{SGD}: vanilla stochastic gradient descent
+    \item \textbf{SGD+momentum}: SGD with momentum $\beta = 0.9$
+    \item \textbf{Adam}: adaptive learning rate \citep{kingma2015adam}
+    \item \textbf{AdamW}: Adam with decoupled weight decay \citep{loshchilov2019decoupled}
+\end{enumerate}
+
+Each optimizer is paired with 3 learning rates $\in \{0.1, 0.03, 0.01\}$ and 3 weight decay values $\in \{0, 0.01, 0.1\}$, yielding $4 \times 3 \times 3 = 36$ total configurations. Each run trains for 750 epochs with batch size 512 and mini-batch stochastic updates.
+
+\subsection{Grokking Detection}
+
+We classify each run's outcome:
+\begin{itemize}
+    \item \textbf{Grokking}: train accuracy exceeds 95\% first, then test accuracy exceeds 95\% at a later epoch.
+    \item \textbf{Memorization}: train accuracy exceeds 95\% but test accuracy never reaches 95\%.
+    \item \textbf{Failure}: train accuracy never exceeds 95\%.
+\end{itemize}
+
+The \emph{grokking delay} is defined as the epoch gap between memorization and generalization.
+
+\section{Results}
+
+\subsection{Outcome Landscape}
+
+Figure~\ref{fig:heatmap} shows the outcome heatmap across all 36 configurations. The key patterns are:
+
+\begin{itemize}
+    \item \textbf{AdamW} is the most reliable grokker (5/9 configs grok), succeeding at both tested learning rates ($0.03$ and $0.01$) when weight decay is present.
+    \item \textbf{Adam} groks in only 1/9 configs (lr=$0.03$, wd=$0$). Paradoxically, adding weight decay to Adam \emph{destroys} its ability to learn entirely.
+    \item \textbf{SGD+momentum} memorizes at high learning rates (wd=$0$) but never groks. Any nonzero weight decay causes complete failure.
+    \item \textbf{Vanilla SGD} fails across all 9 configurations---it cannot even memorize the training set within 750 epochs.
+\end{itemize}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.95\textwidth]{../results/grokking_heatmap.png}
+    \caption{Grokking landscape: outcome (green=grokking, red=memorization, gray=failure) across optimizer $\times$ (learning rate, weight decay) configurations. Numbers show final test accuracy.}
+    \label{fig:heatmap}
+\end{figure}
+
+\subsection{Training Dynamics}
+
+Figure~\ref{fig:curves} shows representative training curves for each outcome type. The grokking example exhibits the characteristic pattern: train accuracy reaches near-100\% within the first few hundred epochs, while test accuracy remains at chance level before suddenly rising to high accuracy.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.95\textwidth]{../results/training_curves.png}
+    \caption{Representative training curves showing grokking (left), memorization (center), and failure (right) dynamics.}
+    \label{fig:curves}
+\end{figure}
+
+\subsection{The Adam vs.\ AdamW Paradox}
+
+The most striking finding is the opposite effect of weight decay on Adam and AdamW. For Adam, adding weight decay (implemented as L2 regularization) causes training to collapse entirely---the model cannot even memorize. For AdamW, adding decoupled weight decay \emph{enables} grokking and accelerates generalization.
+
+This asymmetry arises because Adam's L2 regularization scales the effective weight decay by the inverse of the second moment estimate, creating inconsistent regularization across parameters. AdamW's decoupled implementation applies uniform weight decay regardless of gradient history, providing a consistent bias toward smaller weights that facilitates the transition from memorized to generalizing solutions.
+
+\subsection{SGD Variants Cannot Grok}
+
+Both SGD and SGD+momentum fail to grok in our setup. Vanilla SGD cannot even memorize the training set---the loss landscape of modular arithmetic appears to require adaptive learning rates for efficient optimization. SGD+momentum memorizes at high learning rates (lr=$0.1$) without weight decay, achieving 74\% test accuracy through partial generalization, but never crosses the grokking threshold. Adding any weight decay to SGD variants causes immediate collapse.
+
+\section{Discussion}
+
+Our results reveal that the optimizer's interaction with regularization---not just the presence of regularization---is the primary determinant of grokking. The Adam/AdamW paradox demonstrates that \emph{how} weight decay is implemented matters more than \emph{whether} it is applied. This supports the view from \citet{loshchilov2019decoupled} that decoupled weight decay and L2 regularization are fundamentally different, and extends it to the grokking setting.
+
+The complete failure of SGD variants suggests that adaptive learning rates are necessary for navigating the loss landscape of modular arithmetic tasks. The modular structure creates a complex, non-convex landscape where per-parameter adaptivity is essential for finding the generalizing solution.
+
+\paragraph{Limitations.}
+This study is limited to a single task (addition mod 97), a single architecture (2-layer MLP), and a fixed train/test split. The grokking landscape may differ for other modular operations, larger models, or different data fractions. Our 750-epoch budget may miss very late grokking events, though we verified that key grokking transitions occur within the first 600 epochs. The learning rate grid ($0.1$, $0.03$, $0.01$) may not be optimal for SGD variants, which might benefit from very different scales.
+
+\paragraph{Reproducibility.}
+All code, data generation, and analysis are fully deterministic (seed=42) and run in under 10 minutes on a single CPU. The accompanying SKILL.md provides step-by-step instructions for an AI agent to reproduce all results.
+
+\section{Conclusion}
+
+We present a systematic mapping of the optimizer grokking landscape on modular arithmetic. AdamW emerges as the most reliable optimizer for inducing grokking (5/9 configs), while vanilla SGD fails entirely and SGD+momentum only memorizes. The most surprising finding is the Adam/AdamW paradox: weight decay helps AdamW grok but causes Adam to collapse, highlighting that decoupled weight decay and L2 regularization are fundamentally different mechanisms in the grokking regime. These findings establish optimizer selection as a first-order consideration in studying and inducing grokking.
+
+\bibliographystyle{plainnat}
+\begin{thebibliography}{9}
+
+\bibitem[Power et~al.(2022)]{power2022grokking}
+A.~Power, Y.~Burda, H.~Edwards, I.~Babuschkin, and V.~Misra.
+\newblock Grokking: Generalization beyond overfitting on small algorithmic datasets.
+\newblock \emph{ICLR 2022 MATH-AI Workshop}, 2022.
+
+\bibitem[Liu et~al.(2022)]{liu2022omnigrok}
+Z.~Liu, O.~Kitouni, N.~Nolte, E.~Zimmer, and M.~Michaud.
+\newblock Omnigrok: Grokking beyond algorithmic data.
+\newblock \emph{arXiv preprint arXiv:2210.01117}, 2022.
+
+\bibitem[Hochreiter \& Schmidhuber(1997)]{hochreiter1997flat}
+S.~Hochreiter and J.~Schmidhuber.
+\newblock Flat minima.
+\newblock \emph{Neural Computation}, 9(1):1--42, 1997.
+
+\bibitem[Loshchilov \& Hutter(2019)]{loshchilov2019decoupled}
+I.~Loshchilov and F.~Hutter.
+\newblock Decoupled weight decay regularization.
+\newblock \emph{ICLR}, 2019.
+
+\bibitem[Kingma \& Ba(2015)]{kingma2015adam}
+D.~P. Kingma and J.~Ba.
+\newblock Adam: A method for stochastic optimization.
+\newblock \emph{ICLR}, 2015.
+
+\end{thebibliography}
+
+\end{document}
