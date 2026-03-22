@@ -125,8 +125,13 @@ def generate_report(results_data: dict) -> str:
 
     if delta_ks_values:
         avg_delta = sum(delta_ks_values) / len(delta_ks_values)
+        std_delta = (
+            sum((d - avg_delta) ** 2 for d in delta_ks_values)
+            / max(1, len(delta_ks_values) - 1)
+        ) ** 0.5
         lines.append(
-            f"3. **Average KS increase after training:** {avg_delta:+.4f}"
+            f"3. **Average KS increase after training:** "
+            f"{avg_delta:+.4f} (std={std_delta:.4f})"
         )
         positive_deltas = sum(1 for d in delta_ks_values if d > 0)
         lines.append(
@@ -142,6 +147,17 @@ def generate_report(results_data: dict) -> str:
         lines.append(
             f"5. **Avg spectral norm ratio:** trained={avg_trained_snr:.3f}, "
             f"untrained={avg_untrained_snr:.3f}"
+        )
+
+    # Task-level comparison
+    mod_trained = [r for r in trained if "mod" in r.get("model_label", "")]
+    reg_trained = [r for r in trained if "regression" in r.get("model_label", "")]
+    if mod_trained and reg_trained:
+        avg_mod_ks = sum(r["ks_statistic"] for r in mod_trained) / len(mod_trained)
+        avg_reg_ks = sum(r["ks_statistic"] for r in reg_trained) / len(reg_trained)
+        lines.append(
+            f"6. **Avg KS by task:** modular arithmetic={avg_mod_ks:.4f}, "
+            f"regression={avg_reg_ks:.4f}"
         )
 
     lines.append("")
@@ -165,6 +181,16 @@ def generate_report(results_data: dict) -> str:
     )
     lines.append(
         "- All models trained with seed=42 for reproducibility."
+    )
+    lines.append(
+        "- **Finite-size effects:** Layers with very few eigenvalues "
+        "(e.g., regression fc1 with N=3) show elevated KS even for untrained "
+        "weights because the MP law is an asymptotic result (M, N -> infinity). "
+        "Comparisons are most meaningful for layers with N >= 32."
+    )
+    lines.append(
+        "- **Degenerate layers:** Layers with N=1 (regression fc3) are excluded "
+        "from MP analysis as a single eigenvalue cannot form a distribution."
     )
     lines.append("")
 
