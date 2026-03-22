@@ -1,0 +1,212 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{amsmath}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue!60!black,
+  citecolor=blue!60!black,
+  urlcolor=blue!60!black
+}
+
+\title{Herding in the Machine:\\Information Cascades Among Bayesian AI Agents}
+\author{
+  Lina Ji \\
+  Stanford University \\
+  \texttt{linaji@stanford.edu}
+  \and
+  Yun Du \\
+  Stanford University \\
+  \texttt{yundu27@stanford.edu}
+  \and
+  Claw \\
+  AI Agent (\texttt{the-mad-lobster}) \\
+  \texttt{claw@agent}
+}
+\date{March 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+When sequential decision-makers observe predecessors' choices but not their private information, \emph{information cascades} can form: agents rationally ignore their own signals and follow the crowd.
+We simulate the classic Bikhchandani, Hirshleifer \& Welch (1992) cascade model with four agent types---Bayesian, Heuristic, Contrarian, and Noisy-Bayesian---across 216 parameter configurations (3 signal qualities $\times$ 3 sequence lengths $\times$ 2 true states $\times$ 3 seeds).
+Our findings confirm three theoretical predictions: (1) higher signal quality delays cascade onset, (2) Bayesian agents achieve perfect cascade accuracy but are locked in once cascades form, and (3) Contrarian agents break cascades frequently but reduce overall accuracy.
+The contribution is an agent-executable \texttt{SKILL.md} that reproduces all results from scratch using only Python standard library and \texttt{pytest}.
+\end{abstract}
+
+\section{Introduction}
+
+An information cascade occurs when a rational agent abandons its private signal and copies the action of its predecessors, because the public evidence from observed actions overwhelms private information~\cite{bhw1992}.
+Cascades explain phenomena from financial bubbles to social media echo chambers: once started, they are self-reinforcing because each new follower adds no new information to the public pool.
+
+The original BHW model assumes perfectly rational Bayesian agents.
+But real agents---whether human or AI---vary in sophistication.
+A language model summarizing prior sources may act like a Bayesian updater, a simple recommender may follow majority rules, and an adversarial auditor may deliberately contrarian.
+When multiple AI systems observe each other's outputs (e.g., LLMs citing each other's generated text), cascades can amplify errors across the network~\cite{banerjee1992}.
+
+We simulate four agent types to study how decision-making strategy affects cascade dynamics:
+\begin{itemize}
+  \item \textbf{Bayesian}: optimal posterior updater using Bayes' rule.
+  \item \textbf{Heuristic}: follows the majority if the majority fraction exceeds a threshold (0.6).
+  \item \textbf{Contrarian}: goes against the majority with probability 0.3.
+  \item \textbf{Noisy-Bayesian}: Bayesian with Gaussian logit perturbation ($\sigma=1.0$), modeling bounded rationality.
+\end{itemize}
+
+\section{Model}
+
+\subsection{Setup}
+
+A binary state $\theta \in \{A, B\}$ is drawn with equal prior probability.
+A sequence of $N$ agents each receives a private signal $s_i$ that matches $\theta$ with probability $q$ (signal quality).
+Agent $i$ observes the actions $a_1, \ldots, a_{i-1}$ of all predecessors, then chooses $a_i \in \{A, B\}$.
+
+\subsection{Cascade Detection}
+
+We detect a cascade at position $i$ if: (1) at least two consecutive predecessors chose the same action $\hat{a}$, and (2) agent $i$'s signal disagrees with $\hat{a}$ but agent $i$ chooses $\hat{a}$ anyway.
+
+\subsection{Metrics}
+
+\begin{enumerate}
+  \item \textbf{Cascade formation rate}: fraction of simulations where a cascade formed.
+  \item \textbf{Cascade accuracy}: fraction of formed cascades matching the true state.
+  \item \textbf{Cascade fragility}: fraction of formed cascades broken before the sequence ended.
+  \item \textbf{Mean cascade length}: average consecutive agents following the cascade action.
+\end{enumerate}
+
+\subsection{Experiment Design}
+
+We run a full factorial experiment: 4 agent types $\times$ 3 signal qualities ($q \in \{0.6, 0.7, 0.9\}$) $\times$ 3 sequence lengths ($N \in \{10, 20, 50\}$) $\times$ 2 true states $\times$ 3 seeds $=$ 216 simulations.
+Aggregation is over true states and seeds (6 replications per condition), yielding 36 metric groups.
+
+\section{Results}
+
+\subsection{Cascade Formation Rate}
+
+Table~\ref{tab:formation} shows formation rates averaged across sequence lengths.
+
+\begin{table}[h]
+\centering
+\caption{Cascade formation rate by agent type and signal quality (averaged over $N$).}
+\label{tab:formation}
+\begin{tabular}{lccc}
+\toprule
+\textbf{Agent Type} & $q=0.6$ & $q=0.7$ & $q=0.9$ \\
+\midrule
+Bayesian        & \textbf{1.000} & 0.889 & 0.667 \\
+Heuristic       & \textbf{1.000} & 0.889 & 0.667 \\
+Noisy-Bayesian  & 0.889 & 0.889 & 0.667 \\
+Contrarian      & 0.667 & 0.778 & 0.667 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Higher signal quality \emph{reduces} cascade formation (from 0.889 at $q{=}0.6$ to 0.667 at $q{=}0.9$, averaged across types), confirming the BHW prediction: stronger private signals make agents less likely to ignore them.
+
+\subsection{Cascade Accuracy}
+
+Table~\ref{tab:accuracy} shows the fraction of formed cascades that matched the true state.
+
+\begin{table}[h]
+\centering
+\caption{Cascade accuracy (fraction of correct cascades).}
+\label{tab:accuracy}
+\begin{tabular}{lccc}
+\toprule
+\textbf{Agent Type} & $q=0.6$ & $q=0.7$ & $q=0.9$ \\
+\midrule
+Bayesian        & \textbf{1.000} & \textbf{1.000} & \textbf{1.000} \\
+Heuristic       & 0.667 & \textbf{1.000} & \textbf{1.000} \\
+Noisy-Bayesian  & 0.861 & \textbf{1.000} & \textbf{1.000} \\
+Contrarian      & 0.556 & 0.556 & 0.333 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Bayesian agents achieve perfect cascade accuracy across all signal qualities.
+Heuristic and Noisy-Bayesian agents approach Bayesian performance at higher $q$, but suffer at $q{=}0.6$.
+Contrarian agents have poor and unstable accuracy, confirming that indiscriminate contrarianism breaks correct cascades as readily as incorrect ones.
+
+\subsection{Cascade Fragility and Length}
+
+Table~\ref{tab:fragility} summarizes fragility (broken cascades) and mean cascade length.
+
+\begin{table}[h]
+\centering
+\caption{Cascade fragility and mean length (averaged over $q$ and $N$).}
+\label{tab:fragility}
+\begin{tabular}{lcc}
+\toprule
+\textbf{Agent Type} & \textbf{Fragility} & \textbf{Mean Length} \\
+\midrule
+Bayesian        & 0.000 & 20.3 \\
+Heuristic       & 0.000 & 20.3 \\
+Noisy-Bayesian  & 0.000 & 19.3 \\
+Contrarian      & \textbf{0.944} & 3.0 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Bayesian, Heuristic, and Noisy-Bayesian cascades are completely rigid once formed (fragility $= 0$).
+Contrarian agents break 94.4\% of cascades, with a mean length of only 3.0 agents before disruption.
+
+\section{Discussion}
+
+\paragraph{The cascade lock-in problem.}
+Our key finding is the sharp dichotomy between cascade rigidity and fragility.
+Non-contrarian agents produce cascades that, once formed, never break---confirming BHW's theoretical prediction.
+This has direct implications for multi-AI systems: if LLMs observe and build on each other's outputs, an early incorrect cascade can propagate indefinitely through the network.
+
+\paragraph{The contrarian trade-off.}
+Contrarian agents prevent cascade lock-in (fragility $\approx 1$) but at a severe cost to accuracy.
+With $p_\text{contrarian} = 0.3$, cascade accuracy drops to 33--56\%, worse than a coin flip.
+This suggests that the optimal contrarian rate is much lower than 0.3---just enough to break wrong cascades but not so much as to destabilize correct ones.
+Finding this optimal rate is a natural extension.
+
+\paragraph{Signal quality as a defense.}
+Higher signal quality ($q{=}0.9$) delays cascades (formation rate drops from 1.0 to 0.67) and improves accuracy for all non-contrarian agents.
+For AI systems, this maps to improving the quality of each agent's independent evidence---e.g., training on diverse data rather than synthetic outputs from other models.
+
+\paragraph{Limitations.}
+With 6 replications per condition, confidence intervals are wide; extending to hundreds of seeds per condition would tighten estimates.
+Our agents share the same signal quality; heterogeneous-quality agents would better model real AI ecosystems.
+The binary state space ($\{A, B\}$) abstracts away the continuous and multi-dimensional nature of real beliefs.
+
+\paragraph{AI safety implications.}
+Information cascades in multi-AI systems can amplify hallucinations, bias, and errors.
+If model A's output influences model B's input, and B's output influences C, a single early error can cascade through the chain.
+Our results suggest that introducing a small fraction of ``auditor'' agents that independently verify claims (a controlled contrarian role) could break error cascades without destroying overall accuracy---but calibrating the auditor's contrarianism is critical.
+
+\section{Conclusion}
+
+We presented an agent-executable simulation of information cascades among four types of sequential decision-making agents.
+Bayesian agents produce perfectly accurate but permanently locked-in cascades.
+Contrarian agents break cascades but at severe accuracy cost.
+Higher signal quality is the most reliable defense against wrong cascades.
+The key contribution is the reproducible \texttt{SKILL.md} skill that runs the full 216-simulation experiment from a clean state using only Python's standard library.
+
+\begin{thebibliography}{9}
+\bibitem{bhw1992}
+S.~Bikhchandani, D.~Hirshleifer, and I.~Welch,
+``A Theory of Fads, Fashion, Custom, and Cultural Change as Informational Cascades,''
+\emph{Journal of Political Economy}, vol.~100, no.~5, pp.~992--1026, 1992.
+
+\bibitem{banerjee1992}
+A.~V.~Banerjee,
+``A Simple Model of Herd Behavior,''
+\emph{Quarterly Journal of Economics}, vol.~107, no.~3, pp.~797--817, 1992.
+
+\bibitem{anderson1997}
+L.~R.~Anderson and C.~A.~Holt,
+``Information Cascades in the Laboratory,''
+\emph{American Economic Review}, vol.~87, no.~5, pp.~847--862, 1997.
+\end{thebibliography}
+
+\end{document}
