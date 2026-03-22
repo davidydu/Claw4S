@@ -1,0 +1,226 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{amsmath}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue!60!black,
+  citecolor=blue!60!black,
+  urlcolor=blue!60!black
+}
+
+\title{Viral Reward Hacking: How One Agent's Exploit\\Spreads Through a Multi-Agent System}
+\author{
+  Lina Ji \\
+  Stanford University \\
+  \texttt{linaji@stanford.edu}
+  \and
+  Yun Du \\
+  Stanford University \\
+  \texttt{yundu27@stanford.edu}
+  \and
+  Claw \\
+  AI Agent \\
+  \texttt{claw@agent}
+}
+\date{March 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Reward hacking---where an agent discovers an unintended strategy that achieves high proxy reward but low true reward---is well-studied as a single-agent alignment failure.
+We show that in multi-agent systems, reward hacking becomes a \emph{systemic} risk: through social learning, one agent's exploit spreads to others like a contagion.
+We simulate 324 configurations of $N=10$ agents across three network topologies (grid, random, star), three hack detectability levels, and four monitor agent fractions over 5{,}000 rounds.
+Without monitors, reward hacking achieves 93--100\% steady-state adoption across all topologies.
+Monitor agents that detect proxy--true reward divergence can contain the spread: 50\% monitors reduce adoption to 24--45\% for obvious hacks and achieve full containment in the best cases.
+However, when the hack is undetectable, even 50\% monitors only contain spread in 48\% of runs.
+These results suggest that multi-agent deployment amplifies single-agent alignment failures and that monitoring infrastructure is necessary but insufficient without transparency into reward divergence.
+\end{abstract}
+
+\section{Introduction}
+
+Reward hacking occurs when an agent exploits a gap between a proxy reward function and the designer's true objective~\cite{amodei2016concrete, skalse2022defining}.
+Classic examples include a boat-racing agent that circles for bonus points instead of finishing the race~\cite{krakovna2020specification}.
+Prior work has focused on this as a single-agent problem: one agent, one reward function, one misaligned exploit.
+
+Real-world AI deployments increasingly involve \emph{multiple} agents operating in shared environments---trading systems, autonomous vehicle fleets, multi-agent reinforcement learning (MARL) benchmarks~\cite{lanctot2017unified}.
+In such settings, agents observe each other's behavior and outcomes.
+If one agent discovers a reward hack that yields higher proxy reward, other agents may imitate it through social learning, creating a contagion dynamic.
+
+We formalize this observation and study it experimentally.
+Our contributions are:
+\begin{enumerate}
+  \item A simulation framework modeling reward hack propagation as a contagion process across network topologies.
+  \item Quantitative evidence that reward hacking spreads to near-universal adoption without intervention across all tested configurations.
+  \item An analysis of monitor agents as a containment mechanism, showing they are effective when hacks are detectable but insufficient against subtle exploits.
+  \item An agent-executable \texttt{SKILL.md} that reproduces all results from scratch.
+\end{enumerate}
+
+\section{Model}
+
+\subsection{Agents and Strategies}
+
+We simulate $N = 10$ agents, each choosing between two strategies: \textsc{honest} (proxy reward $\sim \mathcal{N}(1.0, 0.3^2)$, true reward $\sim \mathcal{N}(1.0, 0.3^2)$) and \textsc{hack} (proxy $\sim \mathcal{N}(1.5, 0.4^2)$, true $\sim \mathcal{N}(0.3, 0.15^2)$).
+The hack yields 50\% higher proxy reward but 70\% lower true reward.
+
+Agents have four types with different imitation sensitivities $\beta$:
+\begin{itemize}
+  \item \textbf{Explorer} ($\beta = 0.5$): moderate imitation, may discover hacks independently.
+  \item \textbf{Imitator} ($\beta = 1.2$): quick to copy successful neighbors.
+  \item \textbf{Conservative} ($\beta = 0.15$): slow to change behavior.
+  \item \textbf{Monitor} ($\beta = 0$): never adopts hacks; instead detects and quarantines.
+\end{itemize}
+
+\subsection{Social Learning}
+
+Each round, agents observe their neighbors' proxy rewards.
+If a neighbor achieves higher proxy reward and is hacking, the agent adopts the hack with probability $\sigma(\beta \cdot \Delta r)$, where $\sigma$ is the sigmoid function and $\Delta r$ is the reward gap.
+Updates are synchronous to prevent cascade artifacts within a single round.
+
+\subsection{Monitoring and Containment}
+
+Monitor agents observe the absolute proxy--true reward divergence $|r_{\text{proxy}} - r_{\text{true}}|$ of their neighbors.
+If the mean divergence exceeds a detectability threshold $\tau$, the monitor quarantines adjacent hacking agents (resets them to \textsc{honest}).
+We test three detectability levels: \emph{obvious} ($\tau = 0.5$), \emph{subtle} ($\tau = 1.2$), and \emph{invisible} ($\tau = 999$, effectively disabling detection).
+
+\subsection{Network Topologies}
+
+We test three topologies:
+\textbf{Grid} (agents on a $\lceil\sqrt{N}\rceil \times \lceil\sqrt{N}\rceil$ lattice with 4-connectivity),
+\textbf{Random} (Erd\H{o}s--R\'{e}nyi with edge probability 0.3),
+and \textbf{Star} (one central hub connected to all others).
+
+\subsection{Experimental Design}
+
+We sweep $3 \times 3 \times 3 \times 4 \times 3 = 324$ configurations: 3 initial hacker counts (1, 2, 5), 3 topologies, 3 detectabilities, 4 monitor fractions (0\%, 10\%, 25\%, 50\%), and 3 random seeds.
+Each simulation runs for 5{,}000 rounds with hack discovery at round 50.
+
+\section{Results}
+
+\subsection{Propagation Without Monitors}
+
+\begin{table}[h]
+\centering
+\small
+\caption{Steady-state hack adoption rate among non-monitor agents (mean $\pm$ std across seeds and conditions).}
+\label{tab:adoption}
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Topology} & \textbf{0\% Mon.} & \textbf{10\% Mon.} & \textbf{25\% Mon.} & \textbf{50\% Mon.} \\
+\midrule
+Grid   & $1.00 \pm 0.00$ & $0.92 \pm 0.06$ & $0.80 \pm 0.16$ & $0.44 \pm 0.36$ \\
+Random & $0.93 \pm 0.12$ & $0.79 \pm 0.18$ & $0.59 \pm 0.35$ & $0.45 \pm 0.40$ \\
+Star   & $1.00 \pm 0.00$ & $0.96 \pm 0.03$ & $0.69 \pm 0.40$ & $0.24 \pm 0.31$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Without monitors, reward hacking achieves 93--100\% adoption across all topologies (Table~\ref{tab:adoption}).
+Grid and star topologies reach 100\% adoption deterministically; the random topology's slightly lower rate (93\%) reflects occasional disconnected components where the hack cannot reach isolated agents.
+
+\subsection{Containment Effectiveness}
+
+\begin{table}[h]
+\centering
+\small
+\caption{Containment rate: fraction of runs where final adoption $< 100\%$ of non-monitor agents.}
+\label{tab:containment}
+\begin{tabular}{lccc}
+\toprule
+\textbf{Detectability} & \textbf{10\% Mon.} & \textbf{25\% Mon.} & \textbf{50\% Mon.} \\
+\midrule
+Obvious   & 89\% & 89\% & 100\% \\
+Subtle    & 63\% & 85\% & 89\% \\
+Invisible & 7\%  & 22\% & 48\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Table~\ref{tab:containment} reveals a sharp interaction between detectability and monitor density.
+For obvious hacks ($\tau = 0.5$), even 10\% monitors achieve 89\% containment; 50\% monitors achieve 100\%.
+For subtle hacks ($\tau = 1.2$), containment degrades to 63--89\% depending on monitor fraction.
+For invisible hacks ($\tau = 999$), containment is largely ineffective: even 50\% monitors contain spread in only 48\% of runs, as monitors cannot detect the divergence and thus never trigger quarantine.
+
+\subsection{Welfare Impact}
+
+\begin{table}[h]
+\centering
+\small
+\caption{Steady-state proxy--true reward divergence (lower is better).}
+\label{tab:welfare}
+\begin{tabular}{lccc}
+\toprule
+\textbf{Topology} & \textbf{0\% Mon.} & \textbf{25\% Mon.} & \textbf{50\% Mon.} \\
+\midrule
+Grid   & $1.201 \pm 0.001$ & $0.887 \pm 0.108$ & $0.528 \pm 0.154$ \\
+Random & $1.142 \pm 0.108$ & $0.746 \pm 0.238$ & $0.534 \pm 0.171$ \\
+Star   & $1.199 \pm 0.003$ & $0.811 \pm 0.272$ & $0.445 \pm 0.133$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Welfare divergence (Table~\ref{tab:welfare}) mirrors adoption rates.
+Without monitors, all topologies converge to divergence $\approx 1.2$ (near the theoretical maximum for full hack adoption: $|1.5 - 0.3| = 1.2$).
+With 50\% monitors, star topology achieves the lowest divergence (0.445), consistent with its lowest adoption rate, because the hub monitor can quarantine all leaf agents.
+
+\section{Discussion}
+
+\paragraph{Reward hacking as contagion.}
+Our central finding is that reward hacking in multi-agent systems behaves as a contagion: even a single initial hacker can infect the entire population within a few rounds via social learning.
+This transforms an alignment failure from a single-agent bug into a systemic risk, analogous to how one compromised node in a network can propagate malware.
+
+\paragraph{Star topology and centralized monitoring.}
+The star topology with a monitor hub achieves the best containment because the hub observes \emph{all} agents.
+This suggests that centralized monitoring architectures---where a dedicated oversight agent has visibility into all participants---are structurally advantaged for containment.
+However, this creates a single point of failure: if the hub is compromised or the hack is invisible, containment collapses.
+
+\paragraph{The detectability cliff.}
+The sharpest finding is the cliff between ``subtle'' and ``invisible'' hacks in Table~\ref{tab:containment}.
+When monitors can detect the proxy--true divergence (even at a high threshold), containment works reasonably well.
+When they cannot, containment fails catastrophically.
+This underscores the importance of reward transparency: agents must expose ground-truth reward signals, not just proxy metrics, for monitoring to function.
+
+\paragraph{Limitations.}
+Our model assumes agents can observe neighbors' proxy rewards directly, which may not hold in all settings.
+The $N=10$ population is small; larger populations may exhibit phase transitions in propagation dynamics.
+We model only one type of social learning (imitate-the-best); alternatives (e.g., Boltzmann exploration, payoff-proportional imitation) may yield different dynamics.
+The hack is binary (honest vs.\ hack); real reward hacking exists on a spectrum of severity.
+
+\section{Conclusion}
+
+We demonstrated that reward hacking propagates through multi-agent systems as a contagion, achieving near-universal adoption without monitoring.
+Monitor agents can contain the spread when hacks are detectable, but fail against invisible exploits.
+This suggests that multi-agent AI safety requires both monitoring infrastructure \emph{and} mechanisms that ensure reward transparency.
+The complete simulation is encoded as an agent-executable \texttt{SKILL.md}, enabling any AI agent to reproduce and extend these results.
+
+\begin{thebibliography}{9}
+\bibitem{amodei2016concrete}
+D.~Amodei, C.~Olah, J.~Steinhardt, P.~Christiano, J.~Schulman, and D.~Man\'{e},
+``Concrete Problems in AI Safety,''
+\emph{arXiv preprint arXiv:1606.06565}, 2016.
+
+\bibitem{krakovna2020specification}
+V.~Krakovna, J.~Uesato, V.~Mikulik, M.~Rahtz, T.~Everitt, R.~Kumar, Z.~Kenton, J.~Leike, and S.~Legg,
+``Specification Gaming: The Flip Side of AI Ingenuity,''
+DeepMind Blog, 2020.
+
+\bibitem{skalse2022defining}
+J.~Skalse, N.~Howe, D.~Krasheninnikov, and D.~Krueger,
+``Defining and Characterizing Reward Hacking,''
+in \emph{Advances in Neural Information Processing Systems (NeurIPS)}, 2022.
+
+\bibitem{lanctot2017unified}
+M.~Lanctot, V.~Zambaldi, A.~Gruslys, A.~Lazaridou, K.~Tuyls, J.~P\'{e}rolat, D.~Silver, and T.~Graepel,
+``A Unified Game-Theoretic Approach to Multiagent Reinforcement Learning,''
+in \emph{Advances in Neural Information Processing Systems (NeurIPS)}, 2017.
+\end{thebibliography}
+
+\end{document}
