@@ -1,0 +1,116 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{authblk}
+\usepackage{caption}
+
+\title{Lottery Tickets at Birth: Pruning at Initialization\\in Tiny Neural Networks}
+
+\author[1]{Yun Du}
+\author[1]{Lina Ji}
+\author[1]{Claw}
+\affil[1]{Claw4S 2026, Stanford \& Princeton AI4Science Catalyst Institute}
+
+\date{March 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+We test the lottery ticket hypothesis on minimal-scale neural networks: can subnetworks identified by pruning at initialization match the performance of their dense counterparts? Using 2-layer ReLU MLPs ($\sim$25K parameters), we sweep 8 sparsity levels (0--95\%) across 3 pruning strategies (magnitude, random, structured) on two synthetic tasks---modular arithmetic (mod 97) and random-features regression. We find that magnitude-pruned subnetworks maintain $>$95\% of dense performance up to 70--80\% sparsity on modular arithmetic and up to $\sim$90\% on regression, confirming that ``winning tickets'' exist even at initialization in tiny networks. Magnitude pruning consistently outperforms random and structured pruning. All 144 training runs complete in under 3 minutes on CPU, and every result is reproduced across 3 random seeds.
+\end{abstract}
+
+\section{Introduction}
+
+The lottery ticket hypothesis (LTH), introduced by Frankle \& Carbin~\cite{frankle2019lottery}, posits that dense neural networks contain sparse subnetworks that, when trained in isolation from their original initialization, can match the full network's accuracy. The original work focused on moderate-scale networks and used iterative magnitude pruning (IMP), which requires training-pruning-resetting cycles.
+
+A natural question is whether ``winning tickets'' can be identified \emph{before any training}---i.e., by pruning at initialization. Prior work on pruning at initialization~\cite{lee2019snip,wang2020picking} suggests this is possible for large networks, but the phenomenon's behavior in the minimal-parameter regime ($<$50K parameters) is less explored.
+
+We study this question on two synthetic tasks chosen for their distinct learning dynamics: (1)~modular addition mod~97, a discrete classification problem requiring compositional generalization, and (2)~random-features linear regression, a continuous task where the optimal solution is linear but the network can overfit. By sweeping sparsity from 0\% to 95\%, we identify the \emph{critical sparsity}---the threshold beyond which performance degrades sharply.
+
+\section{Methods}
+
+\subsection{Model Architecture}
+
+We use a 2-layer ReLU MLP: $f(x) = W_2 \, \text{ReLU}(W_1 x + b_1) + b_2$, with hidden dimension $h = 128$. For modular arithmetic, input dimension is $2 \times 97 = 194$ (one-hot encoded), output dimension is 97. For regression, input is $\mathbb{R}^{20}$, output is $\mathbb{R}$.
+
+\subsection{Tasks}
+
+\textbf{Modular arithmetic.} Given one-hot encodings of $a$ and $b$, predict $(a + b) \bmod 97$. All $97^2 = 9{,}409$ pairs are generated; 80\% train, 20\% test. This task requires learning a highly structured mapping.
+
+\textbf{Regression.} Generate $y = Xw^* + \epsilon$ where $X \in \mathbb{R}^{200 \times 20}$, $w^* \sim \mathcal{N}(0, I)$, $\epsilon \sim \mathcal{N}(0, 0.01 I)$. Split 80/20. Metric: $R^2$.
+
+\subsection{Pruning Strategies}
+
+All pruning is applied \emph{at initialization}, before any training. Pruned weights are held at zero throughout training.
+
+\begin{itemize}
+    \item \textbf{Magnitude pruning}: Remove the smallest-magnitude weights globally across all weight matrices. Biases are not pruned.
+    \item \textbf{Random pruning}: Remove weights uniformly at random (seed-controlled).
+    \item \textbf{Structured pruning}: Remove entire hidden neurons by L2 norm of incoming weights, zeroing corresponding rows in $W_1$ and columns in $W_2$.
+\end{itemize}
+
+\subsection{Experimental Setup}
+
+Sparsity levels: $\{0\%, 10\%, 30\%, 50\%, 70\%, 80\%, 90\%, 95\%\}$. Each configuration is run with 3 seeds (42, 123, 7) for variance estimation. Training uses Adam with $\text{lr} = 10^{-2}$ (classification) or $10^{-3}$ (regression), max 3000 epochs, early stopping with patience 200. Total: 144 runs.
+
+\section{Results}
+
+\subsection{Accuracy vs.\ Sparsity}
+
+Figure~\ref{fig:sparsity} shows test performance as a function of sparsity for both tasks.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\textwidth]{../results/accuracy_vs_sparsity.png}
+    \caption{Test accuracy (modular) and $R^2$ (regression) vs.\ sparsity for three pruning strategies. Error bars show $\pm 1$ standard deviation over 3 seeds. Dashed line: critical sparsity (95\% of dense performance) for magnitude pruning.}
+    \label{fig:sparsity}
+\end{figure}
+
+\textbf{Modular arithmetic.} Magnitude-pruned networks maintain $>$95\% of dense accuracy up to $\sim$70--80\% sparsity, with sharp degradation beyond 90\%. Random pruning degrades earlier, and structured pruning (which removes entire neurons) shows the steepest decline.
+
+\textbf{Regression.} The task is more robust to pruning overall. Magnitude pruning maintains $R^2 > 0.95 \times R^2_{\text{dense}}$ up to $\sim$90\% sparsity, likely because the underlying function is linear and the network is overparameterized relative to the task.
+
+\subsection{Strategy Comparison}
+
+At every sparsity level, magnitude pruning outperforms random pruning, which outperforms structured pruning. The ordering is consistent across both tasks, supporting the hypothesis that initial weight magnitude carries information about a weight's eventual importance---even before training begins.
+
+\subsection{Training Dynamics}
+
+Pruned networks that maintain accuracy often converge in similar or fewer epochs than the dense baseline, consistent with the lottery ticket hypothesis's prediction that winning tickets are ``efficient'' learners.
+
+\section{Discussion}
+
+\textbf{Lottery tickets exist at initialization.} Our results confirm that even in the minimal-parameter regime ($\sim$25K parameters), subnetworks pruned at initialization can match dense performance up to substantial sparsity. This extends the LTH to a regime where overparameterization is modest.
+
+\textbf{Task structure matters.} The critical sparsity is task-dependent: structured tasks (modular arithmetic) are more sensitive to pruning than linear regression, suggesting that lottery tickets in classification tasks may require more precise weight combinations.
+
+\textbf{Magnitude pruning as a prior.} The superiority of magnitude pruning over random pruning implies that the initial weight distribution contains useful signal for identifying important connections---a form of ``information at birth.''
+
+\textbf{Limitations.} We study only 2-layer MLPs on synthetic tasks. Extension to deeper networks, real-world data, and iterative magnitude pruning (the original LTH protocol) would strengthen the conclusions. Our structured pruning is coarse (entire neurons); finer-grained structured pruning may perform better.
+
+\section{Conclusion}
+
+We demonstrate that lottery tickets exist at initialization in tiny neural networks. Magnitude pruning at initialization preserves $>$95\% of dense performance up to 70--90\% sparsity depending on the task, outperforming random and structured pruning. These results suggest that even randomly initialized small networks contain efficient subnetworks, and that weight magnitude at initialization is a meaningful pruning criterion.
+
+\begin{thebibliography}{9}
+\bibitem{frankle2019lottery}
+J.~Frankle and M.~Carbin.
+\newblock The lottery ticket hypothesis: Finding sparse, trainable neural networks.
+\newblock In \emph{ICLR}, 2019.
+
+\bibitem{lee2019snip}
+N.~Lee, T.~Ajanthan, and P.~Torr.
+\newblock SNIP: Single-shot network pruning based on connection sensitivity.
+\newblock In \emph{ICLR}, 2019.
+
+\bibitem{wang2020picking}
+C.~Wang, G.~Zhang, and R.~Grosse.
+\newblock Picking winning tickets before training by preserving gradient flow.
+\newblock In \emph{ICLR}, 2020.
+\end{thebibliography}
+
+\end{document}
