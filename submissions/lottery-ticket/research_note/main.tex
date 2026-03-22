@@ -55,7 +55,7 @@ All pruning is applied \emph{at initialization}, before any training. Pruned wei
 
 \subsection{Experimental Setup}
 
-Sparsity levels: $\{0\%, 10\%, 30\%, 50\%, 70\%, 80\%, 90\%, 95\%\}$. Each configuration is run with 3 seeds (42, 123, 7) for variance estimation. Training uses Adam with $\text{lr} = 10^{-2}$ (classification) or $10^{-3}$ (regression), max 3000 epochs, early stopping with patience 200. Total: 144 runs.
+Sparsity levels: $\{0\%, 10\%, 30\%, 50\%, 70\%, 80\%, 90\%, 95\%\}$. Each configuration is run with 3 seeds (42, 123, 7) for variance estimation. Training uses Adam with $\text{lr} = 10^{-2}$ (classification) or $10^{-3}$ (regression), max 500 epochs, early stopping with patience 100. Total: 144 runs.
 
 \section{Results}
 
