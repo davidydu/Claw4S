@@ -1,10 +1,12 @@
 """Core analysis: correlation, PCA, clustering, redundancy."""
 
 import numpy as np
+from numpy.linalg import lstsq
 from scipy import stats
 from scipy.cluster.hierarchy import linkage, fcluster
 from scipy.spatial.distance import squareform
 from sklearn.decomposition import PCA
+from sklearn.metrics import silhouette_score as sklearn_silhouette
 from sklearn.preprocessing import StandardScaler
 
 from src.data import BENCHMARKS, SCORES, get_model_families, get_model_params
@@ -154,16 +156,7 @@ def analyze_redundancy(scores, seed=42):
         best_idx = -1
         for idx in remaining:
             candidate = selected + [idx]
-            sub = scores_scaled[:, candidate]
-            pca = PCA(random_state=seed)
-            pca.fit(sub)
-            # Total variance of full data explained by these benchmarks
-            # Use projection approach
-            reconstructed = pca.inverse_transform(pca.transform(sub))
-            # But we want variance of ALL benchmarks explained
-            # Use correlation-based approach instead
-            from numpy.linalg import lstsq
-            # Regress all benchmarks on selected subset
+            # Regress all benchmarks on selected subset via OLS
             X = scores_scaled[:, candidate]
             Y = scores_scaled
             coeffs, _, _, _ = lstsq(X, Y, rcond=None)
@@ -247,8 +240,7 @@ def analyze_model_families(scores, seed=42):
             c2 = np.array(centroids[multi_member[j]])
             inter_dists.append(float(np.linalg.norm(c1 - c2)))
 
-    # Silhouette-like metric (only for multi-member families)
-    from sklearn.metrics import silhouette_score as sklearn_silhouette
+    # Silhouette metric (only for multi-member families)
     multi_mask = [i for i, f in enumerate(families) if f in multi_member]
     if len(multi_mask) >= 4 and len(set(families[i] for i in multi_mask)) >= 2:
         labels = [families[i] for i in multi_mask]
