@@ -19,7 +19,7 @@
 \maketitle
 
 \begin{abstract}
-We systematically map the phase diagram of ``grokking'' --- the delayed transition from memorization to generalization --- in tiny neural networks trained on modular addition (mod 97). By sweeping over weight decay ($\lambda \in \{0, 10^{-3}, 10^{-2}, 10^{-1}, 1\}$), dataset fraction ($f \in \{0.3, 0.5, 0.7, 0.9\}$), and model width ($h \in \{32, 64, 128\}$), we classify 60 training runs into four learning phases: confusion, memorization, grokking, and comprehension. Our results confirm that weight decay is the primary driver of grokking, with a critical threshold around $\lambda = 0.01$--$0.1$ required for delayed generalization. Larger dataset fractions and wider models facilitate both grokking and comprehension, while zero or very high weight decay leads to memorization or confusion respectively. All experiments run on CPU in under 3 minutes with fully deterministic, reproducible code.
+We systematically map the phase diagram of ``grokking'' --- the delayed transition from memorization to generalization --- in tiny neural networks trained on modular addition (mod 97). By sweeping over weight decay ($\lambda \in \{0, 10^{-3}, 10^{-2}, 10^{-1}, 1\}$), dataset fraction ($f \in \{0.3, 0.5, 0.7, 0.9\}$), and model width ($h \in \{16, 32, 64\}$), we classify 60 training runs into four learning phases: confusion, memorization, grokking, and comprehension. Our results confirm that weight decay is the primary driver of grokking, with a critical threshold around $\lambda = 0.01$--$0.1$ required for delayed generalization. Larger dataset fractions and wider models facilitate both grokking and comprehension, while zero or very high weight decay leads to memorization or confusion respectively. All experiments run on CPU in under 3 minutes with fully deterministic, reproducible code.
 \end{abstract}
 
 \section{Introduction}
@@ -110,7 +110,7 @@ Our phase diagram confirms and extends several findings from the grokking litera
   \item The four-phase structure (confusion, memorization, grokking, comprehension) is robust across model widths.
 \end{enumerate}
 
-\paragraph{Limitations.} Our study uses a single arithmetic operation (addition mod 97), a single optimizer (AdamW), and a single seed. The grokking gap threshold (500 epochs) is somewhat arbitrary. Extending to multiplication, varying seeds for confidence intervals, and exploring additional optimizers would strengthen these findings.
+\paragraph{Limitations.} Our study uses a single arithmetic operation (addition mod 97), a single optimizer (AdamW), and a single seed. The grokking gap threshold (200 epochs) is somewhat arbitrary. Extending to multiplication, varying seeds for confidence intervals, and exploring additional optimizers would strengthen these findings.
 
 \paragraph{Reproducibility.} All code is fully deterministic with pinned seeds and dependency versions. The complete analysis runs on CPU in under 3 minutes. No GPU, internet access, or authentication is required.
 

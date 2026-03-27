@@ -35,7 +35,7 @@ def classify_phase(result: TrainResult) -> Phase:
     Classification rules:
       1. If final train_acc < 95%: CONFUSION (can't even memorize)
       2. If final test_acc < 95%: MEMORIZATION (memorized but didn't generalize)
-      3. If grokking gap > 500 epochs: GROKKING (delayed generalization)
+      3. If grokking gap > 200 epochs: GROKKING (delayed generalization)
       4. Otherwise: COMPREHENSION (fast generalization)
 
     Args:
