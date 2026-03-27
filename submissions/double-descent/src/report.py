@@ -91,11 +91,14 @@ def generate_report(all_results: dict) -> str:
     lines.append("")
 
     # Epoch-wise analysis
-    lines.append("## Experiment 3: Epoch-Wise Double Descent")
+    lines.append("## Experiment 3: Epoch-Wise Training Dynamics")
     lines.append("")
     lines.append(
         f"We train an MLP with hidden width h={meta['mlp_interpolation_threshold']} "
-        f"(near the interpolation threshold) and track test loss over epochs."
+        f"(near the interpolation threshold) and track test loss over epochs "
+        f"to look for epoch-wise double descent. **Note:** With tiny MLPs and Adam "
+        f"optimizer, epoch-wise double descent may not manifest — it typically "
+        f"requires larger models, SGD, and longer training (Nakkiran et al. 2019)."
     )
     lines.append("")
 
