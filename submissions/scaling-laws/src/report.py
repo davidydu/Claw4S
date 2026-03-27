@@ -109,8 +109,16 @@ def generate_report(results: dict) -> str:
             aic = fit.get("aic", float("nan"))
             bic = fit.get("bic", float("nan"))
 
+            # Flag degenerate fits (non-physical parameters)
+            is_degenerate = False
+            if isinstance(l_inf, (int, float)) and l_inf < 0:
+                is_degenerate = True
+            if isinstance(alpha, (int, float)) and (alpha < 0.001 or alpha > 2.0):
+                is_degenerate = True
+
             star = " *" if name == best_aic_name else ""
-            label = name.capitalize() + star
+            degen = " (degenerate)" if is_degenerate else ""
+            label = name.capitalize() + star + degen
 
             row = (
                 f"| {label} | {_fmt(alpha)} | {alpha_ci_str} "
@@ -170,10 +178,16 @@ def generate_report(results: dict) -> str:
         sr   = cross.get("spearman_r", float("nan"))
         sp   = cross.get("spearman_p", float("nan"))
 
+        n_pairs = cross.get("n_pairs", 6)
         lines.append(
             f"Pearson r = {_fmt3(pr)} (p = {_fmt3(pp)}); "
             f"Spearman rho = {_fmt3(sr)} (p = {_fmt3(sp)}) "
-            f"between delta-loss and delta-accuracy across model pairs.\n"
+            f"between delta-loss and delta-accuracy across {n_pairs} model pairs.\n"
+        )
+        lines.append(
+            f"**Note:** With only n={n_pairs} paired observations, this analysis has "
+            f"very low statistical power. Non-significant correlations should be "
+            f"interpreted as 'insufficient evidence,' not as confirmation of independence.\n"
         )
     else:
         lines.append("_Cross-metric correlation results unavailable._\n")

@@ -120,9 +120,11 @@ def fit_scaling_law(
     residuals = y - y_pred
     n_obs = len(y)
 
+    params_dict = dict(zip(param_names, best_popt.tolist()))
+
     return FitResult(
         name=name,
-        params=dict(zip(param_names, best_popt.tolist())),
+        params=params_dict,
         param_values=best_popt,
         residuals=residuals,
         y_pred=y_pred,

@@ -3,6 +3,10 @@
 Usage: .venv/bin/python run.py
 """
 import os
+import warnings
+
+# Suppress overflow/divide-by-zero warnings from curve fitting restarts
+warnings.filterwarnings("ignore", category=RuntimeWarning)
 
 if not os.path.exists("src/data.py"):
     print("ERROR: Must run from submissions/scaling-laws/ directory")
