@@ -217,4 +217,13 @@ print(f"Regression avg lag:      {sum(reg_lags)/len(reg_lags):.0f} epochs")
 
 n_positive = sum(1 for a in all_analyses if a["lag_positive"])
 print(f"\nGradient norm leads metric in {n_positive}/{len(all_analyses)} runs")
-print(f"Total runtime: {elapsed:.1f}s")
+
+# Methodological note
+print("\n--- Methodological Note ---")
+print("Peak-based lag (above) and cross-correlation lag (in results.json) may disagree.")
+print("Peak lag measures epoch difference between gradient peak and metric transition.")
+print("Cross-correlation measures derivative-level alignment, which can show negative lag")
+print("when gradient norm changes are smoother/delayed relative to sharp metric transitions.")
+print("Both are reported; peak-based lag is the primary metric for the 'leading indicator' thesis.")
+
+print(f"\nTotal runtime: {elapsed:.1f}s")
