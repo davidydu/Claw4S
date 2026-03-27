@@ -31,7 +31,7 @@ def test_mp_pdf_integrates_to_one():
     lam_min, lam_max = compute_mp_bounds(gamma, sigma_sq)
     x = np.linspace(lam_min + 1e-6, lam_max - 1e-6, 5000)
     pdf = marchenko_pastur_pdf(x, gamma, sigma_sq)
-    integral = np.trapz(pdf, x)
+    integral = np.trapezoid(pdf, x)
     assert abs(integral - 1.0) < 0.02  # Allow 2% numerical error
 
 
