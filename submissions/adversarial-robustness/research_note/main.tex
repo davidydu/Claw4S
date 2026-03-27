@@ -1,0 +1,233 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{natbib}
+\usepackage{caption}
+
+\title{Adversarial Robustness Scaling in Small Neural Networks:\\
+Capacity-Independent Vulnerability on Synthetic Tasks}
+
+\author{
+  Yun Du\thanks{Stanford University} \and
+  Lina Ji\footnotemark[1] \and
+  Claw\thanks{AI Agent, the-mad-lobster}
+}
+
+\date{March 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+We investigate how adversarial robustness scales with model capacity in small neural networks.
+Using 2-layer ReLU MLPs with hidden widths from 16 to 512 neurons (354 to 265{,}218 parameters),
+we train on two synthetic 2D classification tasks (concentric circles and two moons)
+and evaluate robustness under FGSM and PGD attacks across five perturbation magnitudes
+($\varepsilon \in \{0.01, 0.05, 0.1, 0.2, 0.5\}$).
+Across 180 experiments (6 widths $\times$ 5 epsilons $\times$ 3 seeds $\times$ 2 datasets),
+we find that the robustness gap --- the difference between clean and adversarial accuracy ---
+is largely \emph{independent} of model capacity.
+On the circles task, the correlation between log parameter count and mean robustness gap
+is near zero ($r = -0.06$ for FGSM), while on the moons task a moderate negative
+correlation ($r = -0.67$) suggests that larger models may be slightly \emph{more} robust.
+These results indicate that in the small-model regime, adversarial vulnerability is governed
+primarily by task geometry rather than model capacity, contrasting with large-scale findings
+where increased capacity improves robustness.
+\end{abstract}
+
+\section{Introduction}
+
+Adversarial examples --- inputs crafted by adding small perturbations to cause
+misclassification --- remain a fundamental challenge in machine learning~\citep{goodfellow2015explaining}.
+Understanding how adversarial vulnerability relates to model capacity is critical for
+designing robust systems.
+
+At large scale, recent work shows that larger models tend to be more robust: a tenfold
+increase in model size reduces attack success rates by approximately 13.4\%~\citep{bartoldson2024adversarial}.
+However, this relationship in the small-model regime --- where capacity constraints,
+decision boundary complexity, and overfitting dynamics differ qualitatively --- has received
+less attention.
+
+We present a controlled study of adversarial robustness scaling in 2-layer ReLU MLPs across
+two synthetic tasks, using both FGSM~\citep{goodfellow2015explaining}
+and PGD~\citep{madry2018towards} attacks with full statistical replication.
+
+\section{Methods}
+
+\subsection{Datasets}
+
+We use two synthetic 2D classification tasks implemented with NumPy:
+\begin{itemize}
+    \item \textbf{Concentric circles}: Inner circle (label 1) at radius factor 0.5
+          inside outer circle (label 0), with Gaussian noise $\sigma = 0.15$.
+          Requires learning a radial decision boundary.
+    \item \textbf{Two moons}: Two interleaving crescent-shaped clusters,
+          with Gaussian noise $\sigma = 0.15$.
+          Requires learning a curved, non-radial decision boundary.
+\end{itemize}
+Each dataset has 2{,}000 samples with an 80/20 train/test split.
+
+\subsection{Models}
+
+All models are 2-layer ReLU MLPs:
+\[
+f(x) = W_3 \cdot \operatorname{ReLU}(W_2 \cdot \operatorname{ReLU}(W_1 x + b_1) + b_2) + b_3
+\]
+with hidden widths $h \in \{16, 32, 64, 128, 256, 512\}$, yielding parameter counts
+from 354 ($h=16$) to 265{,}218 ($h=512$) via the formula $h^2 + 6h + 2$.
+Models are trained with Adam (lr $= 10^{-3}$) using cross-entropy loss,
+with early stopping at patience 50 (max 2{,}000 epochs).
+
+\subsection{Adversarial Attacks}
+
+\textbf{FGSM}~\citep{goodfellow2015explaining} perturbs inputs along the gradient sign:
+$x_{\mathrm{adv}} = x + \varepsilon \cdot \operatorname{sign}(\nabla_x \mathcal{L})$.
+
+\textbf{PGD}~\citep{madry2018towards} applies 10 iterative steps (step size $\varepsilon/4$)
+with projection onto the $L_\infty$ $\varepsilon$-ball.
+
+We sweep $\varepsilon \in \{0.01, 0.05, 0.1, 0.2, 0.5\}$ and repeat with seeds
+$\{42, 123, 7\}$, yielding $6 \times 5 \times 3 \times 2 = 180$ total experiments.
+
+\subsection{Metrics}
+
+\begin{itemize}
+    \item \textbf{Clean accuracy}: Test accuracy on unperturbed inputs.
+    \item \textbf{Robust accuracy}: Test accuracy on adversarial examples.
+    \item \textbf{Robustness gap}: $\text{clean\_acc} - \text{robust\_acc}$.
+    \item \textbf{Correlation}: Pearson $r$ between $\log_{10}(\text{param count})$
+          and mean robustness gap (averaged across $\varepsilon$ values).
+\end{itemize}
+
+\section{Results}
+
+\subsection{Clean Accuracy}
+
+On circles, all models achieve $\sim$94\% clean accuracy regardless of width
+(mean 0.942 $\pm$ 0.014 across seeds), indicating that even the smallest model
+can learn the radial boundary.
+On moons, accuracy is higher ($\sim$99\%), also width-independent.
+
+\subsection{Robustness Gap Is Capacity-Independent}
+
+Table~\ref{tab:circles} shows the per-width results on the circles task.
+The robustness gap is remarkably stable across a 750$\times$ range of parameter counts:
+the mean FGSM gap ranges from 0.302 to 0.328, and the mean PGD gap from 0.313 to 0.335.
+The correlation between $\log_{10}$(params) and mean robustness gap is
+$r = -0.06$ (FGSM) and $r = -0.16$ (PGD) --- effectively zero.
+
+\begin{table}[h]
+\centering
+\caption{Circles dataset: robustness gap by model width (mean $\pm$ std across 3 seeds).}
+\label{tab:circles}
+\begin{tabular}{rrrcc}
+\toprule
+Width & Params & Clean Acc & Mean FGSM Gap & Mean PGD Gap \\
+\midrule
+16    & 354      & $0.943 \pm 0.012$ & $0.302 \pm 0.040$ & $0.313 \pm 0.039$ \\
+32    & 1{,}218  & $0.941 \pm 0.012$ & $0.325 \pm 0.012$ & $0.333 \pm 0.012$ \\
+64    & 4{,}482  & $0.943 \pm 0.017$ & $0.328 \pm 0.009$ & $0.335 \pm 0.011$ \\
+128   & 17{,}154 & $0.942 \pm 0.017$ & $0.329 \pm 0.013$ & $0.334 \pm 0.014$ \\
+256   & 67{,}074 & $0.942 \pm 0.014$ & $0.328 \pm 0.010$ & $0.334 \pm 0.011$ \\
+512   & 265{,}218& $0.940 \pm 0.014$ & $0.326 \pm 0.009$ & $0.334 \pm 0.010$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+On the moons task, FGSM gap shows a moderate negative correlation ($r = -0.67$),
+suggesting larger models may be slightly \emph{more} robust. PGD gap correlation
+is weaker ($r = -0.18$).
+
+\subsection{Attack Strength Comparison}
+
+PGD consistently produces stronger attacks than FGSM, as expected from its iterative nature.
+At $\varepsilon = 0.5$, robust accuracy drops to near zero for both attacks across all
+model sizes. The FGSM-PGD gap is small ($<$3\%), consistent with the low dimensionality
+of the input space limiting the advantage of multi-step optimization.
+
+\section{Discussion}
+
+\subsection{Why Capacity Doesn't Matter Here}
+
+The key finding --- that robustness gap is independent of model capacity in the small-model
+regime --- can be understood through the lens of task complexity.
+Both synthetic tasks have simple decision boundaries (a circle or a curve in 2D)
+that even the smallest model (354 parameters) can learn accurately.
+Once the boundary is learned, the adversarial vulnerability is determined by the
+\emph{geometry} of that boundary relative to the input perturbation budget,
+not by the number of parameters used to represent it.
+
+This contrasts with high-dimensional settings where larger models learn qualitatively
+different representations. In 2D with simple boundaries, all model sizes converge
+to essentially the same function, differing only in smoothness of the boundary
+near the transition region.
+
+\subsection{Implications for Scaling Laws}
+
+Our results suggest a three-regime model of adversarial robustness scaling:
+\begin{enumerate}
+    \item \textbf{Under-capacity} ($h < h_{\min}$): Models cannot learn the clean task,
+          robustness is moot.
+    \item \textbf{Sufficient capacity} ($h_{\min} \leq h \leq h_{\text{large}}$):
+          All models learn similar decision boundaries; robustness gap is capacity-independent.
+          \emph{This is the regime we study.}
+    \item \textbf{Over-capacity / representation learning} ($h \gg h_{\text{large}}$):
+          Models develop richer representations; robustness may improve with scale
+          as observed in large vision models~\citep{bartoldson2024adversarial}.
+\end{enumerate}
+
+\subsection{Limitations}
+
+\begin{itemize}
+    \item \textbf{Synthetic data}: 2D tasks cannot capture high-dimensional phenomena
+          (e.g., curse of dimensionality in adversarial robustness).
+    \item \textbf{Standard training only}: Adversarial training could change the
+          capacity--robustness relationship.
+    \item \textbf{Single architecture}: Only 2-layer ReLU MLPs; deeper architectures
+          may show different scaling.
+    \item \textbf{Limited scale}: Width 512 is still small by modern standards.
+\end{itemize}
+
+\subsection{Reproducibility}
+
+All 180 experiments are fully reproducible via the accompanying SKILL.md.
+The pipeline runs in under 90 seconds on a single CPU core.
+Seeds, dependency versions, and all hyperparameters are pinned.
+
+\section{Conclusion}
+
+We demonstrate that in the small neural network regime, adversarial vulnerability
+is largely independent of model capacity.
+Across two synthetic tasks, six model sizes spanning 750$\times$ parameter counts,
+and three random seeds, the robustness gap under FGSM and PGD attacks remains stable
+or slightly decreases with model size.
+This contrasts with the common assumption that larger models are inherently more
+vulnerable and with large-scale findings showing improved robustness with scale,
+suggesting a nuanced, regime-dependent relationship between model capacity and
+adversarial robustness.
+
+\bibliographystyle{plainnat}
+\begin{thebibliography}{9}
+
+\bibitem[Goodfellow et~al.(2015)]{goodfellow2015explaining}
+Ian~J. Goodfellow, Jonathon Shlens, and Christian Szegedy.
+\newblock Explaining and harnessing adversarial examples.
+\newblock In \emph{Proc.\ ICLR}, 2015.
+
+\bibitem[Madry et~al.(2018)]{madry2018towards}
+Aleksander Madry, Aleksandar Makelov, Ludwig Schmidt, Dimitris Tsipras, and Adrian Vladu.
+\newblock Towards deep learning models resistant to adversarial attacks.
+\newblock In \emph{Proc.\ ICLR}, 2018.
+
+\bibitem[Bartoldson et~al.(2024)]{bartoldson2024adversarial}
+Brian~R. Bartoldson, Bhavya Kailkhura, and Davis Blalock.
+\newblock Adversarial robustness limits via scaling-law and human-alignment studies.
+\newblock \emph{arXiv preprint arXiv:2404.09349}, 2024.
+
+\end{thebibliography}
+
+\end{document}
