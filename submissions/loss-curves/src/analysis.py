@@ -8,7 +8,7 @@ from src.trainer import train_run
 from src.curve_fitting import fit_all_forms
 from src.tasks import TASK_REGISTRY
 
-TASKS = ["mod_add", "mod_mul", "regression", "classification"]
+TASKS = list(TASK_REGISTRY.keys())
 HIDDEN_SIZES = [32, 64, 128]
 N_EPOCHS = 1500
 SKIP_EPOCHS = 10  # skip initial transient for fitting
@@ -133,19 +133,17 @@ def _analyze_universality(runs: list[dict]) -> dict:
                     exponents_by_form[form][param_name] = []
                 exponents_by_form[form][param_name].append(key_param)
 
-    # Best form per task
+    # Best form per task: select the form with lowest total AIC across all sizes
     best_form_by_task: dict[str, str] = {}
-    for run in runs:
-        task = run["task"]
-        if task not in best_form_by_task:
-            best_form_by_task[task] = run["best_form"]
-        # Use the run with smallest AIC for this task
-        current_best_aic = float("inf")
-        for r in runs:
-            if r["task"] == task:
-                for f in r["fits"]:
-                    if f["form"] == best_form_by_task.get(task) and f["aic"] < current_best_aic:
-                        current_best_aic = f["aic"]
+    for task in set(r["task"] for r in runs):
+        task_runs = [r for r in runs if r["task"] == task]
+        # Count which form wins (lowest AIC) across sizes for this task
+        form_wins: dict[str, int] = {}
+        for r in task_runs:
+            if r["best_form"]:
+                form_wins[r["best_form"]] = form_wins.get(r["best_form"], 0) + 1
+        if form_wins:
+            best_form_by_task[task] = max(form_wins, key=lambda k: form_wins[k])
 
     # Determine majority form
     if form_counts:
