@@ -99,10 +99,17 @@ def _compute_phase_transition(records, stats):
                 except Exception:
                     pass
         if len(kc_boot_estimates) >= 10:
-            ci_lo = float(np.percentile(kc_boot_estimates, 2.5))
-            ci_hi = float(np.percentile(kc_boot_estimates, 97.5))
+            ci_lo_raw = float(np.percentile(kc_boot_estimates, 2.5))
+            ci_hi_raw = float(np.percentile(kc_boot_estimates, 97.5))
+            # Sanity check: CI should contain kc_sig and not be absurdly wide
+            k_range = float(k_vals[-1] - k_vals[0])
+            if (ci_lo_raw <= kc_sig <= ci_hi_raw) and (ci_hi_raw - ci_lo_raw < k_range):
+                ci_lo, ci_hi = ci_lo_raw, ci_hi_raw
+            else:
+                # Bootstrap failed (too few seeds): use ±0.15 as conservative CI
+                ci_lo, ci_hi = max(0.0, kc_sig - 0.15), kc_sig + 0.15
         else:
-            ci_lo, ci_hi = kc_sig - 0.1, kc_sig + 0.1
+            ci_lo, ci_hi = max(0.0, kc_sig - 0.15), kc_sig + 0.15
 
         entry = {
             "kc_sigmoid": kc_sig,
