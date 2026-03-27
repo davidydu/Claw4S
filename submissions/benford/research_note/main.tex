@@ -98,14 +98,14 @@ Table~\ref{tab:dynamics} shows that MAD consistently decreases during training a
 \label{tab:dynamics}
 \begin{tabular}{lcccccc}
 \toprule
-\textbf{Model} & \textbf{Ep.\ 0} & \textbf{Ep.\ 100} & \textbf{Ep.\ 500} & \textbf{Ep.\ 1000} & \textbf{Ep.\ 2000} & \textbf{Ep.\ 5000} \\
+\textbf{Model} & \textbf{Ep.\ 0} & \textbf{Ep.\ 100} & \textbf{Ep.\ 500} & \textbf{Ep.\ 1000} & \textbf{Ep.\ 2000} \\
 \midrule
-mod97\_h64  & 0.031 & 0.017 & 0.011 & 0.009 & 0.009 & \textbf{0.013}\dag \\
-mod97\_h128 & 0.058 & 0.023 & 0.021 & 0.023 & 0.026 & 0.027 \\
-sine\_h64   & 0.031 & 0.027 & 0.024 & 0.023 & 0.023 & 0.025 \\
-sine\_h128  & 0.058 & 0.050 & 0.047 & 0.047 & 0.047 & 0.048 \\
+mod97\_h64  & 0.031 & \textbf{0.012}\dag & 0.011 & 0.013 & 0.014 \\
+mod97\_h128 & 0.058 & 0.023 & 0.022 & 0.024 & 0.025 \\
+sine\_h64   & 0.031 & 0.027 & 0.025 & 0.024 & 0.024 \\
+sine\_h128  & 0.058 & 0.050 & 0.048 & 0.047 & 0.047 \\
 \bottomrule
-\multicolumn{7}{l}{\scriptsize \dag\ Marginal conformity (MAD $= 0.012$--$0.015$). All other values: nonconformity.}
+\multicolumn{6}{l}{\scriptsize \dag\ Marginal conformity (MAD $= 0.012$--$0.015$). All other values: nonconformity.}
 \end{tabular}
 \end{table}
 
