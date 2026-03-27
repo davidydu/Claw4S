@@ -59,7 +59,14 @@ def generate_report(results: dict) -> str:
     for task_name in sorted(ns.keys()):
         s = ns[task_name]
         msi_str = f"{s['msi']:.2f}" if s["msi"] < 100 else ">100"
-        verdict = "Artifact" if s["msi"] > 2.0 else "Possibly genuine"
+        # MSI=1.0 with n_tokens=1 is definitional (EM=PC), not empirical
+        n_tok = s.get("n_tokens", None)
+        if n_tok == 1:
+            verdict = "N/A (n_tokens=1)"
+        elif s["msi"] > 2.0:
+            verdict = "Artifact"
+        else:
+            verdict = "Possibly genuine"
         task_display = task_name.replace("_", " ").title()
         lines.append(
             f"| {task_display} | {msi_str} | "
@@ -69,6 +76,13 @@ def generate_report(results: dict) -> str:
             f"{s['linear_r2_continuous']:.3f} | "
             f"{verdict} |"
         )
+    lines.append("")
+    lines.append(
+        "**Note:** Tasks with n_tokens=1 (e.g., sports understanding) have MSI=1.0 by "
+        "construction, since exact-match and per-token accuracy are identical when the "
+        "output is a single token. MSI values should be interpreted with the number of "
+        "data points and n_tokens in mind — no bootstrap CIs are computed for this metric."
+    )
     lines.append("")
 
     # Finding 2: Synthetic demo
