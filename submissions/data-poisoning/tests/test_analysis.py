@@ -1,0 +1,100 @@
+"""Tests for analysis and sigmoid fitting."""
+
+import numpy as np
+import pytest
+
+from src.experiment import RunResult
+from src.analysis import aggregate_results, fit_sigmoid_curve, compute_findings, _sigmoid
+
+
+def _make_run(pf: float, hw: int, seed: int, test_acc: float) -> RunResult:
+    """Helper to create a RunResult with controlled test accuracy."""
+    return RunResult(
+        poison_fraction=pf,
+        hidden_width=hw,
+        seed=seed,
+        train_accuracy=test_acc + 0.05,
+        test_accuracy=test_acc,
+        train_clean_accuracy=test_acc - 0.02,
+        generalization_gap=0.05,
+        final_loss=0.5,
+        elapsed_seconds=0.1,
+    )
+
+
+class TestAggregateResults:
+    """Tests for aggregate_results."""
+
+    def test_groups_correctly(self):
+        runs = [
+            _make_run(0.0, 32, 42, 0.9),
+            _make_run(0.0, 32, 123, 0.88),
+            _make_run(0.0, 32, 7, 0.92),
+            _make_run(0.1, 32, 42, 0.7),
+        ]
+        agg = aggregate_results(runs)
+        assert len(agg) == 2  # Two unique (pf, hw) pairs
+
+    def test_mean_std(self):
+        runs = [
+            _make_run(0.0, 64, 42, 0.8),
+            _make_run(0.0, 64, 123, 0.9),
+            _make_run(0.0, 64, 7, 0.85),
+        ]
+        agg = aggregate_results(runs)
+        assert len(agg) == 1
+        assert abs(agg[0].test_acc_mean - 0.85) < 1e-6
+        assert agg[0].test_acc_std > 0
+        assert agg[0].n_seeds == 3
+
+
+class TestSigmoidFit:
+    """Tests for sigmoid curve fitting."""
+
+    def test_fit_perfect_sigmoid(self):
+        """Fit a known sigmoid curve."""
+        x = np.array([0.0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.4, 0.5])
+        y = _sigmoid(x, L=0.7, k=15.0, x0=0.2, b=0.2)
+
+        runs = []
+        for i, (pf, acc) in enumerate(zip(x, y)):
+            for seed in [42, 123, 7]:
+                runs.append(_make_run(pf, 64, seed, acc + np.random.RandomState(seed).randn() * 0.001))
+
+        agg = aggregate_results(runs)
+        fit = fit_sigmoid_curve(agg, hidden_width=64)
+
+        assert fit.r_squared > 0.95
+        assert abs(fit.x0 - 0.2) < 0.05
+        assert fit.hidden_width == 64
+
+    def test_fit_returns_threshold(self):
+        """Check that threshold is computed."""
+        x = np.array([0.0, 0.05, 0.1, 0.15, 0.2, 0.3, 0.4, 0.5])
+        y = _sigmoid(x, L=0.7, k=12.0, x0=0.2, b=0.2)
+
+        runs = []
+        for pf, acc in zip(x, y):
+            for seed in [42, 123, 7]:
+                runs.append(_make_run(pf, 128, seed, acc))
+
+        agg = aggregate_results(runs)
+        fit = fit_sigmoid_curve(agg, hidden_width=128)
+        assert 0 < fit.threshold_midpoint < 0.6
+
+
+class TestSigmoidFunction:
+    """Tests for the sigmoid helper."""
+
+    def test_midpoint(self):
+        x = np.array([0.2])
+        y = _sigmoid(x, L=1.0, k=10.0, x0=0.2, b=0.0)
+        assert abs(y[0] - 0.5) < 1e-6
+
+    def test_limits(self):
+        x_low = np.array([-10.0])
+        x_high = np.array([10.0])
+        y_low = _sigmoid(x_low, L=1.0, k=10.0, x0=0.0, b=0.0)
+        y_high = _sigmoid(x_high, L=1.0, k=10.0, x0=0.0, b=0.0)
+        assert y_low[0] > 0.99  # Far left -> L + b
+        assert y_high[0] < 0.01 + 0.0  # Far right -> b

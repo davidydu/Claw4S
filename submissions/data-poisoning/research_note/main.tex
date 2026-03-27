@@ -1,0 +1,88 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{xcolor}
+
+\title{Data Poisoning Sensitivity: Critical Thresholds and\\Model-Size Dependence in Label-Flip Attacks}
+\author{Yun Du \and Lina Ji \and Claw}
+\date{March 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+We systematically sweep label-flip poisoning rates from 0\% to 50\% on two-layer MLPs of varying width (32, 64, 128 hidden units) trained on synthetic Gaussian classification data. We find that (1) accuracy degradation follows a sigmoid curve with $R^2 > 0.98$, indicating a smooth but sharp phase transition rather than gradual decay; (2) the critical poison threshold---defined as the fraction where accuracy drops to the midpoint of clean performance and chance---decreases monotonically with model size (43.4\%, 37.3\%, 34.8\% for widths 32, 64, 128 respectively); and (3) the generalization gap at high poisoning rates is 3x larger for the largest model compared to the smallest. These findings suggest that overparameterized models, while more expressive, are more vulnerable to training data corruption. All experiments complete in under 20 seconds on CPU and are fully reproducible.
+\end{abstract}
+
+\section{Introduction}
+
+Data poisoning attacks, where an adversary corrupts training labels to degrade model performance, pose a fundamental threat to machine learning reliability \cite{biggio2012poisoning}. Understanding the relationship between poisoning intensity and model degradation is critical for designing robust systems.
+
+We investigate two questions: (1) Is there a sharp phase transition in model accuracy as poisoning increases, or is degradation gradual? (2) Does model capacity (width) affect sensitivity to poisoning?
+
+We study label-flip attacks---the simplest form of data poisoning---on two-layer MLPs, sweeping 9 poison fractions across 3 model sizes with 3 seeds each (81 runs total). The controlled synthetic setting isolates the poisoning effect from confounds present in real datasets.
+
+\section{Method}
+
+\subsection{Data Generation}
+We generate 500 samples from 5 Gaussian clusters in $\mathbb{R}^{10}$ with cluster standard deviation $\sigma = 2.0$ and centers drawn from $\mathcal{N}(0, 2^2 I)$. The moderate cluster overlap creates a non-trivial classification problem (clean accuracy $\approx 90\%$) while remaining fully synthetic and reproducible. Data is split 70/30 for training/testing.
+
+\subsection{Poisoning}
+For each poison fraction $p \in \{0, 0.01, 0.05, 0.10, 0.15, 0.20, 0.30, 0.40, 0.50\}$, we randomly flip a fraction $p$ of training labels to uniformly random incorrect classes. Test labels are always clean.
+
+\subsection{Models}
+We train two-layer MLPs (Linear-ReLU-Linear) with hidden widths $h \in \{32, 64, 128\}$ using SGD (lr=0.05, 200 epochs, batch size 64). Each configuration is run with 3 seeds.
+
+\subsection{Analysis}
+We fit a descending sigmoid $f(x) = \frac{L}{1 + e^{k(x - x_0)}} + b$ to the accuracy-vs-poison curve for each model size. The steepness parameter $k$ quantifies transition sharpness, and we define the critical threshold as the poison fraction where accuracy drops to $\frac{\text{clean} + \text{chance}}{2}$.
+
+\section{Results}
+
+\begin{table}[h]
+\centering
+\caption{Sigmoid fit parameters and critical thresholds per model width.}
+\label{tab:fits}
+\begin{tabular}{@{}lccccc@{}}
+\toprule
+Width & Clean Acc & $k$ (steepness) & $x_0$ (midpoint) & Threshold & $R^2$ \\
+\midrule
+32  & 0.907 & 4.84  & 0.184 & 43.4\% & 0.993 \\
+64  & 0.904 & 8.34  & 0.188 & 37.3\% & 0.985 \\
+128 & 0.898 & 7.20  & 0.137 & 34.8\% & 0.996 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Phase Transition}
+The sigmoid fit quality ($R^2 > 0.98$) confirms that accuracy degradation is well-described by a logistic function rather than a linear decline. The steepness $k > 5$ for widths 64 and 128 indicates a relatively sharp transition, though not a discontinuous phase change.
+
+\subsection{Model-Size Sensitivity}
+The critical threshold decreases monotonically with model width: 43.4\% $\to$ 37.3\% $\to$ 34.8\% (Table~\ref{tab:fits}). Larger models require less poisoning to reach the same accuracy degradation, consistent with the hypothesis that overparameterized networks memorize poisoned labels more readily.
+
+\subsection{Generalization Gap}
+At 50\% poisoning, the generalization gap (train accuracy minus test accuracy) increases dramatically with model size: 0.114 (width 32), 0.240 (width 64), 0.351 (width 128). This 3x amplification demonstrates that larger models fit the corrupted training distribution more tightly while losing generalization to clean data.
+
+\section{Discussion}
+
+Our results reveal a tension in model design: wider networks achieve similar clean accuracy but are significantly more fragile under data corruption. The sigmoid shape of the degradation curve means that moderate poisoning ($< 15\%$) causes only modest accuracy loss, but beyond the inflection point, accuracy collapses rapidly.
+
+\textbf{Limitations.} (1) We use synthetic Gaussian data; real datasets may exhibit different cluster geometries and harder decision boundaries. (2) Label-flip is the simplest attack; targeted or backdoor attacks may show different sensitivity profiles. (3) Two-layer MLPs are architecturally simple; depth and attention mechanisms may interact differently with poisoning. (4) We do not explore defenses (e.g., label smoothing, data sanitization).
+
+\textbf{Implications.} In safety-critical applications where training data integrity cannot be guaranteed, practitioners should consider that scaling up model size amplifies vulnerability to data corruption. The critical threshold provides a quantitative budget for the maximum tolerable contamination level.
+
+\section{Reproducibility}
+
+All code is in the accompanying \texttt{SKILL.md}. The full experiment runs in $\sim$20 seconds on CPU with no external data dependencies. Pinned dependencies: \texttt{torch==2.6.0}, \texttt{numpy==2.2.4}, \texttt{scipy==1.15.2}. Seeds are fixed (42, 123, 7) with a data generation seed of 42.
+
+\begin{thebibliography}{1}
+\bibitem{biggio2012poisoning}
+B.~Biggio, B.~Nelson, and P.~Laskov.
+\newblock Poisoning attacks against support vector machines.
+\newblock In \emph{Proceedings of the 29th International Conference on Machine Learning (ICML)}, 2012.
+\end{thebibliography}
+
+\end{document}
