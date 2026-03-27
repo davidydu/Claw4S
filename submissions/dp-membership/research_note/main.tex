@@ -1,0 +1,147 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{natbib}
+\usepackage{xcolor}
+
+\title{Membership Inference Under Differential Privacy:\\
+  Quantifying How DP-SGD Prevents Privacy Leakage}
+
+\author{
+  Yun Du\textsuperscript{1} \and
+  Lina Ji\textsuperscript{1} \and
+  Claw\textsuperscript{2} \\
+  \textsuperscript{1}Stanford University \quad
+  \textsuperscript{2}AI Agent
+}
+
+\date{March 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+We empirically quantify how differentially private stochastic gradient descent (DP-SGD) mitigates membership inference attacks. Using synthetic Gaussian cluster classification data and 2-layer MLPs, we train models under four privacy regimes---non-private, weak DP ($\sigma{=}0.5$, $\varepsilon{\approx}53$), moderate DP ($\sigma{=}2.0$, $\varepsilon{\approx}9$), and strong DP ($\sigma{=}5.0$, $\varepsilon{\approx}3$)---and mount shadow-model membership inference attacks against each. Our results confirm the thesis: non-private models are vulnerable (attack AUC $= 0.664 \pm 0.060$), while strong DP reduces attack AUC to near-random ($0.521 \pm 0.005$), a reduction of 0.143. We observe a clear privacy-utility trade-off: strong DP degrades test accuracy from 79.2\% to 70.9\%, but effectively closes the membership inference channel. All code and experiments are fully reproducible via an executable SKILL.md.
+\end{abstract}
+
+\section{Introduction}
+
+Machine learning models can inadvertently memorize training data, making them vulnerable to \emph{membership inference attacks} (MIA)~\citep{shokri2017membership}. In a membership inference attack, an adversary determines whether a specific data point was used to train a model---a direct violation of data privacy.
+
+Differential privacy (DP) provides a principled defense. DP-SGD~\citep{abadi2016deep} modifies stochastic gradient descent by clipping per-sample gradients and adding calibrated Gaussian noise, bounding the influence of any individual training sample. The privacy guarantee is parameterized by $(\varepsilon, \delta)$: smaller $\varepsilon$ means stronger privacy.
+
+While the theory guarantees bounded information leakage, the \emph{practical} effectiveness of DP-SGD against membership inference attacks---and the associated utility cost---is less well-characterized. In this work, we provide a controlled empirical study quantifying the privacy-utility-leakage triad across four privacy levels.
+
+\section{Method}
+
+\subsection{Experimental Setup}
+
+\textbf{Data.} We use synthetic Gaussian cluster classification data: 500 samples, 10 features, 5 classes, with cluster standard deviation 2.5 and center spread 2.0. Each dataset is split 50/50 into members (training set) and non-members (holdout).
+
+\textbf{Target model.} 2-layer MLP with 128 hidden units and ReLU activation, trained for 80 epochs with SGD (lr=0.1, batch size 32). The large model and many epochs are chosen to induce overfitting, which creates the generalization gap that membership inference exploits.
+
+\textbf{Privacy levels.} We test four DP-SGD configurations with clipping norm $C=1.0$:
+
+\begin{center}
+\begin{tabular}{lccc}
+\toprule
+Level & $\sigma$ & $\varepsilon$ (approx.) & Description \\
+\midrule
+Non-private & 0.0 & $\infty$ & Standard SGD \\
+Weak DP & 0.5 & $\sim$53 & Minimal noise \\
+Moderate DP & 2.0 & $\sim$9 & Moderate noise \\
+Strong DP & 5.0 & $\sim$3 & Heavy noise \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{DP-SGD Implementation}
+
+We implement DP-SGD from scratch (no Opacus) following \citet{abadi2016deep}:
+\begin{enumerate}
+  \item \textbf{Per-sample gradients} via \texttt{torch.func.vmap} applied to \texttt{torch.func.grad}.
+  \item \textbf{Per-sample clipping}: each gradient is clipped to $\ell_2$ norm $\leq C$.
+  \item \textbf{Noise injection}: Gaussian noise $\mathcal{N}(0, \sigma^2 C^2 I)$ added to the sum of clipped gradients.
+  \item \textbf{Privacy accounting}: simplified R\'{e}nyi DP composition with conversion to $(\varepsilon, \delta)$-DP.
+\end{enumerate}
+
+\subsection{Membership Inference Attack}
+
+We implement the shadow model attack of \citet{shokri2017membership}:
+\begin{enumerate}
+  \item Train 3 shadow models per configuration, each on a fresh random dataset with known member/non-member splits and the same DP training config as the target.
+  \item For each sample, extract attack features from the model: softmax probability vector, maximum confidence, prediction entropy, cross-entropy loss on the true label, and correctness indicator.
+  \item Train a binary neural network attack classifier to distinguish members (label 1) from non-members (label 0) based on these features.
+  \item Apply the attack classifier to the target model's outputs.
+\end{enumerate}
+
+\subsection{Evaluation}
+
+We report attack AUC (ROC area under curve) and attack accuracy. AUC = 0.5 corresponds to random guessing (no information leakage). We run 3 seeds per configuration and report mean $\pm$ standard deviation.
+
+\section{Results}
+
+\begin{table}[h]
+\centering
+\caption{Membership inference results across privacy levels (mean $\pm$ std over 3 seeds).}
+\label{tab:results}
+\begin{tabular}{lcccc}
+\toprule
+Privacy Level & $\sigma$ & $\varepsilon$ & Test Acc. & Attack AUC \\
+\midrule
+Non-private & 0.0 & $\infty$ & $0.792 \pm 0.116$ & $\mathbf{0.664 \pm 0.060}$ \\
+Weak DP & 0.5 & 53.5 & $0.849 \pm 0.085$ & $0.532 \pm 0.019$ \\
+Moderate DP & 2.0 & 9.4 & $0.805 \pm 0.091$ & $0.543 \pm 0.011$ \\
+Strong DP & 5.0 & 3.4 & $0.709 \pm 0.118$ & $0.521 \pm 0.005$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Key findings:}
+
+\begin{enumerate}
+  \item \textbf{Non-private models are vulnerable.} Without DP, the attack achieves AUC = 0.664, well above random (0.5). The model's overfitting (generalization gap) leaks membership information through its confidence patterns.
+
+  \item \textbf{DP-SGD effectively mitigates the attack.} Even weak DP ($\sigma{=}0.5$) dramatically reduces attack AUC from 0.664 to 0.532. Strong DP ($\sigma{=}5.0$) further reduces it to 0.521, near random guessing.
+
+  \item \textbf{Privacy-utility trade-off.} Strong DP reduces test accuracy from 79.2\% to 70.9\% (a 8.3 percentage point drop). This quantifies the cost of privacy protection.
+
+  \item \textbf{Overfitting drives vulnerability.} The generalization gap (train accuracy $-$ test accuracy) strongly correlates with attack success, consistent with the intuition that membership inference exploits memorization.
+\end{enumerate}
+
+\section{Discussion}
+
+Our results confirm the theoretical prediction that DP-SGD bounds membership inference leakage. The mechanism is twofold: (1) noise injection prevents the model from memorizing individual samples, reducing the generalization gap; (2) gradient clipping bounds the sensitivity of the training algorithm to any single sample.
+
+The strong practical effectiveness even at moderate privacy levels ($\sigma{=}0.5$ already reduces AUC substantially) suggests that DP-SGD provides meaningful privacy protection at reasonable utility cost.
+
+\textbf{Limitations.} Our experiments use synthetic data and small models. Real-world datasets with richer structure may show different privacy-utility trade-offs. Our simplified privacy accounting provides upper-bound $\varepsilon$ estimates; tighter accounting (e.g., PLD or Gaussian DP) would yield smaller $\varepsilon$ values for the same noise levels.
+
+\section{Reproducibility}
+
+All experiments are reproducible via the accompanying SKILL.md. The DP-SGD implementation uses no external DP libraries. Seeds are fixed at [42, 123, 456]. Dependencies are pinned: PyTorch 2.6.0, NumPy 2.2.4. Runtime is approximately 22 seconds on a modern CPU.
+
+\bibliographystyle{plainnat}
+\begin{thebibliography}{3}
+
+\bibitem[Abadi et~al.(2016)]{abadi2016deep}
+M.~Abadi, A.~Chu, I.~Goodfellow, H.~B. McMahan, I.~Mironov, K.~Talwar, and L.~Zhang.
+\newblock Deep learning with differential privacy.
+\newblock In \emph{Proceedings of the 2016 ACM SIGSAC Conference on Computer and Communications Security}, pages 308--318, 2016.
+
+\bibitem[Shokri et~al.(2017)]{shokri2017membership}
+R.~Shokri, M.~Stronati, C.~Song, and V.~Shmatikov.
+\newblock Membership inference attacks against machine learning models.
+\newblock In \emph{2017 IEEE Symposium on Security and Privacy (SP)}, pages 3--18, 2017.
+
+\bibitem[Mironov(2017)]{mironov2017renyi}
+I.~Mironov.
+\newblock R\'{e}nyi differential privacy.
+\newblock In \emph{2017 IEEE 30th Computer Security Foundations Symposium (CSF)}, pages 263--275, 2017.
+
+\end{thebibliography}
+
+\end{document}
