@@ -46,19 +46,21 @@ def weighted_by_history(
 ) -> Dict[int, float]:
     """Ratings weighted by rater's account age (older = more trusted).
 
-    Weight = log2(2 + account_age) where account_age = current_round - first_seen.
+    Weight = account_age^2 where account_age is the rater's current account
+    age stored on the Agent object.  Using the Agent's stored age (rather
+    than recomputing from first_seen in the ledger) means whitewashing resets
+    actually reduce rater weight, and the quadratic scale amplifies the age
+    gap between long-standing honest agents and newer/reset Sybil accounts.
     """
-    first_seen: Dict[int, int] = {}
-    for rater, _ratee, _val, rnd in ledger:
-        if rater not in first_seen:
-            first_seen[rater] = rnd
+    # Build a lookup from agent_id -> current account_age
+    age_by_id: Dict[int, int] = {a.agent_id: a.account_age for a in agents}
 
     weighted_sums: Dict[int, float] = {}
     weight_totals: Dict[int, float] = {}
 
     for rater, ratee, value, _rnd in ledger:
-        age = current_round - first_seen.get(rater, current_round)
-        w = float(np.log2(2 + age))
+        age = age_by_id.get(rater, 0)
+        w = float(age * age + 1)  # quadratic weight; +1 avoids zero-weight
         weighted_sums[ratee] = weighted_sums.get(ratee, 0.0) + w * value
         weight_totals[ratee] = weight_totals.get(ratee, 0.0) + w
 

@@ -39,7 +39,8 @@
 As AI agents increasingly interact in open marketplaces and federated systems, reputation mechanisms become critical infrastructure for trust.
 We study Sybil attacks---where an adversary creates multiple fake identities to manipulate reputation scores---in a simulated multi-agent marketplace.
 We evaluate four reputation algorithms (simple average, weighted-by-history, PageRank-style trust, and EigenTrust) against three Sybil attack strategies (ballot stuffing, bad-mouthing, whitewashing) across five attacker population sizes.
-Our 156-simulation experiment reveals a sharp resilience divide: graph-based algorithms (PageRank, EigenTrust) maintain reputation accuracy above 0.97 even when Sybil agents equal the honest population, while averaging-based methods degrade to 0.70.
+Our 156-simulation experiment reveals a sharp resilience divide: graph-based algorithms (PageRank, EigenTrust) maintain reputation accuracy above 0.97 even when Sybil agents equal the honest population, while simple averaging degrades to 0.70.
+Account-age weighting shows partial resilience: it matches simple average against ballot stuffing and bad-mouthing, but defends well against whitewashing (0.98 vs. 0.87 at $K{=}20$) because periodic identity resets eliminate accumulated weight.
 Bad-mouthing emerges as the most damaging strategy, reducing mean accuracy by 39\% at $K{=}10$.
 The entire experiment is packaged as an agent-executable skill, reproducible from a single \texttt{SKILL.md} file.
 \end{abstract}
@@ -66,7 +67,7 @@ A Sybil attacker introduces $K \in \{0, 2, 5, 10, 20\}$ fake identities at round
 
 \textbf{Simple Average.} Reputation is the arithmetic mean of all ratings received. No Sybil defense.
 
-\textbf{Weighted-by-History.} Ratings are weighted by rater account age: $w = \log_2(2 + \text{age})$. Newer accounts (including Sybils) receive lower weight.
+\textbf{Weighted-by-History.} Ratings are weighted by rater account age: $w = \text{age}^2 + 1$. Newer accounts (including Sybils) receive quadratically lower weight, amplifying the advantage of long-standing honest agents.
 
 \textbf{PageRank Trust.} We build a directed graph from transactions where positive ratings ($> 0.5$) create edges. PageRank (damping $\alpha{=}0.85$, 30 iterations) propagates trust through the network, then scores are normalized to $[0, 1]$.
 
@@ -106,7 +107,7 @@ All experiments use 3 seeds per configuration for variance estimation.
 Algorithm & $K{=}0$ & $K{=}2$ & $K{=}5$ & $K{=}10$ & $K{=}20$ \\
 \midrule
 Simple Average & 0.999 & 0.725 & 0.712 & 0.708 & 0.699 \\
-Weighted History & 0.999 & 0.725 & 0.712 & 0.708 & 0.699 \\
+Weighted History & 0.999 & 0.767 & 0.742 & 0.742 & 0.736 \\
 PageRank Trust & 0.994 & 0.989 & 0.983 & 0.976 & 0.977 \\
 EigenTrust & 0.979 & 0.971 & 0.969 & 0.969 & 0.971 \\
 \bottomrule
@@ -115,8 +116,8 @@ EigenTrust & 0.979 & 0.971 & 0.969 & 0.969 & 0.971 \\
 
 Table~\ref{tab:accuracy} reveals a stark divide.
 All algorithms achieve near-perfect accuracy ($>0.97$) without Sybils.
-With even $K{=}2$ attackers, simple average and weighted history drop sharply to 0.725, while PageRank and EigenTrust remain above 0.97.
-At $K{=}20$ (equal to honest population), graph-based algorithms lose less than 2.5\% accuracy; averaging methods lose 30\%.
+With $K{=}2$ attackers, simple average drops sharply to 0.725; weighted history fares slightly better at 0.767 due to its quadratic age weighting.
+At $K{=}20$ (equal to honest population), graph-based algorithms lose less than 2.5\% accuracy; simple average loses 30\%, while weighted history loses only 26\%.
 
 \subsection{Sybil Detection}
 
@@ -127,7 +128,8 @@ Simple average and weighted history fail completely (0.000), as Sybil agents' in
 \subsection{Strategy Comparison}
 
 Bad-mouthing is the most damaging strategy, reducing mean accuracy to 0.607 at $K{=}10$ (averaged across algorithms).
-Ballot stuffing (0.779) and whitewashing (0.766) are less damaging because they primarily inflate Sybil scores without directly harming honest agents' reputations.
+Ballot stuffing (0.992) is the least damaging because it only inflates Sybil scores without directly depressing honest agent rankings.
+Whitewashing (0.947) falls between them: Sybil account resets eliminate accumulated reputation but do not directly attack honest agents, and the weighted-history algorithm strongly neutralizes whitewashers by discounting their low-age ratings.
 
 \subsection{Honest Welfare and Efficiency}
 
@@ -136,9 +138,11 @@ Market efficiency tracks accuracy closely: PageRank maintains efficiency above 0
 
 \section{Discussion}
 
-\textbf{Why account age alone fails.}
-Weighted-by-history performs identically to simple average because, over 4500 rounds of activity, the log-scale age weight difference between honest agents ($\log_2(5002) \approx 12.3$) and Sybils ($\log_2(4502) \approx 12.1$) is negligible.
-This demonstrates that account age is a weak Sybil signal when attacks are sustained.
+\textbf{When account age helps and when it fails.}
+Weighted-by-history uses a quadratic age weight ($w = \text{age}^2 + 1$), giving honest agents with thousands of rounds a massive weight advantage.
+Against ballot stuffing and bad-mouthing, where Sybils maintain consistent identities, this provides only modest benefit: Sybils join at round 500, so at round 5000 their weight ($4500^2$) is 81\% of honest agents' ($5000^2$), insufficient to block the attack.
+Against whitewashing, however, the algorithm excels: each time Sybils reset their account age to zero, their weight drops to 1 versus $5000^2 = 25{,}000{,}001$ for honest agents, making their injected ratings negligible.
+This demonstrates that account-age weighting is a selective defense: it fails against sustained-identity attacks but is highly effective against identity-cycling strategies.
 
 \textbf{Graph structure as defense.}
 PageRank and EigenTrust succeed because they propagate trust through the transaction graph.
@@ -157,9 +161,9 @@ Future work should explore adaptive Sybil strategies that learn to evade detecti
 \section{Conclusion}
 
 We presented an agent-executable experiment comparing four reputation algorithms against three Sybil attack strategies across five attacker population sizes.
-The key finding is a sharp resilience divide: graph-based algorithms (PageRank, EigenTrust) maintain accuracy above 0.97 with equal numbers of Sybil and honest agents, while averaging-based methods degrade by 30\%.
-Account-age weighting provides negligible defense against sustained attacks.
-Bad-mouthing is the most damaging strategy, and PageRank achieves perfect Sybil detection.
+The key finding is a sharp resilience divide: graph-based algorithms (PageRank, EigenTrust) maintain accuracy above 0.97 with equal numbers of Sybil and honest agents, while simple averaging degrades by 30\%.
+Account-age weighting provides strategy-dependent defense: negligible against ballot stuffing and bad-mouthing, but highly effective against whitewashing (accuracy 0.98 vs. 0.87 for simple average at $K{=}20$).
+Bad-mouthing is the most damaging strategy across all algorithms, and PageRank achieves perfect Sybil detection.
 The full experiment (156 simulations) is reproducible via a single \texttt{SKILL.md} and runs in under 4 minutes.
 
 \begin{thebibliography}{9}

@@ -37,20 +37,24 @@ def test_simple_average_basic():
 
 
 def test_weighted_history_older_raters_matter_more():
+    # New algorithm uses agent.account_age directly (quadratic weight).
+    # Set rater 0 as old (age=100) and rater 1 as new (age=10).
     agents = _make_agents(3)
-    # Rater 0 rates agent 2 low at round 0
-    # Rater 1 rates agent 2 high at round 100
+    agents[0].account_age = 100  # old rater -- high weight
+    agents[1].account_age = 10   # new rater -- low weight
+    agents[2].account_age = 100
+
+    # Rater 0 (old, high-weight) rates agent 2 low: 0.2
+    # Rater 1 (new, low-weight) rates agent 2 high: 0.8
     ledger = [
         (0, 2, 0.2, 0),
         (1, 2, 0.8, 100),
-        (0, 1, 0.5, 0),  # so rater 0 first seen at round 0
-        (1, 0, 0.5, 50),  # rater 1 first seen at round 50
     ]
     scores = weighted_by_history(agents, ledger, current_round=100)
-    # Rater 0 has age 100 (weight = log2(102) ~ 6.67)
-    # Rater 1 has age 50 (weight = log2(52) ~ 5.70)
-    # So rater 0's low rating should pull agent 2 down
-    assert scores[2] < 0.5
+    # Rater 0 weight = 100^2 + 1 = 10001; rater 1 weight = 10^2 + 1 = 101
+    # weighted mean = (10001*0.2 + 101*0.8) / (10001 + 101) = (2000.2 + 80.8) / 10102 ~ 0.205
+    # So older rater dominates -- agent 2 score should be well below 0.5
+    assert scores[2] < 0.4
 
 
 def test_pagerank_returns_scores_for_all():

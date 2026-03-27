@@ -87,7 +87,7 @@ Read the generated report:
 cat results/report.md
 ```
 
-Expected: Four tables (accuracy, detection, welfare, efficiency) plus key findings. PageRank and EigenTrust should maintain accuracy > 0.95 at K=20 while simple average degrades to ~0.70.
+Expected: Four tables (accuracy, detection, welfare, efficiency) plus key findings. PageRank and EigenTrust should maintain accuracy > 0.95 at K=20 while simple average degrades to ~0.70. Weighted history should show ~0.74 (better than simple average due to quadratic age weighting discounting whitewashing resets).
 
 ## How to Extend
 
