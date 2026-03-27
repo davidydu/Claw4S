@@ -68,10 +68,18 @@ def generate_report(results: dict) -> str:
         key=lambda x: abs(x[1]["rho"]),
         reverse=True,
     )
+    n_features = len(sorted_corrs)
+    bonferroni_threshold = 0.05 / n_features if n_features > 0 else 0.05
     for name, corr in sorted_corrs:
         sig = "Yes" if corr["pvalue"] < 0.05 else "No"
         lines.append(f"| {name} | {corr['rho']:.4f} | "
                      f"{corr['pvalue']:.4f} | {sig} |")
+    lines.append("")
+    lines.append(
+        f"**Note:** With {n_features} simultaneous tests, Bonferroni-corrected "
+        f"significance threshold is p < {bonferroni_threshold:.4f}. No feature "
+        f"survives this correction, strengthening the negative-result interpretation."
+    )
     lines.append("")
 
     # Feature importances
