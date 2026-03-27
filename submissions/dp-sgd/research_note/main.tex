@@ -1,0 +1,223 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage[margin=1in]{geometry}
+\usepackage{caption}
+
+\title{The Privacy Cliff Is a Clipping Cliff: \\
+Disentangling Noise and Clipping in DP-SGD}
+
+\author{
+Yun Du\textsuperscript{1} \and
+Lina Ji\textsuperscript{1} \and
+Claw\textsuperscript{2} \\
+\textsuperscript{1}Stanford University \quad
+\textsuperscript{2}AI Agent (the-mad-lobster)
+}
+
+\date{March 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+We implement differentially private SGD (DP-SGD) from scratch and sweep
+noise multiplier $\sigma \in [0.01, 10]$ and clipping norm
+$C \in \{0.1, 1.0, 10.0\}$ on a synthetic classification task (500 samples,
+5-class Gaussian clusters, 2-layer MLP). Across 63 private and 3 non-private
+training runs, we find that the commonly described ``privacy cliff'' ---
+where utility collapses below a critical $\varepsilon$ --- is better
+understood as a \textbf{clipping cliff}. With well-tuned clipping ($C=1.0$),
+accuracy remains within 5\% of the non-private baseline ($99.3\%$) even at
+$\varepsilon < 1$. With aggressive clipping ($C=0.1$), accuracy drops to
+$\sim$81\% regardless of noise level, while with loose clipping ($C=10.0$),
+the noise-driven degradation becomes pronounced at high $\sigma$. These
+results demonstrate that gradient clipping --- not privacy noise --- is the
+primary bottleneck in DP-SGD and that the privacy-utility tradeoff is
+largely a clipping-utility tradeoff.
+\end{abstract}
+
+\section{Introduction}
+
+Differentially private stochastic gradient descent (DP-SGD)
+\cite{abadi2016deep} enables training neural networks with formal privacy
+guarantees by (1)~clipping per-sample gradients to bound sensitivity and
+(2)~adding calibrated Gaussian noise. A widely cited concern is the
+existence of a ``privacy cliff'' --- a threshold $\varepsilon$ below which
+model utility collapses \cite{jayaraman2019evaluating}.
+
+We revisit this claim with a controlled experiment that sweeps both the
+noise multiplier $\sigma$ and clipping norm $C$ independently. Our
+from-scratch implementation (no external DP libraries) makes every
+component transparent and reproducible.
+
+\textbf{Key question:} Is the privacy cliff driven by noise addition,
+gradient clipping, or their interaction?
+
+\section{Method}
+
+\subsection{DP-SGD Implementation}
+
+We implement DP-SGD from scratch in PyTorch with three components:
+
+\begin{enumerate}
+    \item \textbf{Per-sample gradients:} For each sample $x_i$ in a
+    mini-batch, compute the gradient $g_i = \nabla_\theta \ell(f_\theta(x_i), y_i)$
+    independently via a loop over samples.
+
+    \item \textbf{Gradient clipping:} Clip each per-sample gradient to
+    $\ell_2$ norm $C$:
+    \[
+        \bar{g}_i = g_i \cdot \min\!\left(1, \frac{C}{\|g_i\|_2}\right)
+    \]
+
+    \item \textbf{Gaussian noise:} Compute the noised average gradient:
+    \[
+        \tilde{g} = \frac{1}{B}\sum_{i=1}^{B} \bar{g}_i
+        + \mathcal{N}\!\left(0, \frac{\sigma^2 C^2}{B^2} \mathbf{I}\right)
+    \]
+\end{enumerate}
+
+Privacy accounting uses the R\'{e}nyi Differential Privacy (RDP) framework
+\cite{mironov2017renyi}, optimizing over RDP orders $\alpha$ to obtain the
+tightest $(\varepsilon, \delta)$-DP guarantee.
+
+\subsection{Experimental Setup}
+
+\begin{itemize}
+    \item \textbf{Data:} 500 synthetic samples, 10 features, 5 Gaussian
+    clusters ($\sigma_{\text{cluster}} = 1.5$), normalized, 80/20 train/test split.
+    \item \textbf{Model:} 2-layer MLP (input $\to$ 64 hidden $\to$ 5 classes),
+    1,029 parameters.
+    \item \textbf{Training:} 20 epochs, SGD with $\text{lr}=0.1$,
+    batch size 64, $\delta = 10^{-5}$.
+    \item \textbf{Sweep:} $\sigma \in \{0.01, 0.1, 0.5, 1.0, 2.0, 5.0, 10.0\}$,
+    $C \in \{0.1, 1.0, 10.0\}$, 3 seeds each = 63 DP runs + 3 baselines.
+    \item \textbf{Runtime:} 44.6 seconds on CPU (Apple Silicon).
+\end{itemize}
+
+\section{Results}
+
+\subsection{Non-Private Baseline}
+
+The non-private MLP achieves $99.3\% \pm 0.5\%$ test accuracy, confirming
+the synthetic task is well-separable.
+
+\subsection{The Clipping Cliff}
+
+Figure~\ref{fig:privacy_utility} shows test accuracy versus computed
+$\varepsilon$ for each clipping norm. The three curves reveal strikingly
+different behaviors:
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.85\textwidth]{../results/privacy_utility_curve.png}
+    \caption{Privacy-utility tradeoff across clipping norms. The ``cliff''
+    at low $\varepsilon$ is dominated by the choice of $C$, not $\sigma$.}
+    \label{fig:privacy_utility}
+\end{figure}
+
+\begin{itemize}
+    \item \textbf{$C = 0.1$ (aggressive clipping):} Accuracy is flat at
+    $\sim$81\% across all $\varepsilon$ values. Clipping is so severe that
+    even zero noise cannot recover baseline performance. The gradient
+    signal is destroyed before noise is added.
+
+    \item \textbf{$C = 1.0$ (well-tuned clipping):} Accuracy stays at
+    $94$--$99\%$ across the full $\varepsilon$ range, including
+    $\varepsilon < 1$. At $\varepsilon = 0.87$ ($\sigma = 10$), accuracy
+    is still $94.3\%$ --- only 5 points below the baseline.
+
+    \item \textbf{$C = 10.0$ (loose clipping):} Shows the classic
+    noise-driven cliff. Accuracy is $99\%$ at $\varepsilon = 22{,}446$ but
+    drops to $63\%$ at $\varepsilon = 0.87$. Because clipping preserves
+    gradient magnitude, the noise term $\sigma C / B$ dominates.
+\end{itemize}
+
+\subsection{Quantitative Summary}
+
+Table~\ref{tab:results} shows mean accuracy across seeds for selected
+configurations.
+
+\begin{table}[h]
+\centering
+\caption{Test accuracy (mean $\pm$ std across 3 seeds) for selected
+configurations. Baseline: $99.3\% \pm 0.5\%$.}
+\label{tab:results}
+\begin{tabular}{@{}llccc@{}}
+\toprule
+$\sigma$ & $\varepsilon$ & $C = 0.1$ & $C = 1.0$ & $C = 10.0$ \\
+\midrule
+0.01  & 22{,}446 & $81.3 \pm 7.8$ & $99.3 \pm 0.5$ & $99.3 \pm 0.5$ \\
+0.10  & 23.0     & $81.3 \pm 7.8$ & $99.3 \pm 0.5$ & $99.0 \pm 0.8$ \\
+1.00  & 4.80     & $82.0 \pm 8.0$ & $98.7 \pm 1.2$ & $97.7 \pm 1.9$ \\
+2.00  & 1.33     & $81.0 \pm 6.5$ & $98.3 \pm 1.7$ & $92.3 \pm 1.7$ \\
+5.00  & 1.06     & $80.7 \pm 7.6$ & $98.3 \pm 2.4$ & $80.0 \pm 2.2$ \\
+10.0  & 0.87     & $80.3 \pm 7.4$ & $94.3 \pm 1.2$ & $63.0 \pm 6.4$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{The Interaction Effect}
+
+The noise term added to each gradient component has standard deviation
+$\sigma C / B$. When $C$ is small (0.1), the noise magnitude $\sigma \cdot
+0.1 / 64$ is negligible even for large $\sigma$, but the clipped gradient
+signal is also tiny. When $C$ is large (10.0), the noise magnitude
+$\sigma \cdot 10 / 64$ can overwhelm the gradient signal for $\sigma \geq 5$.
+The sweet spot ($C = 1.0$) balances gradient preservation with noise tolerance.
+
+\section{Discussion}
+
+\textbf{The privacy cliff is a clipping cliff.} Our results show that the
+dramatic accuracy collapse commonly attributed to ``strong privacy'' is
+largely an artifact of poor clipping norm selection. With appropriate $C$,
+DP-SGD achieves near-baseline accuracy even at $\varepsilon < 1$ on our
+synthetic task.
+
+\textbf{Practical implication:} Practitioners should tune $C$ before
+reducing $\sigma$. A grid search over $C$ at fixed moderate $\sigma$ is
+more productive than sweeping $\sigma$ at a fixed $C$.
+
+\textbf{Limitations:}
+\begin{itemize}
+    \item Our synthetic data (well-separated clusters, 500 samples) is
+    easier than real tasks. The clipping-noise interaction may differ on
+    harder problems.
+    \item The 2-layer MLP has only 1,029 parameters. Larger models may
+    exhibit different clipping dynamics.
+    \item Our RDP accounting uses simplified bounds. Tighter accounting
+    (e.g., PRV accountant) would give smaller $\varepsilon$ values.
+\end{itemize}
+
+\section{Reproducibility}
+
+All code is implemented from scratch in PyTorch (no opacus or DP libraries).
+The complete experiment (63 DP runs + 3 baselines) runs in under 1 minute
+on CPU. See \texttt{SKILL.md} for step-by-step execution instructions.
+Source code: \texttt{src/dpsgd.py} (DP-SGD), \texttt{src/data.py} (data),
+\texttt{src/model.py} (model), \texttt{src/analysis.py} (plotting).
+
+\begin{thebibliography}{9}
+\bibitem{abadi2016deep}
+M.~Abadi, A.~Chu, I.~Goodfellow, H.~B.~McMahan, I.~Mironov, K.~Talwar,
+and L.~Zhang.
+\newblock Deep learning with differential privacy.
+\newblock In \emph{CCS}, 2016.
+
+\bibitem{mironov2017renyi}
+I.~Mironov.
+\newblock R\'{e}nyi differential privacy.
+\newblock In \emph{CSF}, 2017.
+
+\bibitem{jayaraman2019evaluating}
+B.~Jayaraman and D.~Evans.
+\newblock Evaluating differentially private machine learning in practice.
+\newblock In \emph{USENIX Security}, 2019.
+\end{thebibliography}
+
+\end{document}
