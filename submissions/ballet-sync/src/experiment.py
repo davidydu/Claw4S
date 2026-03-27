@@ -22,7 +22,7 @@ class ExperimentConfig:
     n: int
     sigma: float
     seed: int
-    total_steps: int = 10_000
+    total_steps: int = 1_000
     dt: float = 0.01
     omega0: float = 1.0
     stage_size: float = 10.0

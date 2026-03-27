@@ -9,12 +9,12 @@ allowed-tools: Bash(python *), Bash(python3 *), Bash(pip *), Bash(.venv/*), Bash
 
 # Emergent Synchronization in Ballet Corps
 
-This skill simulates 2,400 Kuramoto oscillator experiments to study how critical coupling strength K_c governs the spontaneous synchronization of ballet dancers. The experiment sweeps coupling strength × topology × group size × frequency heterogeneity, then detects phase transitions using sigmoid fitting, susceptibility peaks, and critical exponent analysis.
+This skill simulates 1,440 Kuramoto oscillator experiments to study how critical coupling strength K_c governs the spontaneous synchronization of ballet dancers. The experiment sweeps coupling strength × topology × group size × frequency heterogeneity, then detects phase transitions using sigmoid fitting, susceptibility peaks, and critical exponent analysis.
 
 ## Prerequisites
 
 - Requires **Python 3.10+**. No internet access needed (pure simulation).
-- Expected runtime: **4-8 minutes** on a single CPU.
+- Expected runtime: **5-10 minutes** on a single CPU.
 - All commands must be run from the **submission directory** (`submissions/ballet-sync/`).
 
 ## Step 1: Environment Setup
@@ -49,7 +49,7 @@ Expected: Pytest exits with `X passed` and exit code 0. All test modules cover t
 
 ## Step 3: Run the Experiment
 
-Execute the full 2,400-simulation Kuramoto experiment:
+Execute the full 1,440-simulation Kuramoto experiment:
 
 ```bash
 .venv/bin/python run.py
@@ -58,16 +58,17 @@ Execute the full 2,400-simulation Kuramoto experiment:
 Expected: Script prints progress per topology, for example:
 
 ```
-[1/4] Topology: all-to-all (600 sims)...
-    Done (600 sims completed)
-[2/4] Topology: nearest-k (600 sims)...
-    Done (600 sims completed)
+[1/4] Topology: all-to-all (360 sims)...
+    Done (360 sims completed)
+[2/4] Topology: nearest-k (360 sims)...
+    Done (360 sims completed)
 ...
+[4/5] Generating report...
 [5/5] Saving results to results/
 ```
 
 Script exits with code 0. The following files are created:
-- `results/results.json` — all 2,400 simulation records with evaluator scores
+- `results/results.json` — all 1,440 simulation records with evaluator scores
 - `results/report.md` — markdown report with phase transition tables and key findings
 - `results/statistical_tests.json` — K_c estimates, critical exponents, finite-size scaling per topology
 - `results/figures/phase_transition.png`
@@ -86,7 +87,7 @@ Check that results are complete and numerically consistent:
 ```
 
 Expected output includes:
-- `Records: 2400 (expected 2400)`
+- `Records: 1440 (expected 1440)`
 - `Mean kuramoto_order score at K=0: X.XXXX (expected < 0.3)` — confirms K=0 control
 - `Relative difference: X.XXXX (must be < 0.01)` — dt convergence check
 - `Validation passed.`

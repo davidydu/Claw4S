@@ -18,8 +18,8 @@ print(f"Records:      {num_records} (expected {num_sims})")
 
 errors = []
 
-# Check record count = 2400
-EXPECTED_COUNT = 2400
+# Check record count = 1440 (20 K × 4 topologies × 3 N × 2 sigma × 3 seeds)
+EXPECTED_COUNT = 1440
 if num_records != EXPECTED_COUNT:
     errors.append(
         f"Expected {EXPECTED_COUNT} records, got {num_records}"

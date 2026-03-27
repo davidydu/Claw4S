@@ -60,10 +60,10 @@ def test_spatial_alignment_synced():
 
 
 def test_spatial_alignment_has_evidence():
-    """Spatial alignment result should contain pearson_r in evidence."""
+    """Spatial alignment result should contain mean_phase_spread in evidence."""
     ev = SpatialAlignmentEvaluator()
     result = ev.evaluate(_synced_history(), _positions(), _adjacency_all(), sigma=0.5)
-    assert "pearson_r" in result.evidence
+    assert "mean_phase_spread" in result.evidence
 
 
 def test_pairwise_entrainment_synced():

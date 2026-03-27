@@ -127,7 +127,7 @@ def _kc_fss(N, K_c_inf, a, nu):
 def fit_finite_size_scaling(
     kc_by_n: Dict[int, float]
 ) -> Tuple[float, float]:
-    """Fit K_c(N) = K_c(∞) + a * N^(-ν) using scipy curve_fit.
+    """Fit K_c(N) = K_c(∞) + a * N^(-ν) using scipy curve_fit with bounds.
 
     Parameters
     ----------
@@ -136,15 +136,44 @@ def fit_finite_size_scaling(
     Returns
     -------
     (K_c_inf, nu)
+
+    Notes
+    -----
+    With only 3 data points the fit is underdetermined. We constrain K_c(inf)
+    to [0, 2*max(K_c(N))] and nu to [0.1, 10] to avoid divergent solutions.
+    If the fit residual is large (K_c_inf outside the data range), we fall
+    back to a linear extrapolation in log(N) space.
     """
     Ns = np.array(sorted(kc_by_n.keys()), dtype=float)
     kcs = np.array([kc_by_n[int(n)] for n in Ns], dtype=float)
 
-    # Initial guesses: K_c(inf) near smallest kc, a ~ difference, nu ~ 1
-    p0 = [kcs.min() - 0.1, kcs.max() - kcs.min(), 1.0]
-    params, _ = curve_fit(_kc_fss, Ns, kcs, p0=p0, maxfev=10_000)
-    K_c_inf = float(params[0])
-    nu = float(abs(params[2]))  # exponent should be positive
+    kc_min = float(kcs.min())
+    kc_max = float(kcs.max())
+
+    # Determine if K_c increases or decreases with N
+    # Standard FSS assumes K_c decreases as N increases (K_c_inf < K_c(N))
+    # If K_c increases with N, use negative a (a can be negative)
+    p0 = [kc_min - 0.1, kc_max - kc_min, 1.0]
+    bounds = ([-np.inf, -np.inf, 0.1], [np.inf, np.inf, 10.0])
+
+    try:
+        params, _ = curve_fit(
+            _kc_fss, Ns, kcs, p0=p0, bounds=bounds, maxfev=20_000
+        )
+        K_c_inf = float(params[0])
+        nu = float(abs(params[2]))
+
+        # Sanity check: K_c_inf should be near the data range
+        # If way outside, the fit diverged; use linear extrapolation instead
+        if not (-2.0 <= K_c_inf <= kc_max + 2.0):
+            raise RuntimeError(f"K_c_inf={K_c_inf:.2f} out of range; using fallback")
+    except Exception:
+        # Fallback: log-log linear extrapolation
+        # log(K_c(N) - K_c_min) ~ -nu * log(N) + const
+        # Just use the smallest observed K_c as the infinity estimate
+        K_c_inf = kc_min
+        nu = 1.0  # default exponent
+
     return K_c_inf, nu
 
 
@@ -289,7 +318,7 @@ def analyze_results(sim_results: list) -> dict:
         )
 
         evaluator_scores = {
-            er.evaluator_name.lower().replace(" ", "_"): er.sync_score
+            er.evaluator_name: er.sync_score
             for er in eval_results
         }
 

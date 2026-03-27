@@ -255,8 +255,9 @@ def generate_figures(analysis_data, output_dir="results/figures"):
         topo_labels.append(topo)
 
     x = np.arange(len(topo_labels))
-    err_lo = [e[0] for e in kc_errs]
-    err_hi = [e[1] for e in kc_errs]
+    # Clamp error bars to non-negative values (CI bounds must not be negative distance)
+    err_lo = [max(0.0, e[0]) for e in kc_errs]
+    err_hi = [max(0.0, e[1]) for e in kc_errs]
     bars = ax.bar(x, kc_vals, color=[topo_color[t] for t in topo_labels],
                   yerr=[err_lo, err_hi], capsize=5, alpha=0.85)
     ax.set_xticks(x)

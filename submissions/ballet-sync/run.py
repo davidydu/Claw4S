@@ -15,14 +15,14 @@ from src.report import generate_report, generate_figures
 TOPOLOGIES = ["all-to-all", "nearest-k", "hierarchical", "ring"]
 N_VALUES = [6, 12, 24]
 SIGMA_VALUES = [0.3, 0.8]
-SEEDS = list(range(5))
+SEEDS = [0, 1, 2]
 
 
 def build_configs():
     """Build the full experiment matrix.
 
-    Returns 2,400 configs:
-      20 K values × 4 topologies × 3 group sizes × 2 sigmas × 5 seeds
+    Returns 1,440 configs:
+      20 K values × 4 topologies × 3 group sizes × 2 sigmas × 3 seeds
     """
     configs = []
     for K in K_RANGE:
@@ -71,12 +71,36 @@ def _compute_phase_transition(records, stats):
         except Exception:
             kc_sus = kc_sig
 
-        # Bootstrap CI using per-seed final_r values at K nearest kc_sig
-        seed_rs = [r["final_r"] for r in records
-                   if r["topology"] == topo
-                   and abs(r["K"] - kc_sig) < 0.2]
-        if len(seed_rs) >= 2:
-            ci_lo, ci_hi = bootstrap_ci(seed_rs, confidence=0.95, n_bootstrap=1000, seed=0)
+        # Bootstrap CI for K_c: resample seeds and re-fit sigmoid on each resample.
+        # Pre-index (K, seed) -> final_r for speed.
+        topo_records = [r for r in records if r["topology"] == topo]
+        seeds = sorted(set(r["seed"] for r in topo_records))
+        # Build matrix: shape (n_k, n_seeds) of final_r values
+        k_list = list(k_vals)
+        k_to_idx = {float(k): i for i, k in enumerate(k_list)}
+        seed_to_idx = {s: i for i, s in enumerate(seeds)}
+        r_matrix = np.full((len(k_list), len(seeds)), float("nan"))
+        for rec in topo_records:
+            ki = k_to_idx.get(rec["K"])
+            si = seed_to_idx.get(rec["seed"])
+            if ki is not None and si is not None:
+                r_matrix[ki, si] = rec["final_r"]
+
+        rng_boot = np.random.default_rng(0)
+        kc_boot_estimates = []
+        for _ in range(200):
+            boot_idx = rng_boot.integers(0, len(seeds), size=len(seeds))
+            boot_means = np.nanmean(r_matrix[:, boot_idx], axis=1)
+            valid = ~np.isnan(boot_means)
+            if valid.sum() >= 4:
+                try:
+                    kc_b, _ = fit_sigmoid(k_vals[valid], boot_means[valid])
+                    kc_boot_estimates.append(kc_b)
+                except Exception:
+                    pass
+        if len(kc_boot_estimates) >= 10:
+            ci_lo = float(np.percentile(kc_boot_estimates, 2.5))
+            ci_hi = float(np.percentile(kc_boot_estimates, 97.5))
         else:
             ci_lo, ci_hi = kc_sig - 0.1, kc_sig + 0.1
 
@@ -223,12 +247,11 @@ def main():
     analysis["critical_exponents"] = ce
     analysis["finite_size_scaling"] = fss
 
-    # Step 4: Generate report + figures
-    print("[4/5] Generating report and figures...")
+    # Step 4: Generate report
+    print("[4/5] Generating report...")
     report = generate_report(analysis)
-    generate_figures(analysis)
 
-    # Step 5: Save results
+    # Step 5: Save results (before figure generation, which may fail on headless systems)
     print("[5/5] Saving results to results/")
 
     serializable = {
@@ -271,6 +294,9 @@ def main():
 
     with open("results/statistical_tests.json", "w") as f:
         json.dump(stat_tests, f, indent=2, default=str)
+
+    # Generate figures last (after all data is saved; figure errors don't lose data)
+    generate_figures(analysis)
 
     print(f"\nDone. Results saved to results/")
     print(f"  results/results.json ({total} simulation records)")

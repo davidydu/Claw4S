@@ -5,7 +5,7 @@ from src.experiment import ExperimentConfig, run_simulation, K_RANGE
 
 def test_config_defaults():
     config = ExperimentConfig(K=1.0, topology="all-to-all", n=12, sigma=0.5, seed=0)
-    assert config.total_steps == 10_000
+    assert config.total_steps == 1_000
     assert config.dt == 0.01
 
 

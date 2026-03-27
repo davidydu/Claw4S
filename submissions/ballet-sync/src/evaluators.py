@@ -71,7 +71,7 @@ class KuramotoOrderEvaluator(BaseEvaluator):
         r_values = np.abs(np.mean(np.exp(1j * window), axis=1))  # (W,)
         mean_r = float(np.mean(r_values))
         return EvalResult(
-            evaluator_name="KuramotoOrder",
+            evaluator_name="kuramoto_order",
             sync_score=mean_r,
             evidence={"mean_r": mean_r, "window_steps": len(r_values)},
         )
@@ -82,55 +82,47 @@ class KuramotoOrderEvaluator(BaseEvaluator):
 # ---------------------------------------------------------------------------
 
 class SpatialAlignmentEvaluator(BaseEvaluator):
-    """Pearson correlation between spatial distance and circular phase distance.
+    """Mean pairwise circular phase distance, mapped to a [0,1] sync score.
 
-    Intuition: well-synced ensembles show NO spatial ordering of phase, so
-    the correlation should be near zero or negative.
+    Computes the mean circular phase distance across all n*(n-1)/2 pairs
+    using the time-averaged phase per dancer in the final 20% of timesteps.
+    Maps to score via: score = exp(-mean_phase_spread / pi).
 
-    score = max(0, 1 - |r|)   where r is the Pearson correlation.
+    score = 1.0 when all phases are identical (mean_phase_spread = 0).
+    score -> exp(-1) ~ 0.368 for random incoherent phases (spread ~ pi/2).
 
-    For a perfectly synced ensemble all phase distances are 0, making the
-    correlation undefined (zero variance).  In that edge case we return
-    score = 1.0 (fully synced).
-
-    Circular phase distance: min(|θ_i - θ_j|, 2π - |θ_i - θ_j|)
+    Uses vectorized numpy for speed.
     """
 
     def evaluate(self, phase_history, positions, adjacency, sigma) -> EvalResult:
         window = self._final_slice(phase_history)          # (W, n)
-        mean_phases = np.mean(window, axis=0)              # (n,) mean phase per dancer
+        # Circular mean phase per dancer
+        mean_phases = np.angle(np.mean(np.exp(1j * window), axis=0))  # (n,)
 
-        n = positions.shape[0]
-        spatial_dists = []
-        phase_dists = []
+        n = len(mean_phases)
+        if n < 2:
+            return EvalResult(
+                evaluator_name="spatial_alignment",
+                sync_score=1.0,
+                evidence={"mean_phase_spread": 0.0, "n_pairs": 0},
+            )
 
-        for i in range(n):
-            for j in range(i + 1, n):
-                # Euclidean spatial distance
-                sd = float(np.linalg.norm(positions[i] - positions[j]))
-                # Circular phase distance
-                diff = abs(mean_phases[i] - mean_phases[j])
-                pd = min(diff, 2 * np.pi - diff)
-                spatial_dists.append(sd)
-                phase_dists.append(pd)
+        # Vectorized pairwise circular phase distances
+        # diff[i, j] = mean_phases[i] - mean_phases[j]
+        diff = mean_phases[:, None] - mean_phases[None, :]  # (n, n)
+        # Circular wrap to [0, pi]
+        circ_dist = np.abs((diff + np.pi) % (2 * np.pi) - np.pi)  # (n, n)
+        # Take upper triangle only
+        i_idx, j_idx = np.triu_indices(n, k=1)
+        phase_dists = circ_dist[i_idx, j_idx]
 
-        spatial_dists = np.array(spatial_dists)
-        phase_dists = np.array(phase_dists)
-
-        # If all phase distances are zero (perfect sync), correlation undefined
-        if np.std(phase_dists) < 1e-12:
-            pearson_r = 0.0
-            score = 1.0
-        else:
-            # numpy corrcoef returns the full 2×2 matrix
-            corr = np.corrcoef(spatial_dists, phase_dists)
-            pearson_r = float(corr[0, 1])
-            score = max(0.0, 1.0 - abs(pearson_r))
+        mean_phase_spread = float(np.mean(phase_dists))
+        score = float(np.exp(-mean_phase_spread / np.pi))
 
         return EvalResult(
-            evaluator_name="SpatialAlignment",
+            evaluator_name="spatial_alignment",
             sync_score=score,
-            evidence={"pearson_r": pearson_r, "n_pairs": len(spatial_dists)},
+            evidence={"mean_phase_spread": mean_phase_spread, "n_pairs": len(phase_dists)},
         )
 
 
@@ -139,41 +131,59 @@ class SpatialAlignmentEvaluator(BaseEvaluator):
 # ---------------------------------------------------------------------------
 
 class VelocitySynchronyEvaluator(BaseEvaluator):
-    """Variance of angular velocities normalised by σ².
+    """Pairwise phase-difference variance, mapped to a [0,1] sync score.
 
-    Angular velocity ≈ finite difference of phase over time.
-    For a synced ensemble velocities should cluster tightly, giving low
-    variance.  We normalise by σ² (noise power) to make it scale-free.
+    For a frequency-locked pair (i, j), the phase difference theta_i - theta_j
+    should be approximately constant over time. We measure the MEAN pairwise
+    phase-difference variance across ALL n*(n-1)/2 pairs in the final 20%
+    of history, then map to [0,1]:
 
-    score = max(0, 1 - var / σ²)
+        score = exp(-mean_pairwise_var / threshold)
 
-    Edge case: if σ == 0 and var == 0 → score = 1.0.
+    where threshold = 0.5 (radians^2). score ~1 when locked, ~0 when not.
+
+    Uses vectorized numpy for speed (no Python loops over pairs).
     """
+
+    THRESHOLD = 0.5  # radians^2 scale for score normalization
 
     def evaluate(self, phase_history, positions, adjacency, sigma) -> EvalResult:
         window = self._final_slice(phase_history)          # (W, n)
 
         if window.shape[0] < 2:
-            # Cannot compute velocities from a single frame
             return EvalResult(
-                evaluator_name="VelocitySynchrony",
+                evaluator_name="velocity_synchrony",
                 sync_score=0.0,
-                evidence={"velocity_variance": float("nan"), "sigma_sq": sigma ** 2},
+                evidence={"mean_pairwise_var": float("nan"), "n_pairs": 0},
             )
 
-        velocities = np.diff(window, axis=0)               # (W-1, n)
-        vel_variance = float(np.var(velocities))
+        n = window.shape[1]
+        if n < 2:
+            return EvalResult(
+                evaluator_name="velocity_synchrony",
+                sync_score=1.0,
+                evidence={"mean_pairwise_var": 0.0, "n_pairs": 0},
+            )
 
-        sigma_sq = sigma ** 2
-        if sigma_sq < 1e-12:
-            score = 1.0 if vel_variance < 1e-12 else 0.0
-        else:
-            score = max(0.0, 1.0 - vel_variance / sigma_sq)
+        # Vectorized: diff_matrix[t, i, j] = window[t, i] - window[t, j]
+        # But that's O(T * n^2) memory. Instead compute per-pair variance efficiently.
+        # diff[t, pair] for all upper-triangle pairs
+        i_idx, j_idx = np.triu_indices(n, k=1)  # (n_pairs,)
+        # diff_series shape: (W, n_pairs)
+        diff_series = window[:, i_idx] - window[:, j_idx]  # (W, n_pairs)
+        # Wrap to [-pi, pi]
+        diff_series = (diff_series + np.pi) % (2 * np.pi) - np.pi
+        # Variance across time for each pair
+        pair_vars = np.var(diff_series, axis=0)  # (n_pairs,)
+
+        mean_pairwise_var = float(np.mean(pair_vars))
+        n_pairs = len(pair_vars)
+        score = float(np.exp(-mean_pairwise_var / self.THRESHOLD))
 
         return EvalResult(
-            evaluator_name="VelocitySynchrony",
+            evaluator_name="velocity_synchrony",
             sync_score=score,
-            evidence={"velocity_variance": vel_variance, "sigma_sq": sigma_sq},
+            evidence={"mean_pairwise_var": mean_pairwise_var, "n_pairs": n_pairs},
         )
 
 
@@ -185,7 +195,7 @@ class PairwiseEntrainmentEvaluator(BaseEvaluator):
     """Fraction of connected pairs whose phase difference variance < 0.1.
 
     A pair (i, j) is "entrained" if the variance of their phase difference
-    over the final 20% of the run is below 0.1 (radians²).
+    over the final 20% of the run is below 0.1 (radians^2).
     """
 
     THRESHOLD = 0.1
@@ -201,7 +211,7 @@ class PairwiseEntrainmentEvaluator(BaseEvaluator):
                 if j <= i:
                     continue  # count each pair once
                 diff = window[:, i] - window[:, j]
-                # Wrap differences into [-π, π] for circular correctness
+                # Wrap differences into [-pi, pi] for circular correctness
                 diff = (diff + np.pi) % (2 * np.pi) - np.pi
                 var = float(np.var(diff))
                 total += 1
@@ -211,7 +221,7 @@ class PairwiseEntrainmentEvaluator(BaseEvaluator):
         score = (entrained / total) if total > 0 else 0.0
 
         return EvalResult(
-            evaluator_name="PairwiseEntrainment",
+            evaluator_name="pairwise_entrainment",
             sync_score=score,
             evidence={"entrained_pairs": entrained, "total_pairs": total,
                       "threshold": self.THRESHOLD},
@@ -238,10 +248,10 @@ class EvaluatorPanel:
 
     # Weights for the "weighted" aggregation (must sum to 1)
     _WEIGHTS = {
-        "KuramotoOrder": 0.35,
-        "SpatialAlignment": 0.20,
-        "VelocitySynchrony": 0.25,
-        "PairwiseEntrainment": 0.20,
+        "kuramoto_order": 0.35,
+        "spatial_alignment": 0.20,
+        "velocity_synchrony": 0.25,
+        "pairwise_entrainment": 0.20,
     }
 
     def __init__(self) -> None:
