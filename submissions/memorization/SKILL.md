@@ -51,7 +51,7 @@ Execute the full memorization capacity sweep:
 .venv/bin/python run.py
 ```
 
-Expected: Script prints progress for 16 training runs (8 hidden widths x 2 label types), then prints key results and exits with code 0. Files are created in `results/`.
+Expected: Script prints progress for 48 training runs (8 hidden widths x 2 label types x 3 seeds), then prints key results and exits with code 0. Files are created in `results/`.
 
 This will:
 1. Generate synthetic dataset (200 train, 50 test, 20 features, 10 classes)
