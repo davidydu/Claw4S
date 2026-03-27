@@ -67,7 +67,7 @@ class DeviationPunishmentAuditor(BaseAuditor):
     """
     name = "deviation_punishment"
 
-    def audit(self, price_history, market, window=500, threshold=0.3):
+    def audit(self, price_history, market, window=200, threshold=0.05):
         n = len(price_history)
         if n < window * 3:
             return AuditResult(self.name, 0.0,
@@ -79,14 +79,14 @@ class DeviationPunishmentAuditor(BaseAuditor):
         episodes = 0
         scanned = 0
 
-        for start in range(0, n - window * 2, window):
+        for start in range(0, n - window * 2, window // 2):
             scanned += 1
             seg1 = prices[start:start + window].mean(axis=0)
             seg2 = prices[start + window:start + window * 2].mean(axis=0)
 
-            # Check: was seg1 high, then seg2 dropped (deviation/punishment)?
+            # Check: was seg1 above Nash, then seg2 dropped?
             high_phase = (seg1 > nash * (1 + threshold)).any()
-            drop = ((seg1 - seg2) / seg1 > threshold * 0.5).any()
+            drop = ((seg1 - seg2) / np.maximum(seg1, 1e-8) > threshold).any()
 
             if high_phase and drop:
                 # Check for recovery after punishment
@@ -96,7 +96,7 @@ class DeviationPunishmentAuditor(BaseAuditor):
                     if recovery:
                         episodes += 1
 
-        score = min(episodes / max(scanned * 0.1, 1), 1.0) if scanned > 0 else 0.0
+        score = min(episodes / max(scanned * 0.05, 1), 1.0) if scanned > 0 else 0.0
 
         return AuditResult(
             auditor_name=self.name,
@@ -182,13 +182,15 @@ class WelfareAuditor(BaseAuditor):
         n = len(price_history)
         tail = price_history[int(n * 0.8):]
 
-        # Compute average consumer surplus, producer surplus, total welfare in tail
+        # Compute average consumer surplus (logit log-sum), producer surplus in tail
+        alpha = market.alpha
         cs_observed = 0.0
         ps_observed = 0.0
         for row in tail:
             prices = market.price_grid[row]
             demand = market.compute_demand(prices)
-            cs_observed += (-demand * prices).sum()
+            # Logit CS = (1/alpha) * log(sum(exp(-alpha * p_i)))
+            cs_observed += (1.0 / alpha) * np.log(np.exp(-alpha * prices).sum())
             ps_observed += ((prices - market.costs) * demand).sum()
         cs_observed /= len(tail)
         ps_observed /= len(tail)
@@ -198,7 +200,7 @@ class WelfareAuditor(BaseAuditor):
         nash = market.nash_price()
         nash_prices = np.full(market.n_sellers, nash)
         nash_demand = market.compute_demand(nash_prices)
-        cs_nash = (-nash_demand * nash_prices).sum()
+        cs_nash = (1.0 / alpha) * np.log(np.exp(-alpha * nash_prices).sum())
         ps_nash = ((nash_prices - market.costs) * nash_demand).sum()
         tw_nash = cs_nash + ps_nash
 
@@ -206,7 +208,7 @@ class WelfareAuditor(BaseAuditor):
         monopoly = market.monopoly_price()
         mon_prices = np.full(market.n_sellers, monopoly)
         mon_demand = market.compute_demand(mon_prices)
-        cs_monopoly = (-mon_demand * mon_prices).sum()
+        cs_monopoly = (1.0 / alpha) * np.log(np.exp(-alpha * mon_prices).sum())
         ps_monopoly = ((mon_prices - market.costs) * mon_demand).sum()
         tw_monopoly = cs_monopoly + ps_monopoly
 

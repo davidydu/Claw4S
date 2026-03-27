@@ -82,18 +82,22 @@ class TileCoding:
         # Random offsets for each tiling
         self.offsets = rng.uniform(0, 1.0 / tiles_per_dim,
                                    size=(n_tilings, n_dims))
+        # Pre-computed random hash coefficients for vectorized hashing
+        self._hash_coefs = rng.integers(1, table_size, size=(n_tilings, n_dims + 1),
+                                         dtype=np.int64)
 
     def get_tiles(self, state):
         """Return tile indices for a normalized state vector in [0, 1]^n_dims."""
         state = np.asarray(state, dtype=np.float64)
-        tiles = []
-        for t in range(self.n_tilings):
-            shifted = state + self.offsets[t]
-            coords = np.floor(shifted * self.tiles_per_dim).astype(int)
-            # Hash: combine tiling index and coordinates
-            h = hash((t,) + tuple(coords)) % self.table_size
-            tiles.append(h)
-        return tiles
+        # Vectorized: all tilings at once
+        shifted = state[np.newaxis, :] + self.offsets  # (n_tilings, n_dims)
+        coords = np.floor(shifted * self.tiles_per_dim).astype(np.int64)
+        # Fast hash: linear combination with random coefficients
+        # Append tiling index as extra dimension for uniqueness
+        tiling_ids = np.arange(self.n_tilings, dtype=np.int64).reshape(-1, 1)
+        augmented = np.hstack([coords, tiling_ids])  # (n_tilings, n_dims+1)
+        tiles = np.abs((augmented * self._hash_coefs).sum(axis=1)) % self.table_size
+        return tiles.tolist()
 
 
 class QLearningAgent(BaseAgent):
@@ -289,6 +293,7 @@ class SARSAAgent(BaseAgent):
         next_key = self._get_state_key(next_state)
         q_current = self._get_q_values(state_key)
         # SARSA: choose next action now (on-policy)
+        self._next_action = None  # clear cached action for fresh selection
         self._next_action = self.choose_action(next_state)
         q_next = self._get_q_values(next_key)
         target = reward + self.discount * q_next[self._next_action]

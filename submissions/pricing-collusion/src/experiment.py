@@ -68,6 +68,9 @@ def _detect_convergence(price_history, window=1000, tolerance=0.01):
 def run_simulation(config):
     """Run a single pricing simulation."""
     market = LogitMarket.from_preset(config.preset)
+    # Record pre-shock benchmarks (shocks may shift market params later)
+    nash_price_orig = float(market.nash_price())
+    monopoly_price_orig = float(market.monopoly_price())
     agent_types = MATCHUPS[config.matchup]
     rng = np.random.default_rng(config.seed)
 
@@ -102,26 +105,38 @@ def run_simulation(config):
     pre_shock_prices = []
     post_shock_prices = []
 
+    # Precompute shock windows for faster inner loop
+    t_cost = int(T * 0.6) if config.shocks else -1
+    pre_shock_start = t_cost - 1000
+    post_shock_start = t_cost + 1000
+    post_shock_end = t_cost + 2000
+
+    # Precompute max memory for efficient slicing
+    max_mem = max((getattr(a, 'memory', 1) for a in agents), default=1)
+    actions_arr = np.empty(N, dtype=int)
+
     for t in range(T):
         # Check shocks
         for shock in shocks:
             if shock.should_trigger(t):
                 shock.apply(market)
 
-        # Each agent chooses action
-        history_so_far = price_history[:t]
-        actions = [agent.choose_action(history_so_far) for agent in agents]
+        # Each agent chooses action — pass only recent history
+        start_idx = max(0, t - max_mem)
+        recent = price_history[start_idx:t]
+        for i, agent in enumerate(agents):
+            actions_arr[i] = agent.choose_action(recent)
 
         # Record
-        price_history[t] = actions
-        prices = market.price_grid[np.array(actions)]
+        price_history[t] = actions_arr
+        prices = market.price_grid[actions_arr]
         profits = market.compute_profits(prices)
         profit_history[t] = profits
 
         # Update agents
-        next_history = price_history[:t + 1]
+        recent_next = price_history[start_idx:t + 1]
         for i, agent in enumerate(agents):
-            agent.update(history_so_far, actions[i], profits[i], next_history)
+            agent.update(recent, int(actions_arr[i]), profits[i], recent_next)
 
         # Save states at T*0.9 for counterfactual auditor
         if t == save_round:
@@ -129,10 +144,9 @@ def run_simulation(config):
 
         # Track shock analysis
         if config.shocks:
-            t_cost = int(T * 0.6)
-            if t_cost - 1000 <= t < t_cost:
+            if pre_shock_start <= t < t_cost:
                 pre_shock_prices.append(prices.mean())
-            elif t_cost + 1000 <= t < t_cost + 2000:
+            elif post_shock_start <= t < post_shock_end:
                 post_shock_prices.append(prices.mean())
 
     # Compute summary stats
@@ -146,8 +160,8 @@ def run_simulation(config):
         price_history=price_history,
         profit_history=profit_history,
         final_avg_price=final_avg_price,
-        nash_price=float(market.nash_price()),
-        monopoly_price=float(market.monopoly_price()),
+        nash_price=nash_price_orig,
+        monopoly_price=monopoly_price_orig,
         convergence_round=convergence_round,
         saved_states=saved_states,
         agents=agents,

@@ -68,22 +68,34 @@ def compute_statistics(records):
         groups[key].append(r)
 
     stats_out = []
-    for key, group in groups.items():
+    n_tests = len(groups)  # for Bonferroni correction
+
+    for key, group in sorted(groups.items()):
         matchup, memory, preset, shocks = key
         prices = [r["final_avg_price"] for r in group]
         nash = group[0]["nash_price"]
+        monopoly = group[0]["monopoly_price"]
 
-        # Welch's t-test: are prices significantly above Nash?
+        # Collusion index Delta: (avg_price - nash) / (monopoly - nash)
+        avg_price = float(np.mean(prices))
+        if monopoly > nash:
+            delta = (avg_price - nash) / (monopoly - nash)
+        else:
+            delta = 0.0
+
+        # One-sample t-test: are prices significantly above Nash?
         if len(prices) > 1 and np.std(prices) > 0:
             t_stat, p_value = stats.ttest_1samp(prices, nash)
-            # One-sided: prices > Nash
             p_value_one = p_value / 2 if t_stat > 0 else 1.0
         else:
             t_stat, p_value_one = 0.0, 1.0
 
-        # Cohen's d effect size
+        # Bonferroni-corrected p-value
+        p_value_corrected = min(p_value_one * n_tests, 1.0)
+
+        # Cohen's d effect size (using Delta as primary when d is extreme)
         std = np.std(prices, ddof=1) if len(prices) > 1 else 1.0
-        cohens_d = (np.mean(prices) - nash) / std if std > 0 else 0.0
+        cohens_d = (avg_price - nash) / std if std > 1e-8 else 0.0
 
         # Auditor agreement
         auditor_names = list(group[0]["auditor_scores"].keys())
@@ -105,12 +117,14 @@ def compute_statistics(records):
             "preset": preset,
             "shocks": shocks,
             "n_seeds": len(group),
-            "avg_price": float(np.mean(prices)),
+            "avg_price": avg_price,
             "std_price": float(np.std(prices, ddof=1)) if len(prices) > 1 else 0.0,
             "nash_price": nash,
-            "monopoly_price": group[0]["monopoly_price"],
+            "monopoly_price": monopoly,
+            "collusion_index": float(delta),
             "t_statistic": float(t_stat),
             "p_value": float(p_value_one),
+            "p_value_corrected": float(p_value_corrected),
             "cohens_d": float(cohens_d),
             "auditor_agreement_rate": agreement_count / total,
             "majority_collusion_rate": majority_rate,

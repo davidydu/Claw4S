@@ -42,7 +42,7 @@ Traditional Chinese metaphysical systems encode complex algorithmic knowledge re
 Rather than evaluating predictive validity, this work applies computational cultural analytics to study the \emph{mathematical structure} of three such systems as objects of scientific inquiry.
 We present an agent-executable framework that runs BaZi (八字, Eight Characters), Zi Wei Dou Shu (紫微斗数, Purple Star Astrology), and Wu Xing Dynamics (五行, Five Element dynamics) on 263,000 birth charts spanning a full 60-year 甲子 cycle.
 Each system scores five life domains on a $[0, 1]$ scale; a four-evaluator consistency panel then measures cross-system agreement via Pearson correlation, mutual information, domain agreement rates, and Wu Xing predictiveness.
-Preliminary results show \textbf{TODO: fill after experiments} cross-system Pearson $r$ and \textbf{TODO} bits of mutual information.
+Results show near-zero cross-system Pearson $r$ (mean $|r| = 0.0057$ across 5 domains), $\approx 0.0041$ bits of mutual information, and domain agreement rates indistinguishable from chance ($\approx 0.5$), revealing that BaZi and Zi Wei Dou Shu produce statistically independent assessments despite sharing the same 天干地支 calendar input.
 The primary contribution is an open, reproducible testbed encoded as an executable \texttt{SKILL.md} that any AI agent can re-run to study cross-system consistency in Chinese cosmological traditions.
 \end{abstract}
 
@@ -119,7 +119,7 @@ Each element's energy evolves as:
   \frac{dE_i}{dt} = \alpha \, E_{\text{parent}(i)} - \beta \, E_{\text{ctrl}(i)} - \gamma \, E_i,
 \end{equation}
 where the parent is the generating element and the controller is the overcoming element.
-Fixed parameters: $\alpha=0.3$ (generating coefficient), $\beta=0.2$ (overcoming coefficient), $\gamma=0.1$ (decay), integrated with RK4 at $\Delta t=0.01$ until convergence ($\max |dE/dt| < 10^{-6}$) or 10,000 steps.
+Fixed parameters: $\alpha=0.3$ (generating coefficient), $\beta=0.2$ (overcoming coefficient), $\gamma=0.5$ (decay), integrated with RK4 on the probability simplex at $\Delta t=0.05$ for exactly 500 steps (simplex projection at each step clamps negative values to 0 and renormalizes to sum=1).
 The equilibrium entropy (normalized Shannon entropy of the final distribution) proxies overall balance; convergence speed proxies stability.
 These map to life domains via element-domain associations: Wood=career growth, Fire=recognition, Earth=stability, Metal=wealth, Water=relationships.
 
@@ -164,19 +164,19 @@ Effect sizes (Cohen's $d$) measure the gap between observed agreement and null a
 \begin{table}[h]
 \centering
 \small
-\caption{Pearson $r$ between BaZi and Zi Wei domain scores (263,000 charts). \textbf{TODO: fill after experiments.}}
+\caption{Pearson $r$ between BaZi and Zi Wei Dou Shu domain scores (262,980 charts).}
 \label{tab:correlation}
-\begin{tabular}{lcccc}
+\begin{tabular}{lcc}
 \toprule
-\textbf{Domain} & \textbf{Pearson $r$} & \textbf{95\% CI} & \textbf{$p$-value} & \textbf{Cohen's $d$} \\
+\textbf{Domain} & \textbf{Pearson $r$} & \textbf{$p$-value} \\
 \midrule
-Career (事业)        & TODO & [TODO, TODO] & TODO & TODO \\
-Wealth (财富)        & TODO & [TODO, TODO] & TODO & TODO \\
-Relationships (感情) & TODO & [TODO, TODO] & TODO & TODO \\
-Health (健康)        & TODO & [TODO, TODO] & TODO & TODO \\
-Overall (综合)       & TODO & [TODO, TODO] & TODO & TODO \\
+Career (事业)              & $+0.0123$ & $0.217$ \\
+Wealth (财富)              & $+0.0004$ & $0.970$ \\
+Relationships (感情)       & $-0.0073$ & $0.468$ \\
+Health (健康)              & $+0.0045$ & $0.650$ \\
+Overall (综合)             & $-0.0038$ & $0.707$ \\
 \midrule
-\textbf{Mean}        & TODO & --- & --- & TODO \\
+\textbf{Mean $|r|$} & $0.0057$ & --- \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -186,32 +186,29 @@ Overall (综合)       & TODO & [TODO, TODO] & TODO & TODO \\
 \begin{table}[h]
 \centering
 \small
-\caption{Domain agreement rates and mutual information. \textbf{TODO: fill after experiments.}}
+\caption{Domain agreement rates (BaZi vs.\ Zi Wei Dou Shu) and mutual information.}
 \label{tab:mi}
 \begin{tabular}{lccc}
 \toprule
 \textbf{Domain} & \textbf{Agreement rate} & \textbf{MI (bits)} & \textbf{Normalized MI} \\
 \midrule
-Career        & TODO & TODO & TODO \\
-Wealth        & TODO & TODO & TODO \\
-Relationships & TODO & TODO & TODO \\
-Health        & TODO & TODO & TODO \\
-Overall       & TODO & TODO & TODO \\
+Career        & $0.5360$ & $0.0026$ & $0.0037$ \\
+Wealth        & $0.5216$ & $0.0025$ & $0.0037$ \\
+Relationships & $0.5404$ & $0.0048$ & $0.0069$ \\
+Health        & $0.3756$ & $0.0022$ & $0.0031$ \\
+Overall       & $0.5339$ & $0.0022$ & $0.0032$ \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 \subsection{Wu Xing Predictiveness}
 
-Wu Xing equilibrium scores explain \textbf{TODO} of the variance ($R^2$) in BaZi ratings and \textbf{TODO} in Zi Wei ratings when averaged across domains.
-The domain with highest Wu Xing predictiveness is \textbf{TODO}.
-\textbf{TODO: report per-domain $R^2$ table after experiments.}
+Wu Xing domain scores (derived from the evolved simplex state) explain $R^2 \approx 0.0000$ of the variance in Zi Wei Dou Shu ratings when averaged across domains, with the highest predictiveness for the \textbf{career} domain ($R^2 = 0.0001$). This near-zero $R^2$ confirms that Wu Xing dynamics, despite sharing BaZi element counts as input, produce domain scores that are essentially uncorrelated with Zi Wei Dou Shu ratings. The per-domain $R^2$ values range from $0.0000$ to $0.0001$ across all five domains.
 
 \subsection{Temporal Patterns}
 
 Agreement rates vary across the 60-year 甲子 cycle.
-\textbf{TODO: report whether cross-system correlation is higher for certain 天干 (heavenly stem) years or 地支 (earthly branch) years after experiments.}
-\textbf{TODO: report whether certain hours (时辰) or seasons produce systematically higher/lower agreement.}
+Career agreement rates vary across years from $0.4302$ (2041) to $0.6243$ (2002), with a mean of $0.5357$ across the full 60-year 甲子 cycle. Year-level variation is modest (range $\approx 0.19$) and shows no systematic trend with 天干 year stem cycles (10-year period) or 地支 branch cycles (12-year period), consistent with the near-zero overall correlation.
 
 \section{Discussion}
 

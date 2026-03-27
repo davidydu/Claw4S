@@ -1,24 +1,22 @@
 # src/wuxing.py
 """Wu Xing Dynamics Agent (五行动态).
 
-Models the five elements as a coupled dynamical system:
+Models the five elements as a coupled dynamical system on the probability simplex:
   - Generating cycle (相生): Wood → Fire → Earth → Metal → Water → Wood
   - Overcoming cycle (相克): Wood → Earth → Water → Fire → Metal → Wood
 
 Each element's energy evolves via:
   dE_i/dt = generate_coeff * E_parent - overcome_coeff * E_controller - decay * E_i
 
-Integration uses 4th-order Runge-Kutta (RK4) on the probability simplex
-(energies normalized to sum=1 at each step) until max|dE/dt| < convergence_threshold
-or max_steps is reached.
+Integration uses 4th-order Runge-Kutta (RK4) with simplex projection at each step:
+negative energies are clamped to 0, then the vector is renormalized to sum=1.
+This keeps the system on the probability simplex and ensures physically meaningful
+(non-negative) energies throughout integration.
 
-Note: The spec's ODE with generate_coeff=0.3, overcome_coeff=0.2 is a linear system
-whose stability depends on the decay parameter.  We use decay=0.5, which places all
-eigenvalues in the left half-plane and ensures convergence to the unique fixed point
-E* = [0.2, 0.2, 0.2, 0.2, 0.2] (uniform distribution).  The equilibrium_score is the
-normalized Shannon entropy of the initial element proportions, which measures how
-balanced the birth chart's elements are — a high score indicates the chart's elements
-are already near the uniform equilibrium.
+The steady-state distribution on the simplex depends on the initial conditions due
+to the asymmetric generating and overcoming cycle interactions. Domain scores are
+derived from the evolved steady-state distribution, so the ODE dynamics directly
+differentiate charts with different element compositions.
 """
 
 import math
@@ -42,10 +40,9 @@ _OVERCOME_BY_IDX = {2: 0, 4: 2, 1: 4, 3: 1, 0: 3}
 # ODE parameters
 _GENERATE_COEFF = 0.3
 _OVERCOME_COEFF = 0.2
-_DECAY = 0.5          # decay=0.5 ensures eigenvalues are all negative (stable)
-_DT = 0.01
-_MAX_STEPS = 10_000
-_CONVERGENCE_THRESHOLD = 1e-6
+_DECAY = 0.5          # decay coefficient; keeps individual energies bounded
+_DT = 0.05            # time step for simplex integration
+_N_STEPS = 500        # fixed number of integration steps (no convergence criterion)
 
 # Domain mapping: element → domain weights
 # Wood = career growth, Fire = recognition (career), Earth = health,
@@ -84,29 +81,34 @@ def _ode(E):
     return dE
 
 
-def _rk4_step(E, dt):
-    """Single RK4 integration step.
+def _rk4_step_simplex(E, dt):
+    """Single RK4 integration step on the probability simplex.
 
-    Integrates the raw ODE without normalization.  The stable ODE (decay=0.5)
-    drives all energies toward zero, which is the true fixed point.
-    Convergence is detected when max|dE/dt| < convergence_threshold.
+    After the RK4 update, clamps negative values to 0 and renormalizes
+    to sum=1, keeping the state on the simplex at each step.
 
     Args:
-        E: list of length 5
+        E: list of length 5 (current simplex point; entries >= 0, sum = 1)
         dt: time step
 
     Returns:
-        new E (list of length 5)
+        new E (list of length 5, entries >= 0, sum = 1)
     """
     k1 = _ode(E)
-    k2 = _ode([E[i] + 0.5 * dt * k1[i] for i in range(5)])
-    k3 = _ode([E[i] + 0.5 * dt * k2[i] for i in range(5)])
-    k4 = _ode([E[i] + dt * k3[i] for i in range(5)])
+    k2 = _ode([max(0.0, E[i] + 0.5 * dt * k1[i]) for i in range(5)])
+    k3 = _ode([max(0.0, E[i] + 0.5 * dt * k2[i]) for i in range(5)])
+    k4 = _ode([max(0.0, E[i] + dt * k3[i]) for i in range(5)])
 
-    return [
-        E[i] + (dt / 6.0) * (k1[i] + 2 * k2[i] + 2 * k3[i] + k4[i])
+    raw = [
+        max(0.0, E[i] + (dt / 6.0) * (k1[i] + 2 * k2[i] + 2 * k3[i] + k4[i]))
         for i in range(5)
     ]
+
+    # Renormalize to simplex
+    total = sum(raw)
+    if total > 1e-12:
+        return [v / total for v in raw]
+    return [0.2] * 5  # fallback to uniform
 
 
 # ---------------------------------------------------------------------------
@@ -116,12 +118,10 @@ def _rk4_step(E, dt):
 class WuXingAgent:
     """Wu Xing dynamics agent.
 
-    Simulates the coupled five-element system using RK4 integration,
-    starting from BaZi element counts, until convergence or max_steps.
-
-    The unique fixed point on the simplex is the uniform distribution
-    E* = [0.2, 0.2, 0.2, 0.2, 0.2].  Charts with elements already close
-    to uniform converge quickly and achieve a high equilibrium score.
+    Simulates the coupled five-element system using RK4 integration on the
+    probability simplex, starting from BaZi element counts, until convergence
+    or max_steps.  Domain scores are derived from the evolved steady-state
+    element distribution, so the ODE dynamics directly influence the output.
 
     Usage:
         agent = WuXingAgent()
@@ -140,10 +140,12 @@ class WuXingAgent:
             dict with keys:
               - equilibrium_score (float in [0, 1]): normalized Shannon entropy of
                     the initial element distribution.  Balanced charts score near 1.
-              - stability_score   (float in [0, 1]): 1 / (1 + convergence_steps/1000)
+              - stability_score   (float in [0, 1]): normalized Shannon entropy of
+                    the evolved distribution (higher = more spread across elements)
               - dominant_element  (str): element with highest initial energy
-              - domain_scores     (dict): {domain: float in [0, 1]}
-              - converged         (bool): True if |dE/dt| < 1e-6 reached within max_steps
+              - domain_scores     (dict): {domain: float in [0, 1]} derived from the
+                    evolved element distribution after _N_STEPS integration steps
+              - converged         (bool): always True (fixed-step integration)
         """
         # Build initial normalized distribution
         raw = [float(element_counts.get(el, 0.0)) for el in ELEMENTS]
@@ -153,29 +155,19 @@ class WuXingAgent:
         else:
             E = [0.2] * 5  # uniform fallback
 
-        # Save initial proportions for equilibrium score and domain scores
-        # (these reflect the birth chart's intrinsic element balance)
+        # Save initial proportions for equilibrium score and dominant element
         initial_probs = list(E)
 
-        # RK4 integration toward the fixed point (uniform distribution)
-        converged = False
-        convergence_steps = _MAX_STEPS
-        for step in range(_MAX_STEPS):
-            dE = _ode(E)
-            max_deriv = max(abs(d) for d in dE)
-            if max_deriv < _CONVERGENCE_THRESHOLD:
-                converged = True
-                convergence_steps = step
-                break
-            E = _rk4_step(E, _DT)
-        else:
-            # Final check after max_steps
-            dE = _ode(E)
-            if max(abs(d) for d in dE) < _CONVERGENCE_THRESHOLD:
-                converged = True
+        # RK4 integration on the simplex for a fixed number of steps.
+        # The system evolves to a boundary attractor whose position depends on
+        # initial conditions, capturing how element imbalances propagate through
+        # the generating and overcoming cycles.
+        for _ in range(_N_STEPS):
+            E = _rk4_step_simplex(E, _DT)
+        converged = True  # always completes fixed steps
 
         # Equilibrium score: normalized Shannon entropy of initial distribution
-        # This measures how balanced the chart's elements are.
+        # This measures how balanced the birth chart's elements are.
         # max_entropy = log(5) for uniform distribution
         max_entropy = math.log(5)
         entropy = -sum(
@@ -183,15 +175,19 @@ class WuXingAgent:
         )
         equilibrium_score = min(entropy / max_entropy, 1.0)
 
-        # Stability score: how quickly the system converges
-        stability_score = 1.0 / (1.0 + convergence_steps / 1000.0)
+        # Stability score: entropy of the evolved distribution (higher = more spread)
+        evolved_entropy = -sum(
+            e * math.log(e + 1e-12) for e in E
+        )
+        stability_score = min(evolved_entropy / max_entropy, 1.0)
 
         # Dominant element: element with highest initial energy
         dominant_idx = max(range(5), key=lambda i: initial_probs[i])
         dominant_element = ELEMENTS[dominant_idx]
 
-        # Domain scores: derived from initial element proportions
-        domain_scores = self._compute_domain_scores(initial_probs)
+        # Domain scores: derived from the EVOLVED element distribution
+        # (captures how generating/overcoming cycles transform the initial imbalance)
+        domain_scores = self._compute_domain_scores(E)
 
         return {
             "equilibrium_score": round(equilibrium_score, 8),
