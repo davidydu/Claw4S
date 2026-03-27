@@ -13,7 +13,7 @@ model approach from Shokri et al. (2017).
 ## Prerequisites
 
 - Requires **Python 3.10+** (CPU only, no GPU needed).
-- Expected runtime: **1-3 minutes**.
+- Expected runtime: **under 30 seconds** (excluding venv setup).
 - All commands must be run from the **submission directory** (`submissions/membership-inference/`).
 - No internet access or API keys required (uses synthetic data).
 
