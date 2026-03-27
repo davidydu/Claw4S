@@ -44,7 +44,7 @@ We use fully-connected MLPs with ReLU activations, Kaiming initialization, and n
 
 \subsection{Training}
 
-All models are trained with AdamW, cosine annealing learning rate schedule, and full-batch gradient descent. Task-specific hyperparameters: sparse parity uses lr$=3{\times}10^{-3}$, weight decay$=10^{-2}$, max 2{,}000 epochs; regression uses lr$=10^{-3}$, weight decay$=10^{-4}$, max 1{,}000 epochs. All experiments use seed 42. We report best test metric achieved during training.
+All models are trained with AdamW, cosine annealing learning rate schedule, and full-batch gradient descent. Task-specific hyperparameters: sparse parity uses lr$=3{\times}10^{-3}$, weight decay$=10^{-2}$, max 1{,}500 epochs; regression uses lr$=10^{-3}$, weight decay$=10^{-4}$, max 800 epochs. All experiments use seed 42. We report best test metric achieved during training.
 
 \section{Results}
 

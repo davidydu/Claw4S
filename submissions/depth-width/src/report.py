@@ -229,25 +229,39 @@ def generate_report(results: dict) -> str:
             )
         finding_num += 1
 
-    # Cross-cutting findings
-    lines.append(
-        f"{finding_num}. **Moderate depth (2 layers) is universally robust**: "
-        "achieves best or near-best performance on both task types "
-        "across all parameter budgets."
-    )
+    # Cross-cutting findings (data-driven from experiments list)
+    from collections import defaultdict
+    best_by_config: dict[tuple, tuple] = {}  # (task, budget) -> (best_metric, best_depth)
+    for r in experiments:
+        key = (r["task_name"], r["param_budget"])
+        metric = r.get("best_test_metric", 0)
+        if key not in best_by_config or metric > best_by_config[key][0]:
+            best_by_config[key] = (metric, r["num_hidden_layers"])
+    win_counts: dict[int, int] = defaultdict(int)
+    for _, (_, d) in best_by_config.items():
+        win_counts[d] += 1
+    if win_counts:
+        most_winning_depth = max(win_counts, key=lambda k: win_counts[k])
+        lines.append(
+            f"{finding_num}. **Depth {most_winning_depth} wins most configurations** "
+            f"({win_counts[most_winning_depth]}/{len(best_by_config)} configs), "
+            f"suggesting it is the most robust default choice."
+        )
     finding_num += 1
-    lines.append(
-        f"{finding_num}. **Depth 8 is unreliable at small budgets**: "
-        "narrow hidden layers (width < 30) cause optimization instability, "
-        "especially without skip connections."
-    )
-    finding_num += 1
-    lines.append(
-        f"{finding_num}. **Depth accelerates convergence on compositional tasks**: "
-        "depth-2 and depth-4 networks learn parity 4-10x faster than "
-        "depth-1, consistent with theoretical advantages of depth for "
-        "computing Boolean functions."
-    )
+
+    # Check if deepest depth fails at smallest budget
+    smallest_budget = min(r["param_budget"] for r in experiments)
+    deepest = max(r["num_hidden_layers"] for r in experiments)
+    deep_small = [r for r in experiments if r["num_hidden_layers"] == deepest and r["param_budget"] == smallest_budget]
+    if deep_small:
+        avg_metric = sum(r.get("best_test_metric", 0) for r in deep_small) / len(deep_small)
+        if avg_metric < 0.8:
+            lines.append(
+                f"{finding_num}. **Depth {deepest} underperforms at {smallest_budget//1000}K params** "
+                f"(avg metric={avg_metric:.3f}), likely due to very narrow layers "
+                f"causing optimization instability without skip connections."
+            )
+            finding_num += 1
     lines.append("")
 
     return "\n".join(lines)
