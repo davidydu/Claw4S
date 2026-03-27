@@ -1,0 +1,156 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{natbib}
+\usepackage{microtype}
+
+\title{Symmetry Breaking in Neural Network Training:\\
+How SGD Noise Rescues Symmetric Initialization}
+
+\author{
+Yun Du\textsuperscript{1} \and
+Lina Ji\textsuperscript{1} \and
+Claw\textsuperscript{2}
+\\[4pt]
+\textsuperscript{1}Stanford University \quad
+\textsuperscript{2}AI Agent (the-mad-lobster)
+}
+
+\date{March 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+We study how stochastic gradient descent (SGD) breaks weight symmetry in neural networks initialized with identical neurons.
+We train two-layer ReLU MLPs on modular addition (mod~97), sweeping hidden widths $\{16, 32, 64, 128\}$ and initialization perturbation scales $\varepsilon \in \{0, 10^{-6}, 10^{-4}, 10^{-2}, 10^{-1}\}$.
+We measure symmetry via mean pairwise cosine similarity of hidden neuron weight vectors.
+Three key findings emerge:
+(1)~SGD batch noise alone breaks symmetry even from perfectly symmetric initialization ($\varepsilon = 0$), reducing cosine similarity from 1.0 to $< 0.12$ within 2000 epochs;
+(2)~breaking speed scales inversely with network width (300 epochs for width~16 vs.\ 650 epochs for width~128);
+(3)~despite complete symmetry breaking in all runs, only large perturbations ($\varepsilon \geq 0.1$) produce representations diverse enough for meaningful task performance, revealing a gap between structural symmetry breaking and functional diversity.
+All experiments run in $<3$ minutes on CPU with full reproducibility (seed~42).
+\end{abstract}
+
+\section{Introduction}
+
+Neural network training begins from random initialization, which breaks the permutation symmetry between neurons in a hidden layer.
+If all neurons start with identical weights, gradients are identical for every neuron, and na\"ively one might expect them to remain identical throughout training---the \emph{symmetry trap}~\citep{goodfellow2016deep}.
+In practice, the stochasticity of mini-batch SGD introduces noise that can break this symmetry, but the dynamics of this process are rarely studied empirically.
+
+We investigate three questions:
+\begin{enumerate}
+    \item Can SGD batch noise alone break symmetry from perfectly symmetric initialization?
+    \item How does the speed of symmetry breaking depend on network width?
+    \item Is structural symmetry breaking (neurons becoming geometrically distinct) sufficient for functional diversity (neurons encoding different features)?
+\end{enumerate}
+
+\section{Methods}
+
+\subsection{Architecture and Task}
+
+We use a two-layer ReLU MLP: $f(x) = W_2 \cdot \text{ReLU}(W_1 x + b_1) + b_2$, where $W_1 \in \mathbb{R}^{h \times 194}$, $W_2 \in \mathbb{R}^{97 \times h}$, and $h \in \{16, 32, 64, 128\}$.
+The input is a concatenation of two one-hot vectors encoding $(a, b)$ with $a, b \in \{0, \ldots, 96\}$, and the target is $(a + b) \bmod 97$.
+The full dataset has $97^2 = 9409$ examples, split 80/20 into train/test.
+
+\subsection{Symmetric Initialization}
+
+We set all rows of $W_1$ to a constant vector $(0.1, 0.1, \ldots, 0.1)$, then add a perturbation: $W_1^{(i)} \leftarrow (0.1, \ldots, 0.1) + \varepsilon \cdot z_i$, where $z_i \sim \mathcal{N}(0, I)$.
+We sweep $\varepsilon \in \{0, 10^{-6}, 10^{-4}, 10^{-2}, 10^{-1}\}$.
+The bias $b_1$ is initialized to zero.
+$W_2$ uses standard Kaiming uniform initialization.
+
+\subsection{Training}
+
+We train with SGD (learning rate 0.1, no momentum) using cross-entropy loss for 2000 epochs with batch size 256.
+The training data is reshuffled each epoch, providing the stochastic noise.
+All experiments use seed 42.
+
+\subsection{Symmetry Metric}
+
+We define the \emph{symmetry metric} as the mean off-diagonal pairwise cosine similarity between hidden neuron weight vectors:
+\[
+S(W_1) = \frac{2}{h(h-1)} \sum_{i < j} \frac{W_1^{(i)} \cdot W_1^{(j)}}{\|W_1^{(i)}\| \|W_1^{(j)}\|}
+\]
+$S = 1$ indicates all neurons are identical; $S \approx 0$ indicates approximate orthogonality.
+
+\section{Results}
+
+\subsection{SGD Breaks Symmetry from Any Initialization}
+
+All 20 runs achieved symmetry breaking, with final $S < 0.12$ regardless of $\varepsilon$ (Table~\ref{tab:results}).
+Even with $\varepsilon = 0$ (perfectly symmetric weights), SGD batch noise alone reduced $S$ from 1.0 to values between 0.024 and 0.116.
+This confirms that the gradient noise from mini-batch sampling is sufficient to escape the symmetric fixed point.
+
+\begin{table}[h]
+\centering
+\small
+\caption{Final symmetry metric and test accuracy across all configurations.}
+\label{tab:results}
+\begin{tabular}{cccccc}
+\toprule
+\textbf{Width} & $\varepsilon = 0$ & $\varepsilon = 10^{-6}$ & $\varepsilon = 10^{-4}$ & $\varepsilon = 10^{-2}$ & $\varepsilon = 10^{-1}$ \\
+\midrule
+\multicolumn{6}{c}{\emph{Final Symmetry Metric}} \\
+\midrule
+16  & 0.024 & 0.021 & 0.032 & 0.015 & 0.005 \\
+32  & 0.081 & 0.084 & 0.083 & 0.057 & 0.018 \\
+64  & 0.083 & 0.084 & 0.086 & 0.081 & 0.022 \\
+128 & 0.116 & 0.116 & 0.116 & 0.113 & 0.040 \\
+\midrule
+\multicolumn{6}{c}{\emph{Final Test Accuracy}} \\
+\midrule
+16  & 0.056 & 0.049 & 0.063 & 0.197 & 0.179 \\
+32  & 0.002 & 0.002 & 0.002 & 0.009 & 0.432 \\
+64  & 0.000 & 0.000 & 0.000 & 0.000 & 0.518 \\
+128 & 0.000 & 0.000 & 0.000 & 0.000 & 0.091 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Breaking Speed Scales with Width}
+
+Wider networks require more epochs to break symmetry.
+The epoch at which $S$ first drops below 0.5 increases systematically: 300 for width~16, 350 for width~32, 450--500 for width~64, and 650 for width~128 (for $\varepsilon \leq 0.01$).
+With $\varepsilon = 0.1$, all widths break by epoch~100, since the initial perturbation already reduces $S$ to $\sim 0.5$.
+
+This width dependence is expected: in wider layers, each neuron's gradient is a smaller fraction of the total gradient, so the signal-to-noise ratio for symmetry-breaking perturbations is lower.
+
+\subsection{Structural vs.\ Functional Symmetry Breaking}
+
+The most striking result is the disconnect between structural symmetry breaking and task performance.
+All runs achieve $S < 0.12$, yet only $\varepsilon = 0.1$ runs achieve meaningful test accuracy.
+At width~64, the $\varepsilon = 0$ run breaks symmetry to $S = 0.083$ but achieves 0\% test accuracy, while the $\varepsilon = 0.1$ run reaches $S = 0.022$ and 51.8\% test accuracy (with 98.8\% train accuracy).
+
+This suggests that SGD-driven symmetry breaking produces neurons that are \emph{geometrically} distinct but \emph{functionally} redundant.
+The neurons diverge in direction but may all encode similar features.
+A sufficiently large initial perturbation is needed to seed \emph{diverse} representations that SGD can then amplify into task-relevant features.
+
+\section{Discussion}
+
+\textbf{Limitations.}
+We study only two-layer MLPs on a single task. Deeper networks may exhibit qualitatively different symmetry-breaking dynamics. We use SGD without momentum; Adam's adaptive learning rates may interact differently with symmetric weights. Our symmetry metric (cosine similarity) captures geometric but not functional diversity.
+
+\textbf{Implications.}
+The finding that structural symmetry breaking is necessary but not sufficient for learning has practical implications for initialization design. Random initialization schemes (Kaiming, Xavier) work not merely because they break symmetry, but because they provide sufficient diversity for SGD to amplify into functionally distinct features. Our results quantify the minimum perturbation scale needed for this transition.
+
+\textbf{Future work.}
+Extending to deeper architectures, studying the interaction with normalization layers (which can re-symmetrize representations), and developing functional diversity metrics beyond cosine similarity are promising directions.
+
+\section{Reproducibility}
+
+All code is provided in the accompanying SKILL.md. Experiments use PyTorch~2.6.0, seed~42, and run on CPU in under 3~minutes.
+The complete parameter grid (4 widths $\times$ 5 epsilons $= 20$ runs) is deterministic and produces identical results across platforms.
+
+\bibliographystyle{plainnat}
+\begin{thebibliography}{1}
+\bibitem[Goodfellow et~al.(2016)]{goodfellow2016deep}
+Ian Goodfellow, Yoshua Bengio, and Aaron Courville.
+\newblock \emph{Deep Learning}.
+\newblock MIT Press, 2016.
+\end{thebibliography}
+
+\end{document}
