@@ -13,7 +13,7 @@ This skill trains 8 ReLU MLPs (hidden widths 32, 64, 128, 256 on two tasks) and 
 - **Python 3.10+** available on the system.
 - **No GPU required** -- all training runs on CPU.
 - **No internet required** -- all data is generated synthetically.
-- **Expected runtime:** 1-2 minutes total for all 8 experiments.
+- **Expected runtime:** about 2-3 minutes for `.venv/bin/python run.py` on CPU, plus dependency install time for a fresh `.venv`.
 - All commands must be run from the **submission directory** (`submissions/sparsity/`).
 
 ## Step 1: Environment Setup
@@ -53,7 +53,9 @@ Execute the full experiment suite (8 training runs + analysis):
 ```
 
 Expected output:
+- Phase banners: `[1/4] Generating datasets...`, `[2/4] Running 8 training experiments...`, `[3/4] Computing correlations...`, `[4/4] Analyzing grokking-sparsity transitions...`
 - Progress lines for each of 8 experiments, e.g.: `[1/8] modular_addition h=32 lr=0.01 wd=1.0... done (7.0s) dead=0.000 zero_frac=0.475 test_acc=0.580`
+- Training summary line: `Total training time: NNN.Ns`
 - Plot generation messages: `Saved: results/sparsity_evolution.png` (and 2 more)
 - Final line: `[DONE] All results saved to results/`
 
@@ -111,9 +113,9 @@ Generated plots in `results/`:
 
 ## Key Scientific Findings
 
-- **Zero fraction strongly predicts generalization**: Spearman rho=-0.905 (p=0.002) between zero fraction and generalization gap across all 8 experiments.
-- **Task-dependent sparsification direction**: Regression tasks increase sparsity during training (+0.02 to +0.06), while modular addition decreases it (-0.05 to -0.11).
-- **Width effects differ by task**: Wider regression models have slightly lower zero fractions; for modular addition the relationship is non-monotonic.
+- **Zero fraction strongly predicts generalization**: Spearman rho=-0.857 (p=0.007) between final zero fraction and generalization gap across all 8 experiments.
+- **Task-dependent sparsification direction**: Regression tasks increase zero fraction during training (+0.024 to +0.052), while modular addition decreases it (-0.050 to -0.127).
+- **No grokking observed within 3000 epochs**: None of the four modular-addition widths crossed the grokking threshold; width 256 achieved the highest test accuracy (0.725) without a sharp transition.
 
 ## How to Extend
 

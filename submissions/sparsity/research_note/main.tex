@@ -30,11 +30,11 @@ hidden widths 32--256 on modular addition (a grokking-prone task) and
 nonlinear regression, we track the fraction of zero activations,
 dead neurons, and activation entropy at 50-epoch intervals over 3000
 epochs. We find three key results: (1)~zero activation fraction strongly
-correlates with generalization gap (Spearman $\rho = -0.905$, $p = 0.002$)
+correlates with generalization gap (Spearman $\rho = -0.857$, $p = 0.007$)
 across experiments; (2)~the direction of sparsification is task-dependent
 --- regression networks self-sparsify while modular addition networks
 become denser during training; and (3)~wider models exhibit different
-sparsity dynamics depending on the task structure. These results establish
+sparsity dynamics depending on the task structure. These results suggest
 activation sparsity as an informative probe of training dynamics and
 suggest that the relationship between sparsity and generalization is
 more nuanced than the simple ``sparsity aids generalization'' narrative.
@@ -126,9 +126,9 @@ we observe \emph{task-dependent sparsification direction}:
 
 \begin{itemize}
   \item \textbf{Regression}: All four widths showed increased zero fraction
-    during training ($+0.02$ to $+0.06$), consistent with self-sparsification.
+    during training ($+0.024$ to $+0.052$), consistent with self-sparsification.
   \item \textbf{Modular addition}: All four widths showed \emph{decreased}
-    zero fraction during training ($-0.05$ to $-0.11$), indicating that
+    zero fraction during training ($-0.050$ to $-0.127$), indicating that
     memorization of the modular arithmetic structure requires denser
     activation patterns.
 \end{itemize}
@@ -145,29 +145,29 @@ fraction remained 0 throughout training for all 8 runs.
 \toprule
 Metric pair & $\rho$ & $p$-value \\
 \midrule
-Zero fraction vs.\ gen.\ gap & $-0.905$ & 0.002 \\
-Zero fraction vs.\ test accuracy & $+0.905$ & 0.002 \\
-Zero frac.\ change vs.\ test accuracy & $+0.714$ & 0.047 \\
+Zero fraction vs.\ gen.\ gap & $-0.857$ & 0.007 \\
+Zero fraction vs.\ test accuracy & $+0.857$ & 0.007 \\
+Zero frac.\ change vs.\ test accuracy & $+0.667$ & 0.071 \\
 \bottomrule
 \end{tabular}
 \label{tab:correlations}
 \end{table}
 
-The strongest finding is a highly significant negative correlation between
-zero activation fraction and generalization gap ($\rho = -0.905$,
-$p = 0.002$). Experiments with higher zero fractions (more sparse
+The strongest finding is a strong negative correlation between
+zero activation fraction and generalization gap ($\rho = -0.857$,
+$p = 0.007$). Experiments with higher zero fractions (more sparse
 activations) tend to have smaller generalization gaps and higher test
-accuracy. The change in zero fraction during training also significantly
-correlates with test accuracy ($\rho = 0.714$, $p = 0.047$): experiments
-that \emph{increase} their sparsity during training achieve better
-generalization.
+accuracy. The change in zero fraction during training shows a positive
+but not conventionally significant trend with test accuracy
+($\rho = 0.667$, $p = 0.071$): experiments that \emph{increase} their
+sparsity during training tend to generalize better in this small sample.
 
 \subsection{Grokking and Sparsity}
 
 None of the four modular addition experiments exhibited full grokking
 (defined as test accuracy exceeding 0.8 with a sharp transition from
 below 0.4) within 3000 epochs. The highest test accuracy reached was
-0.665 (width 256). This is consistent with the literature:
+0.725 (width 256). This is consistent with the literature:
 grokking in two-layer MLPs on mod-97 addition can require substantially
 more epochs. However, we observe that modular addition models
 progressively \emph{decrease} their activation sparsity during the
@@ -177,11 +177,11 @@ coincide with a reversal of this trend.
 \subsection{Width Effects}
 
 For regression, smaller models (width 32) achieve the highest final
-zero fraction (0.607) and the best generalization (test $R^2 = 0.930$,
-gen gap 0.035). Larger models show slightly lower sparsity and comparable
+zero fraction (0.595) and the best generalization (test $R^2 = 0.933$,
+gen gap 0.032). Larger models show slightly lower sparsity and comparable
 performance. For modular addition, the relationship between width and
 final performance is non-monotonic: widths 32 and 256 achieve the highest
-test accuracy ($\sim$0.58 and $\sim$0.67 respectively).
+test accuracy ($\sim$0.58 and $\sim$0.73 respectively).
 
 \section{Discussion}
 
@@ -212,8 +212,8 @@ AdamW's weight decay itself promotes sparsity, complicating causal claims.
 
 \section{Conclusion}
 
-Activation sparsity, measured as zero fraction, is a strong predictor of
-generalization across ReLU MLP experiments ($\rho = -0.905$ vs.\
+Activation sparsity, measured as zero fraction, is strongly associated
+with generalization across ReLU MLP experiments ($\rho = -0.857$ vs.\
 generalization gap). The direction of sparsification during training is
 task-dependent: regression self-sparsifies while modular addition becomes
 denser. These findings suggest that monitoring activation sparsity
@@ -223,7 +223,8 @@ more nuanced than universal self-sparsification.
 
 \paragraph{Reproducibility.}
 All experiments use seed 42, pinned library versions (PyTorch 2.6.0,
-NumPy 2.2.4, SciPy 1.15.2), and run on CPU in under 2 minutes.
+NumPy 2.2.4, SciPy 1.15.2), and complete on CPU in about 2.5 minutes in
+our verified environment.
 The full analysis is executable via the accompanying \texttt{SKILL.md}.
 
 \bibliographystyle{plainnat}
