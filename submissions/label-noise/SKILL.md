@@ -25,7 +25,7 @@ cd submissions/label-noise
 .venv/bin/python -m pytest tests/ -v
 ```
 
-**Expected output:** All tests passed. Tests cover data generation, label noise injection, model construction, training convergence, and evaluation correctness.
+**Expected output:** Pytest exits with `24 passed` and exit code 0. Tests cover data generation, label noise injection, model construction, training convergence, and evaluation correctness.
 
 ## Step 3: Run the full experiment
 
