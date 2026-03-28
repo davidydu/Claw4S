@@ -81,6 +81,12 @@ Script exits with code 0. The following files are created:
 - `results/figures/temporal_patterns.png`
 - `results/figures/wuxing_predictiveness.png`
 
+For quick smoke checks (small sample, optional no-figure mode):
+
+```bash
+python run.py --start-year 2000 --end-year 2001 --max-charts 120 --skip-figures --output-dir results_smoke
+```
+
 ## Step 4: Validate Results
 
 Check that results are complete and statistically consistent:
@@ -94,6 +100,12 @@ Expected output includes:
 - `BaZi domain scores: mean=X.XX, std=X.XX` — non-trivial variation
 - `Zi Wei domain scores: mean=X.XX, std=X.XX`
 - `Validation passed.`
+
+To validate a non-default output directory:
+
+```bash
+python validate.py --results-file results_smoke/results.json
+```
 
 ## Step 5: Review the Report
 

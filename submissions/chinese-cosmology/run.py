@@ -14,13 +14,36 @@ All commands must be run from the submission directory.
 
 import json
 import os
+import argparse
 
 from src.experiment import build_chart_configs, run_chart_analysis
 from src.analysis import analyze_results
 from src.report import generate_report, generate_figures
 
 
-def build_configs(start_year: int = 1984, end_year: int = 2044):
+def _configure_plot_cache(output_dir: str) -> None:
+    """Set writable cache directories for matplotlib/fontconfig in restricted envs."""
+    cache_root = os.path.join(output_dir, ".cache")
+    os.makedirs(cache_root, exist_ok=True)
+
+    xdg_cache = os.environ.get("XDG_CACHE_HOME")
+    if not xdg_cache:
+        os.environ["XDG_CACHE_HOME"] = cache_root
+        xdg_cache = cache_root
+
+    mpl_config = os.environ.get("MPLCONFIGDIR")
+    if not mpl_config:
+        mpl_config = os.path.join(xdg_cache, "matplotlib")
+        os.environ["MPLCONFIGDIR"] = mpl_config
+
+    os.makedirs(mpl_config, exist_ok=True)
+
+
+def build_configs(
+    start_year: int = 1984,
+    end_year: int = 2044,
+    max_charts: int | None = None,
+):
     """Build the full list of birth datetime configs for the experiment.
 
     Delegates to build_chart_configs() for easy smoke-testing:
@@ -33,20 +56,76 @@ def build_configs(start_year: int = 1984, end_year: int = 2044):
     Returns:
         list of datetime.datetime objects
     """
-    return build_chart_configs(start_year=start_year, end_year=end_year)
+    configs = build_chart_configs(start_year=start_year, end_year=end_year)
+
+    if max_charts is None:
+        return configs
+    if max_charts <= 0:
+        raise ValueError("max_charts must be a positive integer when provided")
+
+    return configs[:max_charts]
 
 
-def main():
-    os.makedirs("results", exist_ok=True)
-    os.makedirs("results/figures", exist_ok=True)
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="Run Chinese cosmology consistency analysis.",
+    )
+    parser.add_argument(
+        "--start-year",
+        type=int,
+        default=1984,
+        help="Start year (inclusive). Default: 1984.",
+    )
+    parser.add_argument(
+        "--end-year",
+        type=int,
+        default=2044,
+        help="End year (exclusive). Default: 2044.",
+    )
+    parser.add_argument(
+        "--max-charts",
+        type=int,
+        default=None,
+        help="Optional smoke limit: analyze only first N generated charts.",
+    )
+    parser.add_argument(
+        "--output-dir",
+        default="results",
+        help="Directory for results outputs. Default: results.",
+    )
+    parser.add_argument(
+        "--skip-figures",
+        action="store_true",
+        help="Skip figure generation for faster smoke runs.",
+    )
+    return parser.parse_args()
+
+
+def main(
+    start_year: int = 1984,
+    end_year: int = 2044,
+    max_charts: int | None = None,
+    output_dir: str = "results",
+    skip_figures: bool = False,
+):
+    os.makedirs(output_dir, exist_ok=True)
+    figures_dir = os.path.join(output_dir, "figures")
+    os.makedirs(figures_dir, exist_ok=True)
 
     # ------------------------------------------------------------------
     # Step 1: Generate chart datetimes
     # ------------------------------------------------------------------
-    print("[1/5] Generating birth chart datetimes (1984–2044)...")
-    configs = build_configs(start_year=1984, end_year=2044)
+    print(f"[1/5] Generating birth chart datetimes ({start_year}–{end_year})...")
+    configs = build_configs(
+        start_year=start_year,
+        end_year=end_year,
+        max_charts=max_charts,
+    )
     total = len(configs)
-    print(f"  {total:,} datetimes generated")
+    if max_charts is None:
+        print(f"  {total:,} datetimes generated")
+    else:
+        print(f"  {total:,} datetimes selected (max_charts={max_charts:,})")
 
     # ------------------------------------------------------------------
     # Step 2: Run all 3 agents on each chart
@@ -76,13 +155,17 @@ def main():
     # ------------------------------------------------------------------
     print("[4/5] Generating report and figures...")
     report = generate_report(analysis)
-    generate_figures(analysis, output_dir="results/figures")
-    print("  5 figures saved to results/figures/")
+    if skip_figures:
+        print("  Figure generation skipped (--skip-figures).")
+    else:
+        _configure_plot_cache(output_dir)
+        generate_figures(analysis, output_dir=figures_dir)
+        print(f"  5 figures saved to {figures_dir}/")
 
     # ------------------------------------------------------------------
     # Step 5: Save results
     # ------------------------------------------------------------------
-    print("[5/5] Saving results to results/")
+    print(f"[5/5] Saving results to {output_dir}/")
 
     # Flatten records for JSON serialization
     def _serialize_record(r):
@@ -100,8 +183,8 @@ def main():
     serializable = {
         "metadata": {
             "num_charts": total,
-            "start_year": 1984,
-            "end_year": 2044,
+            "start_year": start_year,
+            "end_year": end_year,
             "systems": ["bazi", "ziwei", "wuxing"],
             "domains": ["career", "wealth", "relationships", "health", "overall"],
         },
@@ -113,11 +196,15 @@ def main():
         },
     }
 
-    with open("results/results.json", "w") as f:
+    results_json_path = os.path.join(output_dir, "results.json")
+    report_path = os.path.join(output_dir, "report.md")
+    stats_path = os.path.join(output_dir, "statistical_tests.json")
+
+    with open(results_json_path, "w") as f:
         json.dump(serializable, f, indent=2, default=str)
 
     # Save report.md
-    with open("results/report.md", "w") as f:
+    with open(report_path, "w") as f:
         f.write(report)
 
     # Save statistical_tests.json
@@ -129,15 +216,25 @@ def main():
         "n_records": stats.get("n_records", 0),
         "temporal_patterns": stats.get("temporal_patterns", []),
     }
-    with open("results/statistical_tests.json", "w") as f:
+    with open(stats_path, "w") as f:
         json.dump(stat_tests, f, indent=2, default=str)
 
-    print(f"\nDone. Results saved to results/")
-    print(f"  results/results.json ({total:,} chart records)")
-    print(f"  results/report.md")
-    print(f"  results/statistical_tests.json")
-    print(f"  results/figures/ (5 PNGs)")
+    print(f"\nDone. Results saved to {output_dir}/")
+    print(f"  {results_json_path} ({total:,} chart records)")
+    print(f"  {report_path}")
+    print(f"  {stats_path}")
+    if skip_figures:
+        print(f"  {figures_dir}/ (skipped)")
+    else:
+        print(f"  {figures_dir}/ (5 PNGs)")
 
 
 if __name__ == "__main__":
-    main()
+    args = parse_args()
+    main(
+        start_year=args.start_year,
+        end_year=args.end_year,
+        max_charts=args.max_charts,
+        output_dir=args.output_dir,
+        skip_figures=args.skip_figures,
+    )
