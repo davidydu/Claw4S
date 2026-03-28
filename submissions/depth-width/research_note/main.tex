@@ -17,8 +17,8 @@
 \begin{abstract}
 For a fixed parameter budget, should one build a deep-narrow or shallow-wide MLP?
 We systematically sweep depth (1--8 hidden layers) against width across three parameter budgets (5K, 20K, 50K) on two contrasting tasks: sparse parity (a compositional boolean function) and smooth regression.
-We find that \textbf{moderate depth (2 layers) is universally optimal}: it converges 5--14$\times$ faster than single-layer networks on compositional tasks while maintaining the best generalization on smooth tasks.
-Very deep networks (8 layers) suffer from optimization instability at small budgets (72.6\% vs.\ 100\% accuracy on parity at 5K params), and single-layer networks converge slowly on structured tasks despite eventually reaching high accuracy.
+We find that \textbf{moderate depth is the most robust default}: depth-2 belongs to the best-performing set in all six task-budget conditions, converges 4--11$\times$ faster than single-layer networks on sparse parity, and delivers the best generalization on smooth regression.
+Very deep networks (8 layers) suffer from optimization instability at small budgets (75.9\% vs.\ 100\% accuracy on parity at 5K params), and single-layer networks converge slowly on structured tasks despite eventually reaching high accuracy.
 These results provide practical guidance for MLP architecture selection under parameter constraints.
 \end{abstract}
 
@@ -44,7 +44,7 @@ We use fully-connected MLPs with ReLU activations, Kaiming initialization, and n
 
 \subsection{Training}
 
-All models are trained with AdamW, cosine annealing learning rate schedule, and full-batch gradient descent. Task-specific hyperparameters: sparse parity uses lr$=3{\times}10^{-3}$, weight decay$=10^{-2}$, max 1{,}500 epochs; regression uses lr$=10^{-3}$, weight decay$=10^{-4}$, max 800 epochs. All experiments use seed 42. We report best test metric achieved during training.
+All models are trained with AdamW, cosine annealing learning rate schedule, and full-batch gradient descent. Task-specific hyperparameters: sparse parity uses lr$=3{\times}10^{-3}$, weight decay$=10^{-2}$, max 1{,}500 epochs; regression uses lr$=10^{-3}$, weight decay$=10^{-4}$, max 800 epochs. All experiments use seed 42. We report best test metric achieved during training. For convergence-speed comparisons, we use task-specific thresholds: 85\% test accuracy for sparse parity and 0.90 test $R^2$ for regression.
 
 \section{Results}
 
@@ -61,28 +61,28 @@ Depth & 5K params & 20K params & 50K params \\
 1 & 1.000 & 1.000 & 0.992 \\
 2 & 1.000 & 1.000 & 1.000 \\
 4 & 1.000 & 1.000 & 1.000 \\
-8 & 0.726 & 0.995 & 0.999 \\
+8 & 0.759 & 0.996 & 0.999 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 \begin{table}[h]
 \centering
-\caption{Convergence speed on sparse parity: epochs to reach 90\% test accuracy. Depth 2--4 converge 5--14$\times$ faster than depth 1.}
+\caption{Convergence speed on sparse parity: epochs to reach 85\% test accuracy. Depth 2--4 converge 4--11$\times$ faster than depth 1.}
 \label{tab:parity-speed}
 \begin{tabular}{@{}lccc@{}}
 \toprule
 Depth & 5K params & 20K params & 50K params \\
 \midrule
-1 & 339 & 239 & 404 \\
+1 & 343 & 240 & 411 \\
 2 & 79 & 54 & 51 \\
 4 & 49 & 28 & 36 \\
-8 & never & 50 & 40 \\
+8 & never & 49 & 40 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-The key finding is in convergence speed (Table~\ref{tab:parity-speed}). While most configurations eventually reach near-perfect accuracy (Table~\ref{tab:parity-acc}), depth-2 and depth-4 networks converge 5--14$\times$ faster than depth-1 networks at the same parameter budget (e.g., depth-4 reaches 90\% at epoch 28 vs.\ 404 for depth-1 at 50K params). This aligns with theory: deeper networks can compute parity with fewer parameters per layer. However, depth-8 networks at the smallest budget (5K params, width=25) achieve only 72.6\% test accuracy, demonstrating the optimization difficulty of very deep narrow networks without skip connections.
+The key finding is in convergence speed (Table~\ref{tab:parity-speed}). While most configurations eventually reach near-perfect accuracy (Table~\ref{tab:parity-acc}), depth-2 and depth-4 networks converge 4--11$\times$ faster than depth-1 networks at the same parameter budget (e.g., at 50K params, depth-4 reaches 85\% at epoch 36 vs.\ 411 for depth-1). This aligns with theory: deeper networks can compute parity with fewer parameters per layer. However, depth-8 networks at the smallest budget (5K params, width=25) achieve only 75.9\% test accuracy, demonstrating the optimization difficulty of very deep narrow networks without skip connections.
 
 \subsection{Smooth Regression}
 
@@ -106,19 +106,19 @@ Depth 2 is the clear winner across all budgets (Table~\ref{tab:reg-r2}), with $R
 
 \section{Discussion}
 
-\paragraph{Moderate depth is universally beneficial.} Across both tasks and all budgets, depth-2 networks achieve the best or near-best performance. This suggests that for practical MLP deployment under parameter constraints, two hidden layers is a robust default choice.
+\paragraph{Moderate depth is a robust default.} Across both tasks and all budgets, depth-2 networks achieve the best or near-best performance, and they appear in the best-performing set for every task-budget pair. This suggests that for practical MLP deployment under parameter constraints, two hidden layers is a robust default choice.
 
 \paragraph{Depth helps convergence on compositional tasks.} On sparse parity, deeper networks converge much faster, consistent with the theoretical advantage of depth for computing Boolean functions. However, this benefit saturates and reverses at extreme depths due to optimization difficulty.
 
-\paragraph{Excess depth hurts smooth tasks.} For regression, depth beyond 2 hurts generalization. The train $R^2$ for depth-8 networks often reaches 0.999+ while test $R^2$ remains below 0.90, indicating severe overfitting---the narrow layers create a bottleneck that memorizes rather than generalizes.
+\paragraph{Excess depth hurts smooth tasks.} For regression, depth beyond 2 hurts generalization. At 20K and 50K parameters, depth-8 networks reach train $R^2$ of roughly 0.999 while test $R^2$ remains below 0.90, indicating severe overfitting---the narrow layers act as a bottleneck that memorizes rather than generalizes.
 
-\paragraph{Training stability degrades with depth.} At the 5K budget, depth-8 networks (width=25--26) achieve only 72.6\% on parity and never reach 0.90 $R^2$ on regression. With only $\sim$25 neurons per layer, the network lacks the capacity for stable gradient flow, especially without skip connections.
+\paragraph{Training stability degrades with depth.} At the 5K budget, depth-8 networks (width=25--26) achieve only 75.9\% on parity and never reach 0.90 $R^2$ on regression. With only $\sim$25 neurons per layer, optimization becomes fragile, especially without skip connections or normalization.
 
 \paragraph{Limitations.} We test only ReLU MLPs without skip connections, batch normalization, or other stabilizers that could shift the optimal depth. We use a single seed; variance across seeds would strengthen conclusions. The tasks, while theoretically motivated, are synthetic.
 
 \section{Conclusion}
 
-Under fixed parameter budgets, moderate-depth MLPs (2 hidden layers) provide the best tradeoff between representational power and trainability. Depth accelerates convergence on compositional tasks but excess depth causes optimization instability, especially at smaller budgets where hidden layers become very narrow. Width is the dominant factor for smooth regression tasks. These findings suggest that practitioners working under parameter constraints should default to 2 hidden layers and invest remaining capacity in width.
+Under fixed parameter budgets, moderate-depth MLPs (especially 2 hidden layers) provide the best tradeoff between representational power and trainability. Depth accelerates convergence on compositional tasks, but excess depth causes optimization instability, especially at smaller budgets where hidden layers become very narrow. For smooth regression, moderate depth outperforms both extreme width and extreme depth. These findings suggest that practitioners working under parameter constraints should default to 2 hidden layers, and consider depth 4 only for parity-like tasks where convergence speed matters more than simplicity.
 
 \bibliographystyle{plainnat}
 \begin{thebibliography}{9}
