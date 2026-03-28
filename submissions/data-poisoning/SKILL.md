@@ -28,7 +28,7 @@ python3 -m venv .venv
 .venv/bin/python -m pytest tests/ -v
 ```
 
-**Expected output:** All tests passed. Tests cover data generation, label poisoning, MLP training, accuracy evaluation, result aggregation, and sigmoid curve fitting.
+**Expected output:** Pytest exits with `31 passed` and exit code 0. Tests cover data generation, label poisoning, MLP training, accuracy evaluation, result aggregation, and sigmoid curve fitting.
 
 ## Step 3: Run the experiment
 
