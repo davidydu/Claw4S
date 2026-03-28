@@ -31,7 +31,7 @@ cd submissions/adversarial-robustness
 .venv/bin/python -m pytest tests/ -v
 ```
 
-**Expected output:** All tests pass (39 tests). Example:
+**Expected output:** All tests passed. Example:
 ```
 tests/test_data.py::TestMakeCircles::test_output_shape PASSED
 tests/test_models.py::TestTwoLayerMLP::test_param_count_formula PASSED
@@ -39,7 +39,7 @@ tests/test_attacks.py::TestFGSMAttack::test_perturbation_bounded PASSED
 tests/test_attacks.py::TestPGDAttack::test_pgd_stronger_than_fgsm PASSED
 tests/test_analysis.py::TestComputeSummaryStatistics::test_correlation_computed PASSED
 ...
-====== 39 passed in Xs ======
+====== X passed in Xs ======
 ```
 
 ## Step 3: Run the experiment
