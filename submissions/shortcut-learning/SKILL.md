@@ -41,7 +41,7 @@ Verify all modules work correctly before running the experiment:
 .venv/bin/python -m pytest tests/ -v
 ```
 
-Expected: All tests pass (exit code 0). You should currently see 19 tests pass covering data generation, model construction, training, experiment logic, and report wording.
+Expected: All tests passed (exit code 0). Tests cover data generation, model construction, training, experiment logic, and report wording.
 
 ## Step 3: Run the Experiment
 
