@@ -41,7 +41,7 @@ Verify the analysis modules work correctly:
 .venv/bin/python -m pytest tests/ -v
 ```
 
-Expected: Pytest exits with `48 passed` and exit code 0.
+Expected: Pytest exits with `51 passed` and exit code 0.
 
 ## Step 3: Run the Analysis
 
@@ -75,7 +75,8 @@ Expected output:
 BIG-Bench tasks analyzed: 8
 Tasks with nonlinearity scores: 8
   Likely artifacts (MSI > 2): 7
-  Possibly genuine (MSI <= 2): 1
+  Definitional (n_tokens = 1): 1
+  Possibly genuine (MSI <= 2, excluding n_tokens = 1): 0
 Synthetic demo points: 20
 MMLU models analyzed: 13
 Report length: ~9400 characters
@@ -102,8 +103,9 @@ The report contains:
 ## Key Scientific Findings
 
 1. **7 of 8 tasks show MSI > 2**: Most apparent emergence is a metric artifact
-2. **Synthetic demo confirms mechanism**: Linear per-token improvement creates sharp phase transition under exact-match scoring
-3. **MMLU scales smoothly**: Multiple-choice accuracy (more continuous) shows relatively smooth scaling with model size
+2. **The lone MSI <= 2 case is definitional**: Sports understanding has `n_tokens=1`, so exact match equals per-token accuracy by construction
+3. **Synthetic demo confirms mechanism**: Linear per-token improvement creates sharp phase transition under exact-match scoring
+4. **MMLU scales smoothly**: Multiple-choice accuracy (more continuous) shows relatively smooth scaling with model size
 
 ## How to Extend
 

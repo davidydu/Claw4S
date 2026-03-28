@@ -162,6 +162,8 @@ def compute_nonlinearity_scores() -> dict[str, dict]:
 
         scores[task_name] = {
             "msi": msi,
+            "n_tokens": comparison["n_tokens"],
+            "metric_type": comparison["metric_type"],
             "linear_r2_discontinuous": lin_r2_disc,
             "sigmoid_r2_discontinuous": sig_r2_disc,
             "linear_r2_continuous": lin_r2_cont,

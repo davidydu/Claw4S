@@ -63,8 +63,24 @@ else:
         print(f"Tasks with nonlinearity scores: {n_scored}")
 
         artifact_count = sum(1 for s in ns.values() if s.get("msi", 0) > 2.0)
+        definitional_count = sum(1 for s in ns.values() if s.get("n_tokens") == 1)
+        genuine_count = sum(
+            1
+            for s in ns.values()
+            if s.get("msi", 0) <= 2.0 and s.get("n_tokens") != 1
+        )
         print(f"  Likely artifacts (MSI > 2): {artifact_count}")
-        print(f"  Possibly genuine (MSI <= 2): {n_scored - artifact_count}")
+        print(f"  Definitional (n_tokens = 1): {definitional_count}")
+        print(
+            "  Possibly genuine (MSI <= 2, excluding n_tokens = 1): "
+            f"{genuine_count}"
+        )
+
+        for task_name, score in ns.items():
+            if "n_tokens" not in score:
+                errors.append(f"Nonlinearity score missing n_tokens: {task_name}")
+            if "metric_type" not in score:
+                errors.append(f"Nonlinearity score missing metric_type: {task_name}")
 
     # Check synthetic demo
     if "synthetic_demo" in data:

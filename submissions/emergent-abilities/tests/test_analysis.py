@@ -68,6 +68,14 @@ def test_nonlinearity_detection_returns_scores():
         assert "sigmoid_r2_discontinuous" in task_scores
 
 
+def test_nonlinearity_scores_include_task_metadata():
+    """Scores include task metadata needed for interpretation."""
+    scores = compute_nonlinearity_scores()
+    sports = scores["sports_understanding"]
+    assert sports["n_tokens"] == 1
+    assert sports["metric_type"] == "multiple_choice"
+
+
 def test_synthetic_demo_shows_divergence():
     """Synthetic demo: exact match << partial credit at low per-token accuracy."""
     demo = generate_synthetic_demo(seed=42)

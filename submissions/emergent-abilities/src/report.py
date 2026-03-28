@@ -1,7 +1,5 @@
 """Generate markdown summary report from analysis results."""
 
-from datetime import datetime, timezone
-
 
 def generate_report(results: dict) -> str:
     """Generate a markdown report summarizing analysis findings.
@@ -17,7 +15,7 @@ def generate_report(results: dict) -> str:
     # Header
     lines.append("# Emergent Abilities in LLMs: Mirage or Real?")
     lines.append("")
-    lines.append(f"*Generated: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}*")
+    lines.append("*Generated deterministically from hardcoded benchmark data*")
     lines.append(f"*Random seed: {results['seed']}*")
     lines.append("")
 
@@ -44,13 +42,21 @@ def generate_report(results: dict) -> str:
     # Finding 1: MSI analysis
     ns = results["nonlinearity_scores"]
     artifact_tasks = [t for t, s in ns.items() if s["msi"] > 2.0]
-    genuine_tasks = [t for t, s in ns.items() if s["msi"] <= 2.0]
+    definitional_tasks = [t for t, s in ns.items() if s.get("n_tokens") == 1]
+    genuine_tasks = [
+        t for t, s in ns.items() if s["msi"] <= 2.0 and s.get("n_tokens") != 1
+    ]
 
     lines.append(f"### Finding 1: Metric Sensitivity Index")
     lines.append("")
     lines.append(f"Of {len(ns)} BIG-Bench tasks analyzed:")
     lines.append(f"- **{len(artifact_tasks)}** tasks show MSI > 2.0 (likely metric artifact)")
-    lines.append(f"- **{len(genuine_tasks)}** tasks show MSI <= 2.0 (potentially genuine nonlinearity)")
+    lines.append(
+        f"- **{len(definitional_tasks)}** tasks have n_tokens=1, so MSI is definitional rather than diagnostic"
+    )
+    lines.append(
+        f"- **{len(genuine_tasks)}** tasks remain as possible genuine nonlinearity after excluding n_tokens=1 cases"
+    )
     lines.append("")
 
     # MSI table
@@ -152,12 +158,25 @@ def generate_report(results: dict) -> str:
     lines.append("   show high MSI, meaning the apparent nonlinearity is primarily driven by the")
     lines.append("   discontinuous metric rather than genuine capability jumps.")
     lines.append("")
+    if definitional_tasks:
+        lines.append(
+            f"2. **Single-token tasks need separate interpretation**: {len(definitional_tasks)} task"
+            f"{'' if len(definitional_tasks) == 1 else 's'} have n_tokens=1, so exact match and"
+        )
+        lines.append(
+            "   per-token accuracy coincide by construction and MSI cannot distinguish"
+            "   artifact from genuine nonlinearity for those cases."
+        )
+        lines.append("")
     if genuine_tasks:
-        lines.append(f"2. **Some tasks may show genuine nonlinearity**: {len(genuine_tasks)} tasks")
+        lines.append(f"3. **Some tasks may show genuine nonlinearity**: {len(genuine_tasks)} tasks")
         lines.append("   retain nonlinear scaling even under continuous metrics, suggesting")
         lines.append("   that not all emergence is an artifact (though sparse data limits conclusions).")
         lines.append("")
-    lines.append(f"{'3' if genuine_tasks else '2'}. **MMLU confirms smooth scaling**: With a more continuous metric")
+    lines.append(
+        f"{'4' if genuine_tasks and definitional_tasks else '3' if genuine_tasks or definitional_tasks else '2'}. "
+        "**MMLU confirms smooth scaling**: With a more continuous metric"
+    )
     lines.append("   (multiple-choice accuracy), performance scales relatively smoothly with model size.")
     lines.append("")
 

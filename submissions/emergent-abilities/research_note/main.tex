@@ -21,7 +21,7 @@
 \maketitle
 
 \begin{abstract}
-We re-analyze published benchmark data from BIG-Bench (8 tasks, 3 model families) and MMLU (13 models, 5 families) to test the claim by \citet{schaeffer2023} that emergent abilities in large language models are artifacts of discontinuous evaluation metrics. By applying both discontinuous (exact string match) and continuous (partial credit) metrics to the same published performance data, we quantify the \emph{Metric Sensitivity Index} (MSI) for each task. We find that 7 of 8 analyzed tasks show MSI $> 2$, indicating that the apparent phase transition is primarily driven by the choice of metric. A synthetic demonstration confirms that linear per-token improvement creates dramatic apparent emergence under exact-match scoring. MMLU accuracy, a more continuous metric, scales smoothly across model families. Our findings are consistent with the metric artifact hypothesis, though we identify one task with potentially genuine nonlinearity.
+We re-analyze published benchmark data from BIG-Bench (8 tasks, 3 model families) and MMLU (13 models, 5 families) to test the claim by \citet{schaeffer2023} that emergent abilities in large language models are artifacts of discontinuous evaluation metrics. By applying both discontinuous (exact string match) and continuous (partial credit) metrics to the same published performance data, we quantify the \emph{Metric Sensitivity Index} (MSI) for each task. We find that 7 of 8 analyzed tasks show MSI $> 2$, indicating that the apparent phase transition is primarily driven by the choice of metric. A synthetic demonstration confirms that linear per-token improvement creates dramatic apparent emergence under exact-match scoring. MMLU accuracy, a more continuous metric, scales smoothly across model families. The lone MSI $\leq 2$ case is a single-token multiple-choice task, so its MSI is definitional rather than diagnostic.
 \end{abstract}
 
 \section{Introduction}
@@ -79,7 +79,7 @@ We generate synthetic data where per-token accuracy improves linearly with $\log
 
 \subsection{Metric Sensitivity Index}
 
-Of 8 BIG-Bench tasks analyzed, \textbf{7 show MSI $> 2$}, indicating that the apparent phase transition is predominantly a metric artifact (Table~\ref{tab:msi}). Only sports understanding shows MSI $\leq 2$, consistent with potentially genuine nonlinearity---though this task uses multiple-choice accuracy (a more continuous metric to begin with).
+Of 8 BIG-Bench tasks analyzed, \textbf{7 show MSI $> 2$}, indicating that the apparent phase transition is predominantly a metric artifact (Table~\ref{tab:msi}). The remaining task, sports understanding, has a single-token output under multiple-choice accuracy, so exact match and per-token accuracy are identical by construction and MSI is not informative for that case.
 
 \begin{table}[h]
 \centering
@@ -96,7 +96,7 @@ Word Unscramble & 1401.51 & 0.978 & 0.846 & Artifact \\
 Modified Arithmetic & 7.82 & 0.978 & 0.868 & Artifact \\
 Word Sorting & 6.57 & 0.979 & 0.969 & Artifact \\
 Persian QA & 7.69 & 0.993 & 0.979 & Artifact \\
-Sports Understanding & 1.00 & 0.890 & 0.890 & Possibly genuine \\
+Sports Understanding & 1.00 & 0.890 & 0.890 & N/A (single token) \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -126,7 +126,7 @@ However, we note several important caveats:
     \item \textbf{Hardcoded data}: All data is transcribed from published figures and tables, introducing potential transcription error.
 \end{enumerate}
 
-The finding that sports understanding retains nonlinearity even under continuous metrics suggests that the question ``mirage or real?'' may not have a binary answer---some tasks may genuinely require scale-dependent capabilities while others are pure metric artifacts.
+Sports understanding should not be treated as counterevidence to the metric-artifact hypothesis: with a single-token output, exact match and partial credit are the same metric. This means our current MSI analysis cannot adjudicate whether that task contains genuine nonlinearity, and future work should use task-level metrics that remain informative when $n=1$.
 
 \section{Conclusion}
 

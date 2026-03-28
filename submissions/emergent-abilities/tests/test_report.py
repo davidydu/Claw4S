@@ -41,6 +41,20 @@ def test_report_contains_msi():
     assert "MSI" in report or "Metric Sensitivity" in report
 
 
+def test_report_marks_single_token_msi_as_definitional():
+    """Single-token tasks are flagged as non-interpretable for MSI verdicts."""
+    report = _get_report()
+    assert "Sports Understanding | 1.00" in report
+    assert "N/A (n_tokens=1)" in report
+
+
+def test_report_avoids_wall_clock_timestamps():
+    """Report stays deterministic by avoiding wall-clock timestamps."""
+    report = _get_report()
+    assert "Generated:" not in report
+    assert "Generated deterministically from hardcoded benchmark data" in report
+
+
 def test_report_mentions_schaeffer():
     """Report references Schaeffer et al."""
     report = _get_report()
