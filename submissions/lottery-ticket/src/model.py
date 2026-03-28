@@ -8,7 +8,7 @@ class TwoLayerMLP(nn.Module):
     """Simple 2-layer ReLU MLP.
 
     Architecture: input_dim -> hidden_dim (ReLU) -> output_dim
-    Baseline with hidden=128 has ~25K parameters.
+    Parameter count depends on the task dimensions.
     """
 
     def __init__(self, input_dim: int, hidden_dim: int, output_dim: int):

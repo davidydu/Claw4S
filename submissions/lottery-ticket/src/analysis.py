@@ -217,6 +217,11 @@ def generate_report(results_data: dict, output_dir: str = "results") -> str:
     lines.append(f"Runtime: {meta['elapsed_seconds']}s")
     lines.append(f"Model: 2-layer MLP, hidden_dim={meta['hidden_dim']}")
     lines.append(f"Seeds: {len(results_data['results']) // (meta['num_tasks'] * meta['num_strategies'] * meta['num_sparsity_levels'])}")
+    lines.append(
+        "Early stopping: "
+        f"{meta.get('validation_fraction', 0.0):.0%} validation split, "
+        "best checkpoint restored"
+    )
     lines.append("")
 
     for task in ["modular", "regression"]:

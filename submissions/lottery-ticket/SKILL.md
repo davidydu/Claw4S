@@ -1,18 +1,19 @@
 ---
 name: lottery-tickets-at-birth
-description: Test the lottery ticket hypothesis on tiny networks — can randomly pruned subnetworks at initialization train as well as dense ones? Prunes 2-layer ReLU MLPs at various sparsity levels (0–95%) using magnitude, random, and structured pruning, then trains on modular arithmetic (mod 97) and regression tasks. Compares final test accuracy to find the critical sparsity threshold.
+description: Reproduce a pruning-at-initialization study on tiny 2-layer ReLU MLPs. Sweeps 8 sparsity levels, 3 pruning strategies, 2 tasks, and 3 seeds on modular arithmetic and regression. In the verified default run, structured pruning is the strongest strategy, while global magnitude pruning collapses early on both tasks.
 allowed-tools: Bash(python *), Bash(python3 *), Bash(pip *), Bash(.venv/*), Bash(cat *), Read, Write
 ---
 
 # Lottery Tickets at Birth
 
-This skill tests the lottery ticket hypothesis on tiny neural networks: can subnetworks pruned at initialization match the performance of the dense network? It sweeps over 8 sparsity levels, 3 pruning strategies, and 2 tasks with 3 seeds each.
+This skill reproduces a pruning-at-initialization study on tiny neural networks. It sweeps 8 sparsity levels, 3 pruning strategies, and 2 tasks with 3 seeds each, then reports which strategies preserve performance.
 
 ## Prerequisites
 
 - Requires **Python 3.10+**. No internet access or GPU needed.
-- Expected runtime: **1-3 minutes** (CPU only, ~144 training runs of small MLPs).
+- Expected runtime: **2-5 minutes on CPU**. The verified March 28, 2026 run in this worktree completed in **112.9s** on Apple silicon.
 - All commands must be run from the **submission directory** (`submissions/lottery-ticket/`).
+- Training uses a **10% validation split** from the training set for early stopping, and restores the best validation checkpoint before final test evaluation.
 
 ## Step 1: Environment Setup
 
@@ -20,8 +21,8 @@ Create a virtual environment and install dependencies:
 
 ```bash
 python3 -m venv .venv
-.venv/bin/pip install --upgrade pip
-.venv/bin/pip install -r requirements.txt
+.venv/bin/python -m pip install --upgrade pip
+.venv/bin/python -m pip install -r requirements.txt
 ```
 
 Verify all packages are installed:
@@ -40,7 +41,7 @@ Verify all modules work correctly:
 .venv/bin/python -m pytest tests/ -v
 ```
 
-Expected: Pytest exits with `20 passed` and exit code 0.
+Expected: Pytest exits with `22 passed` and exit code 0.
 
 ## Step 3: Run the Experiment
 
@@ -59,7 +60,7 @@ Expected output:
   - `epochs_vs_sparsity.png` — training epochs vs sparsity plot
   - `report.txt` — summary report with key findings
 
-Runtime: 1-3 minutes on CPU.
+Runtime: about 2 minutes on the verified Apple-silicon run; budget 2-5 minutes on typical laptop CPUs.
 
 ## Step 4: Validate Results
 
@@ -74,6 +75,7 @@ Expected output: `Validation PASSED. All checks OK.` with exit code 0.
 The validator checks:
 - All 144 runs completed (8 sparsities x 3 strategies x 2 tasks x 3 seeds)
 - Dense baselines have reasonable performance (accuracy > 5%, R^2 > 0.5)
+- Results metadata records the validation split used for early stopping
 - All plots and reports were generated
 - Each configuration has exactly 3 seeds for variance estimation
 
@@ -86,10 +88,10 @@ cat results/report.txt
 ```
 
 Expected findings:
-- **Modular arithmetic**: Magnitude-pruned networks maintain accuracy up to ~70-80% sparsity, then degrade
-- **Regression**: Performance is more robust to pruning, maintaining R^2 up to ~90% sparsity
-- **Magnitude > Random > Structured**: Magnitude pruning consistently outperforms random and structured pruning at high sparsity
-- **Critical sparsity**: The point where performance drops below 95% of dense baseline varies by task
+- **Modular arithmetic**: Dense accuracy is only about `0.29`, magnitude and random pruning collapse by `30%` sparsity, while **structured pruning improves accuracy** and peaks near `70%` sparsity (`~0.71` mean test accuracy)
+- **Regression**: **Structured pruning is the most robust**, staying above `0.94` test `R^2` through `90%` sparsity; random pruning degrades gradually; magnitude pruning collapses from `50%` sparsity onward
+- **Critical sparsity**: In the verified run, magnitude reaches `0%` (modular) / `30%` (regression), random reaches `0%` / `50%`, and structured reaches `90%` on both tasks
+- **Interpretation**: In this tiny-network setting, pruning behaves more like architecture/regularization selection than classic magnitude-based ``winning tickets at birth''
 
 ## Interpreting Results
 
@@ -97,7 +99,7 @@ Expected findings:
 - X-axis: Sparsity percentage (0% = dense, 95% = almost all weights removed)
 - Y-axis: Test accuracy (modular) or test R^2 (regression)
 - Three lines per task: one per pruning strategy
-- Dashed vertical line: critical sparsity (95% of dense performance)
+- Dashed vertical line: critical sparsity for magnitude pruning (included for historical comparison)
 
 ### Key Metrics
 | Metric | Description |
@@ -106,6 +108,7 @@ Expected findings:
 | Test R^2 | Coefficient of determination on held-out set (regression task) |
 | Critical Sparsity | Highest sparsity maintaining 95% of dense performance |
 | Epochs to Convergence | Training steps before early stopping |
+| Validation Split | Fraction of the training set reserved for early stopping |
 
 ## How to Extend
 

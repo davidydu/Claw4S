@@ -32,6 +32,7 @@ MAX_EPOCHS = 500
 CLASSIFICATION_LR = 1e-2
 REGRESSION_LR = 1e-3
 PATIENCE = 100
+VALIDATION_FRACTION = 0.1
 
 PRUNING_FNS = {
     "magnitude": magnitude_prune,
@@ -87,12 +88,22 @@ def run_single_experiment(
     if task == "modular":
         result = train_classification(
             model, X_train, y_train, X_test, y_test,
-            masks, max_epochs=MAX_EPOCHS, lr=lr, patience=PATIENCE,
+            masks,
+            max_epochs=MAX_EPOCHS,
+            lr=lr,
+            patience=PATIENCE,
+            validation_fraction=VALIDATION_FRACTION,
+            seed=seed,
         )
     else:
         result = train_regression(
             model, X_train, y_train, X_test, y_test,
-            masks, max_epochs=MAX_EPOCHS, lr=lr, patience=PATIENCE,
+            masks,
+            max_epochs=MAX_EPOCHS,
+            lr=lr,
+            patience=PATIENCE,
+            validation_fraction=VALIDATION_FRACTION,
+            seed=seed,
         )
 
     return {
@@ -169,6 +180,7 @@ def run_all_experiments(output_dir: str = "results") -> dict:
             "elapsed_seconds": round(elapsed, 1),
             "hidden_dim": HIDDEN_DIM,
             "max_epochs": MAX_EPOCHS,
+            "validation_fraction": VALIDATION_FRACTION,
             "modular_mod": MODULAR_MOD,
             "regression_n": REGRESSION_N,
             "regression_d": REGRESSION_D,

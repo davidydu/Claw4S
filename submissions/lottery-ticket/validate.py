@@ -25,10 +25,18 @@ results = data["results"]
 print(f"Total runs: {len(results)}")
 print(f"Expected runs: {meta['total_runs']}")
 print(f"Runtime: {meta['elapsed_seconds']}s")
+print(f"Validation split: {meta.get('validation_fraction', 0.0):.0%}")
 
 # 2. Check run count
 if len(results) != meta["total_runs"]:
     errors.append(f"Expected {meta['total_runs']} runs, got {len(results)}")
+
+# 2b. Check validation split metadata exists
+validation_fraction = meta.get("validation_fraction")
+if validation_fraction is None:
+    errors.append("Missing validation_fraction metadata")
+elif not (0.0 < validation_fraction < 0.5):
+    errors.append(f"Unexpected validation_fraction: {validation_fraction}")
 
 # 3. Check all sparsity levels present
 expected_sparsities = {0.0, 0.1, 0.3, 0.5, 0.7, 0.8, 0.9, 0.95}

@@ -1,5 +1,7 @@
 """Tests for training functions."""
 
+import copy
+
 import torch
 from src.model import TwoLayerMLP
 from src.data import generate_modular_data, generate_regression_data
@@ -70,3 +72,55 @@ def test_classification_with_pruning():
     for name, param in model.named_parameters():
         if name in masks:
             assert (param.data[masks[name] == 0] == 0).all()
+
+
+def test_classification_early_stopping_does_not_use_test_labels():
+    """Shuffling held-out labels must not change training behavior."""
+    X_train, y_train, X_test, y_test = generate_modular_data(mod=11, seed=42)
+    perm = torch.randperm(len(y_test), generator=torch.Generator().manual_seed(123))
+    shuffled_y_test = y_test[perm]
+
+    torch.manual_seed(0)
+    baseline_model = TwoLayerMLP(input_dim=22, hidden_dim=32, output_dim=11)
+    model_a = copy.deepcopy(baseline_model)
+    model_b = copy.deepcopy(baseline_model)
+
+    result_a = train_classification(
+        model_a, X_train, y_train, X_test, y_test,
+        masks={}, max_epochs=80, lr=1e-2, patience=10, validation_fraction=0.2, seed=42,
+    )
+    result_b = train_classification(
+        model_b, X_train, y_train, X_test, shuffled_y_test,
+        masks={}, max_epochs=80, lr=1e-2, patience=10, validation_fraction=0.2, seed=42,
+    )
+
+    assert result_a["epochs_trained"] == result_b["epochs_trained"]
+    for name, param in model_a.state_dict().items():
+        assert torch.equal(param, model_b.state_dict()[name])
+
+
+def test_regression_early_stopping_does_not_use_test_targets():
+    """Shuffling held-out targets must not change training behavior."""
+    X_train, y_train, X_test, y_test = generate_regression_data(
+        n_samples=120, n_features=10, seed=42
+    )
+    perm = torch.randperm(len(y_test), generator=torch.Generator().manual_seed(123))
+    shuffled_y_test = y_test[perm]
+
+    torch.manual_seed(0)
+    baseline_model = TwoLayerMLP(input_dim=10, hidden_dim=32, output_dim=1)
+    model_a = copy.deepcopy(baseline_model)
+    model_b = copy.deepcopy(baseline_model)
+
+    result_a = train_regression(
+        model_a, X_train, y_train, X_test, y_test,
+        masks={}, max_epochs=120, lr=1e-3, patience=15, validation_fraction=0.2, seed=42,
+    )
+    result_b = train_regression(
+        model_b, X_train, y_train, X_test, shuffled_y_test,
+        masks={}, max_epochs=120, lr=1e-3, patience=15, validation_fraction=0.2, seed=42,
+    )
+
+    assert result_a["epochs_trained"] == result_b["epochs_trained"]
+    for name, param in model_a.state_dict().items():
+        assert torch.equal(param, model_b.state_dict()[name])

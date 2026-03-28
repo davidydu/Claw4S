@@ -40,7 +40,6 @@ def test_model_deterministic_with_seed():
 
 
 def test_model_baseline_config():
-    """Baseline config (hidden=128) has approximately 25K params."""
+    """The modular-arithmetic baseline config has the expected parameter count."""
     model = TwoLayerMLP(input_dim=194, hidden_dim=128, output_dim=97)
-    total = model.count_parameters()
-    assert 25000 < total < 40000, f"Expected ~25-37K params, got {total}"
+    assert model.count_parameters() == 37473
