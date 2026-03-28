@@ -1,6 +1,6 @@
 ---
 name: double-descent-in-practice
-description: Systematically reproduce the double descent phenomenon (Nakkiran et al. 2019, Belkin et al. 2019) using random features models and MLPs on synthetic regression data. Demonstrates model-wise double descent, noise amplification, epoch-wise dynamics, and variance analysis — all on CPU in under 15 seconds.
+description: Systematically reproduce the double descent phenomenon (Nakkiran et al. 2019, Belkin et al. 2019) using random features models and MLPs on synthetic regression data. Demonstrates model-wise double descent, noise amplification, epoch-wise dynamics, and variance analysis — all on CPU in about 15-25 seconds.
 allowed-tools: Bash(python *), Bash(python3 *), Bash(pip *), Bash(.venv/*), Bash(cat *), Read, Write
 ---
 
@@ -11,7 +11,7 @@ This skill reproduces the **double descent phenomenon** — where test error fir
 ## Prerequisites
 
 - Requires **Python 3.10+**. No internet access or GPU needed.
-- Expected runtime: **10-15 seconds** on CPU.
+- Expected runtime: **about 15-25 seconds** on CPU.
 - All commands must be run from the **submission directory** (`submissions/double-descent/`).
 
 ## Step 1: Environment Setup
@@ -44,7 +44,7 @@ Verify the analysis modules work correctly:
 .venv/bin/python -m pytest tests/ -v
 ```
 
-Expected: All tests pass (48 tests). Exit code 0.
+Expected: All tests pass (49 tests). Exit code 0.
 
 ## Step 3: Run the Analysis
 
@@ -54,7 +54,7 @@ Execute the full double descent analysis:
 .venv/bin/python run.py
 ```
 
-Expected: Script completes in under 15 seconds. Prints progress `[1/4]` through `[6/6]` and exits with code 0.
+Expected: Script completes in about 15-25 seconds on CPU. Prints progress `[1/4]` through `[6/6]` and exits with code 0.
 
 This will:
 1. Generate synthetic noisy regression data (n=200, d=20).

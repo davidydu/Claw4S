@@ -161,6 +161,7 @@ def plot_mlp_comparison(
     mlp_results: list[dict],
     rf_results: list[dict],
     n_train: int,
+    mlp_interpolation_threshold: int,
     output_path: str,
 ) -> None:
     """Plot MLP vs random features double descent comparison.
@@ -169,6 +170,7 @@ def plot_mlp_comparison(
         mlp_results: MLP sweep results.
         rf_results: Random features sweep results (highest noise).
         n_train: Number of training samples.
+        mlp_interpolation_threshold: Estimated MLP interpolation width.
         output_path: Path to save the figure.
     """
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5))
@@ -201,10 +203,13 @@ def plot_mlp_comparison(
     ax2.plot(mlp_widths, mlp_train, "s--", color="#2196F3", label="Train",
              markersize=3, alpha=0.7)
 
-    # Mark interpolation threshold for MLP
-    mlp_threshold_h = max(1, round((n_train - 1) / 22))  # d=20 -> d+2=22
-    ax2.axvline(x=mlp_threshold_h, color="gray", linestyle=":", alpha=0.7,
-                label=f"Threshold h~{mlp_threshold_h}")
+    ax2.axvline(
+        x=mlp_interpolation_threshold,
+        color="gray",
+        linestyle=":",
+        alpha=0.7,
+        label=f"Threshold h~{mlp_interpolation_threshold}",
+    )
 
     ax2.set_xlabel("Hidden Width (h)", fontsize=12)
     ax2.set_ylabel("MSE (log scale)", fontsize=12)

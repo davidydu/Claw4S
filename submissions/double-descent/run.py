@@ -72,6 +72,7 @@ try:
         all_results["mlp_sweep"],
         all_results["random_features"][highest_noise],
         n_train=meta["n_train"],
+        mlp_interpolation_threshold=meta["mlp_interpolation_threshold"],
         output_path="results/mlp_comparison.png",
     )
     print("  Saved results/mlp_comparison.png")
