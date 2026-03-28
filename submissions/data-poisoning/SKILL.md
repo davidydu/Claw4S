@@ -6,7 +6,7 @@ This skill sweeps poison fraction (0%--50%) on 2-layer MLP classifiers trained o
 
 ## Prerequisites
 
-- Python 3.13 on PATH (verified here with `python3.13`)
+- Python 3.10+ on PATH (verified here with `python3`)
 - ~200 MB disk for venv
 - CPU only, no GPU required
 - No API keys or authentication needed
@@ -16,7 +16,7 @@ This skill sweeps poison fraction (0%--50%) on 2-layer MLP classifiers trained o
 
 ```bash
 cd submissions/data-poisoning
-python3.13 -m venv .venv
+python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
 ```
 
@@ -28,7 +28,7 @@ python3.13 -m venv .venv
 .venv/bin/python -m pytest tests/ -v
 ```
 
-**Expected output:** 29 tests pass. Tests cover data generation, label poisoning, MLP training, accuracy evaluation, result aggregation, and sigmoid curve fitting.
+**Expected output:** All tests passed. Tests cover data generation, label poisoning, MLP training, accuracy evaluation, result aggregation, and sigmoid curve fitting.
 
 ## Step 3: Run the experiment
 
