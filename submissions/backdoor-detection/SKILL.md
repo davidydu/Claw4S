@@ -80,7 +80,7 @@ Expected output: `VALIDATION PASSED: All checks OK` with exit code 0. The valida
 - AUC values in [0, 1]
 - Clean model accuracy > 50% (better than random)
 - All output files exist and are non-empty
-- Thesis check: experiments with strong triggers (strength=10.0) achieve AUC >= 0.9
+- Thesis check: experiments with strong triggers (strength=10.0) and poison fraction >= 10% achieve AUC >= 0.9
 
 ## Key Parameters
 
@@ -96,11 +96,12 @@ Expected output: `VALIDATION PASSED: All checks OK` with exit code 0. The valida
 
 ## Expected Findings
 
-- **Phase transition in detectability**: trigger strength is the dominant factor. Strong triggers (strength=10.0, well beyond the data scale) are detected with AUC=1.0 across all poison fractions and model sizes. Weaker triggers (strength=3.0-5.0, within the data distribution) evade spectral detection (AUC near random)
-- Poison fraction has a secondary effect: higher fractions increase eigenvalue ratios but do not rescue weak-trigger detection
-- Model size (hidden dim) has modest effect on detectability
-- The spectral gap (top eigenvalue ratio) grows with both poison fraction and trigger strength
-- 9/36 experiments achieve AUC >= 0.9 (all with the strongest trigger)
+- **Joint phase transition in detectability**: trigger strength is the dominant factor, but poison fraction matters. With `strength=10.0` and poison fraction >= 10%, all 9 such experiments achieve AUC >= 0.99 across model sizes. At 5% poison, even `strength=10.0` stays near random (AUC 0.166-0.281).
+- Weaker triggers (`strength=3.0` or `5.0`) evade spectral detection in all 24 experiments (all AUC < 0.5).
+- Poison fraction has a secondary effect: higher fractions increase the chance that a strong trigger becomes spectrally separable, but they do not rescue weak-trigger detection.
+- Model size (hidden dim) has modest effect on detectability.
+- The spectral gap shows an overall increase from low to high poison fractions, but not strict monotonic growth at every step.
+- 9/36 experiments achieve AUC >= 0.9; they are exactly the `strength=10.0`, poison fraction >= 10% cases.
 
 ## How to Extend
 

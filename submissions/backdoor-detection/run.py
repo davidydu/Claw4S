@@ -9,18 +9,19 @@ import sys
 import time
 from dataclasses import asdict
 
-# Working directory guard
-expected_marker = os.path.join(os.path.dirname(os.path.abspath(__file__)), "SKILL.md")
-if not os.path.exists(expected_marker):
-    print("ERROR: run.py must be executed from submissions/backdoor-detection/")
-    sys.exit(1)
-
+from src.cli import ensure_submission_cwd
 from src.experiment import run_sweep
 from src.report import generate_report, generate_figures
 
 
 def main() -> None:
     """Execute the full experiment pipeline."""
+    try:
+        ensure_submission_cwd(__file__)
+    except RuntimeError as exc:
+        print(f"ERROR: {exc}")
+        sys.exit(1)
+
     output_dir = "results"
     os.makedirs(output_dir, exist_ok=True)
 
