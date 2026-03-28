@@ -15,6 +15,7 @@ This skill analyzes how well Zipf's law holds for BPE token frequency distributi
 - All commands must be run from the **submission directory** (`submissions/zipf-law/`).
 - No GPU or model inference required. Only tokenizers are loaded.
 - Four tokenizers are loaded by default (GPT-4o, GPT-4, Mistral, Qwen2.5). All are publicly accessible without authentication.
+- During tokenizer and dataset downloads, you may see informational messages from Hugging Face about unauthenticated requests or from `transformers` about missing PyTorch. These are expected for this submission and are not failures.
 
 ## Step 1: Environment Setup
 
@@ -103,7 +104,7 @@ ls results/figures/
 ```
 
 Expected figures:
-- `zipf_fit_*.png`: Log-log rank-frequency plots with Zipf-Mandelbrot fit lines
+- multiple `zipf_fit_*.png` files: representative log-log rank-frequency plots with Zipf-Mandelbrot fit lines for both natural language and code corpora
 - `piecewise_exponents.png`: Grouped bar chart comparing head/body/tail exponents
 - `correlation_alpha_compression.png`: Scatter plot of alpha vs compression ratio
 - `zipf_overlay.png`: Overlay of multiple rank-frequency distributions

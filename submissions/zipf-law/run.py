@@ -33,6 +33,7 @@ from src.plots import (
     plot_alpha_compression_correlation,
     plot_zipf_overlay,
 )
+from src.plot_selection import build_zipf_fit_plot_plan
 from src.report import generate_report
 
 SEED = 42
@@ -74,6 +75,7 @@ def main():
 
     all_analyses = []
     overlay_data = []  # For overlay plot
+    plot_data_by_label = {}
 
     # Natural language corpora
     for lang, text in nl_samples.items():
@@ -99,6 +101,12 @@ def main():
 
                 all_analyses.append(result)
 
+                ranks, freqs = compute_rank_frequency(tokens)
+                plot_data_by_label[label] = {
+                    "ranks": ranks,
+                    "freqs": freqs,
+                }
+
                 gf = result["global_fit"]
                 print(
                     f"  {label}: alpha={gf['alpha']:.3f}, "
@@ -108,9 +116,8 @@ def main():
 
                 # Collect for overlay (limit to English for clarity)
                 if lang == "en":
-                    ranks, freqs = compute_rank_frequency(tokens)
                     overlay_data.append({
-                        "label": f"English ({tok_name})",
+                        "label": label,
                         "ranks": ranks,
                         "freqs": freqs,
                     })
@@ -141,6 +148,12 @@ def main():
 
                 all_analyses.append(result)
 
+                ranks, freqs = compute_rank_frequency(tokens)
+                plot_data_by_label[label] = {
+                    "ranks": ranks,
+                    "freqs": freqs,
+                }
+
                 gf = result["global_fit"]
                 print(
                     f"  {label}: alpha={gf['alpha']:.3f}, "
@@ -149,9 +162,8 @@ def main():
                 )
 
                 # Add code to overlay
-                ranks, freqs = compute_rank_frequency(tokens)
                 overlay_data.append({
-                    "label": f"{code_lang.capitalize()} ({tok_name})",
+                    "label": label,
                     "ranks": ranks,
                     "freqs": freqs,
                 })
@@ -191,35 +203,26 @@ def main():
     print("\n[5/6] Generating figures...")
 
     # Individual Zipf fit plots (select a few representative cases)
-    plot_cases = []
-    seen = set()
-    for a in all_analyses:
-        key = a["corpus_type"]
-        if key not in seen and len(plot_cases) < 4:
-            seen.add(key)
-            plot_cases.append(a)
+    plot_cases = build_zipf_fit_plot_plan(
+        all_analyses,
+        plot_data_by_label,
+        max_cases=4,
+    )
 
-    for a in plot_cases:
-        # Re-tokenize to get ranks/freqs for plotting
-        safe_name = a["label"].replace(" ", "_").replace("(", "").replace(")", "")
-        ranks_data = None
-        freqs_data = None
-
-        # Find matching overlay data
-        for od in overlay_data:
-            if od["label"] == a["label"]:
-                ranks_data = od["ranks"]
-                freqs_data = od["freqs"]
-                break
-
-        if ranks_data is not None:
-            plot_zipf_fit(
-                ranks_data,
-                freqs_data,
-                a["global_fit"],
-                a["label"],
-                f"results/figures/zipf_fit_{safe_name}.png",
-            )
+    for plot_case in plot_cases:
+        safe_name = (
+            plot_case["label"]
+            .replace(" ", "_")
+            .replace("(", "")
+            .replace(")", "")
+        )
+        plot_zipf_fit(
+            plot_case["ranks"],
+            plot_case["freqs"],
+            plot_case["fit_params"],
+            plot_case["label"],
+            f"results/figures/zipf_fit_{safe_name}.png",
+        )
 
     # Piecewise comparison
     plot_piecewise_comparison(
