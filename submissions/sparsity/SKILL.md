@@ -42,7 +42,7 @@ Verify all source modules work correctly:
 .venv/bin/python -m pytest tests/ -v
 ```
 
-Expected: 30 tests pass, pytest exits with code 0.
+Expected: All tests pass, pytest exits with code 0.
 
 ## Step 3: Run the Analysis
 
