@@ -117,7 +117,14 @@ def generate_report(results: dict) -> str:
     lines.append("## Interpretation")
     lines.append("")
 
-    if cv["mean_spearman"] > 0.3:
+    if cv["mean_r_squared"] < 0.05:
+        lines.append(
+            "The near-zero cross-validated R-squared indicates that "
+            "structural features alone are **insufficient** for practical "
+            "difficulty prediction, even though the positive Spearman rho "
+            "suggests a weak rank-order signal."
+        )
+    elif cv["mean_spearman"] > 0.3:
         lines.append("The cross-validated Spearman correlation exceeds 0.3, "
                      "indicating that structural features alone can provide "
                      "a **moderate** prediction of LLM difficulty.")

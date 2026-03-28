@@ -39,3 +39,35 @@ def test_report_contains_num_questions(results):
     """Report states the number of questions analyzed."""
     report = generate_report(results)
     assert str(results["num_questions"]) in report
+
+
+def test_report_flags_low_r_squared_as_insufficient():
+    """Low cross-validated R-squared should be framed as insufficient signal."""
+    results = {
+        "num_questions": 1172,
+        "model_metrics": {"r_squared": 0.5102, "mae": 0.1552},
+        "cv_metrics": {
+            "mean_r_squared": 0.0071,
+            "std_r_squared": 0.0100,
+            "mean_mae": 0.2228,
+            "std_mae": 0.0065,
+            "mean_spearman": 0.1273,
+            "std_spearman": 0.0231,
+            "fold_scores": [
+                {"r_squared": 0.0012, "mae": 0.2209, "spearman_rho": 0.1107},
+            ],
+        },
+        "correlations": {
+            "negation_count": {"rho": 0.0708, "pvalue": 0.0153},
+            "answer_entropy": {"rho": -0.0374, "pvalue": 0.2008},
+        },
+        "ranked_features": [("flesch_kincaid_grade", 0.1564)],
+        "feature_importances": {"flesch_kincaid_grade": 1.0},
+        "predictions": [0.5],
+        "difficulties": [0.5],
+        "seed": 42,
+    }
+
+    report = generate_report(results)
+
+    assert "insufficient" in report.lower()
