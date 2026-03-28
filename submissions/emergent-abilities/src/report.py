@@ -1,5 +1,20 @@
 """Generate markdown summary report from analysis results."""
 
+from src.config import MSI_ARTIFACT_THRESHOLD
+
+
+def _render_verdict_label(verdict: str) -> str:
+    """Convert machine-readable verdict tags into report labels."""
+    verdict_labels = {
+        "definitional_single_token": "N/A (n_tokens=1)",
+        "likely_artifact": "Likely artifact",
+        "likely_artifact_sparse": "Likely artifact (sparse data)",
+        "possibly_genuine": "Possibly genuine",
+        "inconclusive_sparse": "Inconclusive (sparse data)",
+        "uncertain": "Uncertain",
+    }
+    return verdict_labels.get(verdict, verdict.replace("_", " "))
+
 
 def generate_report(results: dict) -> str:
     """Generate a markdown report summarizing analysis findings.
@@ -29,7 +44,7 @@ def generate_report(results: dict) -> str:
     lines.append("1. **Metric Comparison**: Apply both discontinuous (exact match) and")
     lines.append("   continuous (partial credit, token edit distance) metrics to the same data")
     lines.append("2. **Nonlinearity Detection**: Fit sigmoid vs. linear models and compute")
-    lines.append("   the Metric Sensitivity Index (MSI)")
+    lines.append("   the Metric Sensitivity Index (MSI) with deterministic bootstrap uncertainty")
     lines.append("3. **Synthetic Demonstration**: Show how linear per-token improvement")
     lines.append("   creates apparent phase transitions under exact-match scoring")
     lines.append("4. **MMLU Scaling**: Analyze smooth scaling under multiple-choice accuracy")
@@ -41,41 +56,63 @@ def generate_report(results: dict) -> str:
 
     # Finding 1: MSI analysis
     ns = results["nonlinearity_scores"]
-    artifact_tasks = [t for t, s in ns.items() if s["msi"] > 2.0]
-    definitional_tasks = [t for t, s in ns.items() if s.get("n_tokens") == 1]
-    genuine_tasks = [
-        t for t, s in ns.items() if s["msi"] <= 2.0 and s.get("n_tokens") != 1
+    threshold = MSI_ARTIFACT_THRESHOLD
+    artifact_tasks = [
+        t
+        for t, s in ns.items()
+        if s["verdict"] in ("likely_artifact", "likely_artifact_sparse")
+    ]
+    definitional_tasks = [
+        t for t, s in ns.items() if s["verdict"] == "definitional_single_token"
+    ]
+    genuine_tasks = [t for t, s in ns.items() if s["verdict"] == "possibly_genuine"]
+    uncertain_tasks = [
+        t
+        for t, s in ns.items()
+        if s["verdict"] in ("uncertain", "inconclusive_sparse")
     ]
 
     lines.append(f"### Finding 1: Metric Sensitivity Index")
     lines.append("")
     lines.append(f"Of {len(ns)} BIG-Bench tasks analyzed:")
-    lines.append(f"- **{len(artifact_tasks)}** tasks show MSI > 2.0 (likely metric artifact)")
+    lines.append(
+        f"- **{len(artifact_tasks)}** tasks are likely artifacts "
+        f"(MSI > {threshold:.1f} with high bootstrap support)"
+    )
     lines.append(
         f"- **{len(definitional_tasks)}** tasks have n_tokens=1, so MSI is definitional rather than diagnostic"
     )
     lines.append(
         f"- **{len(genuine_tasks)}** tasks remain as possible genuine nonlinearity after excluding n_tokens=1 cases"
     )
+    lines.append(
+        f"- **{len(uncertain_tasks)}** tasks are uncertainty-limited under current sample size"
+    )
     lines.append("")
 
     # MSI table
-    lines.append("| Task | MSI | Sigmoid R2 (EM) | Linear R2 (EM) | Sigmoid R2 (PC) | Linear R2 (PC) | Verdict |")
-    lines.append("|------|-----|-----------------|----------------|-----------------|----------------|---------|")
+    lines.append(
+        f"| Task | MSI | 95% CI | P(MSI > {threshold:.1f}) | Sigmoid R2 (EM) | "
+        "Linear R2 (EM) | Sigmoid R2 (PC) | Linear R2 (PC) | Verdict |"
+    )
+    lines.append(
+        "|------|-----|--------|----------------|-----------------|----------------|-----------------|----------------|---------|"
+    )
     for task_name in sorted(ns.keys()):
         s = ns[task_name]
         msi_str = f"{s['msi']:.2f}" if s["msi"] < 100 else ">100"
-        # MSI=1.0 with n_tokens=1 is definitional (EM=PC), not empirical
-        n_tok = s.get("n_tokens", None)
-        if n_tok == 1:
-            verdict = "N/A (n_tokens=1)"
-        elif s["msi"] > 2.0:
-            verdict = "Artifact"
-        else:
-            verdict = "Possibly genuine"
+        ci_low = s["msi_ci_lower"]
+        ci_high = s["msi_ci_upper"]
+        ci_str = (
+            f"[{ci_low:.2f}, {ci_high:.2f}]"
+            if ci_high < 1e6
+            else f"[{ci_low:.2f}, inf)"
+        )
+        verdict = _render_verdict_label(s.get("verdict", "uncertain"))
         task_display = task_name.replace("_", " ").title()
         lines.append(
-            f"| {task_display} | {msi_str} | "
+            f"| {task_display} | {msi_str} | {ci_str} | "
+            f"{s['artifact_probability']:.2f} | "
             f"{s['sigmoid_r2_discontinuous']:.3f} | "
             f"{s['linear_r2_discontinuous']:.3f} | "
             f"{s['sigmoid_r2_continuous']:.3f} | "
@@ -86,8 +123,8 @@ def generate_report(results: dict) -> str:
     lines.append(
         "**Note:** Tasks with n_tokens=1 (e.g., sports understanding) have MSI=1.0 by "
         "construction, since exact-match and per-token accuracy are identical when the "
-        "output is a single token. MSI values should be interpreted with the number of "
-        "data points and n_tokens in mind — no bootstrap CIs are computed for this metric."
+        "output is a single token. MSI values are reported with deterministic bootstrap "
+        "95% CIs and should be interpreted with the number of data points and n_tokens in mind."
     )
     lines.append("")
 
@@ -154,13 +191,18 @@ def generate_report(results: dict) -> str:
     lines.append("")
     lines.append("Our analysis provides evidence consistent with Schaeffer et al. (2023):")
     lines.append("")
-    lines.append(f"1. **Most apparent emergence is a metric artifact**: {len(artifact_tasks)}/{len(ns)} tasks")
-    lines.append("   show high MSI, meaning the apparent nonlinearity is primarily driven by the")
-    lines.append("   discontinuous metric rather than genuine capability jumps.")
+    lines.append(
+        f"- **Most apparent emergence is a metric artifact**: {len(artifact_tasks)}/{len(ns)} tasks "
+        f"cross MSI > {threshold:.1f} with strong bootstrap support."
+    )
+    lines.append(
+        "   This indicates that the apparent nonlinearity is primarily driven by the "
+        "discontinuous metric rather than genuine capability jumps."
+    )
     lines.append("")
     if definitional_tasks:
         lines.append(
-            f"2. **Single-token tasks need separate interpretation**: {len(definitional_tasks)} task"
+            f"- **Single-token tasks need separate interpretation**: {len(definitional_tasks)} task"
             f"{'' if len(definitional_tasks) == 1 else 's'} have n_tokens=1, so exact match and"
         )
         lines.append(
@@ -168,15 +210,18 @@ def generate_report(results: dict) -> str:
             "   artifact from genuine nonlinearity for those cases."
         )
         lines.append("")
+    if uncertain_tasks:
+        lines.append(
+            f"- **Some tasks remain uncertainty-limited**: {len(uncertain_tasks)} tasks "
+            "do not have decisive bootstrap support under current sample sizes."
+        )
+        lines.append("")
     if genuine_tasks:
-        lines.append(f"3. **Some tasks may show genuine nonlinearity**: {len(genuine_tasks)} tasks")
+        lines.append(f"- **Some tasks may show genuine nonlinearity**: {len(genuine_tasks)} tasks")
         lines.append("   retain nonlinear scaling even under continuous metrics, suggesting")
         lines.append("   that not all emergence is an artifact (though sparse data limits conclusions).")
         lines.append("")
-    lines.append(
-        f"{'4' if genuine_tasks and definitional_tasks else '3' if genuine_tasks or definitional_tasks else '2'}. "
-        "**MMLU confirms smooth scaling**: With a more continuous metric"
-    )
+    lines.append("- **MMLU confirms smooth scaling**: With a more continuous metric")
     lines.append("   (multiple-choice accuracy), performance scales relatively smoothly with model size.")
     lines.append("")
 

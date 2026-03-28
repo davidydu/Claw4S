@@ -11,6 +11,7 @@ All outputs are written to results/ directory.
 
 import json
 import os
+import argparse
 import sys
 import traceback
 
@@ -23,6 +24,11 @@ if not os.path.isfile("run.py"):
 os.makedirs("results/figures", exist_ok=True)
 
 from src.analysis import run_full_analysis
+from src.config import (
+    DEFAULT_SEED,
+    MSI_ARTIFACT_THRESHOLD,
+    NONLINEARITY_BOOTSTRAP_SAMPLES,
+)
 from src.plots import (
     plot_metric_comparison,
     plot_synthetic_demo,
@@ -31,10 +37,27 @@ from src.plots import (
 )
 from src.report import generate_report
 
-SEED = 42
+def _parse_args() -> argparse.Namespace:
+    """Parse CLI options for reproducible analysis controls."""
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--seed", type=int, default=DEFAULT_SEED, help="Random seed")
+    parser.add_argument(
+        "--msi-threshold",
+        type=float,
+        default=MSI_ARTIFACT_THRESHOLD,
+        help="MSI threshold for artifact classification",
+    )
+    parser.add_argument(
+        "--bootstrap-samples",
+        type=int,
+        default=NONLINEARITY_BOOTSTRAP_SAMPLES,
+        help="Bootstrap resamples for MSI uncertainty",
+    )
+    return parser.parse_args()
 
 
 def main() -> None:
+    args = _parse_args()
     print("=" * 60)
     print("Emergent Abilities Analysis: Mirage or Real?")
     print("=" * 60)
@@ -42,7 +65,11 @@ def main() -> None:
     # Step 1: Run all analyses
     print("\n[1/4] Running analyses...")
     try:
-        results = run_full_analysis(seed=SEED)
+        results = run_full_analysis(
+            seed=args.seed,
+            artifact_threshold=args.msi_threshold,
+            n_bootstrap=args.bootstrap_samples,
+        )
     except Exception as e:
         print(f"ERROR in analysis: {type(e).__name__}: {e}")
         traceback.print_exc()
@@ -53,6 +80,13 @@ def main() -> None:
     print(f"  Analyzed {n_tasks} BIG-Bench tasks")
     print(f"  Computed nonlinearity scores for {n_scores} tasks")
     print(f"  MMLU: {results['mmlu_analysis']['n_models']} models analyzed")
+    print(
+        "  Config: seed={seed}, msi_threshold={thr:.1f}, bootstrap={boot}".format(
+            seed=results["analysis_config"]["seed"],
+            thr=results["analysis_config"]["msi_artifact_threshold"],
+            boot=results["analysis_config"]["n_bootstrap"],
+        )
+    )
 
     # Step 2: Generate figures
     print("\n[2/4] Generating figures...")

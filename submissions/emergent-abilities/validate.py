@@ -4,6 +4,12 @@ import json
 import os
 import sys
 
+from src.config import (
+    DEFAULT_SEED,
+    MSI_ARTIFACT_THRESHOLD,
+    NONLINEARITY_BOOTSTRAP_SAMPLES,
+)
+
 if not os.path.exists("src/data.py"):
     print("ERROR: Must run from submissions/emergent-abilities/ directory")
     raise SystemExit(1)
@@ -26,7 +32,13 @@ else:
         data = json.load(f)
 
     # Check top-level keys
-    required_keys = ["metric_comparisons", "nonlinearity_scores", "synthetic_demo", "mmlu_analysis"]
+    required_keys = [
+        "metric_comparisons",
+        "nonlinearity_scores",
+        "synthetic_demo",
+        "mmlu_analysis",
+        "analysis_config",
+    ]
     for key in required_keys:
         if key not in data:
             errors.append(f"Missing key in results.json: {key}")
@@ -62,25 +74,56 @@ else:
         n_scored = len(ns)
         print(f"Tasks with nonlinearity scores: {n_scored}")
 
-        artifact_count = sum(1 for s in ns.values() if s.get("msi", 0) > 2.0)
-        definitional_count = sum(1 for s in ns.values() if s.get("n_tokens") == 1)
-        genuine_count = sum(
+        artifact_count = sum(
             1
             for s in ns.values()
-            if s.get("msi", 0) <= 2.0 and s.get("n_tokens") != 1
+            if s.get("verdict") in ("likely_artifact", "likely_artifact_sparse")
         )
-        print(f"  Likely artifacts (MSI > 2): {artifact_count}")
+        definitional_count = sum(
+            1 for s in ns.values() if s.get("verdict") == "definitional_single_token"
+        )
+        genuine_count = sum(1 for s in ns.values() if s.get("verdict") == "possibly_genuine")
+        uncertain_count = sum(
+            1 for s in ns.values() if s.get("verdict") in ("uncertain", "inconclusive_sparse")
+        )
+        print(f"  Likely artifacts (MSI > {MSI_ARTIFACT_THRESHOLD:.1f}): {artifact_count}")
         print(f"  Definitional (n_tokens = 1): {definitional_count}")
         print(
-            "  Possibly genuine (MSI <= 2, excluding n_tokens = 1): "
+            f"  Possibly genuine (MSI <= {MSI_ARTIFACT_THRESHOLD:.1f}, excluding n_tokens = 1): "
             f"{genuine_count}"
         )
+        print(f"  Uncertain / sparse-evidence: {uncertain_count}")
 
         for task_name, score in ns.items():
             if "n_tokens" not in score:
                 errors.append(f"Nonlinearity score missing n_tokens: {task_name}")
             if "metric_type" not in score:
                 errors.append(f"Nonlinearity score missing metric_type: {task_name}")
+            for key in (
+                "msi_ci_lower",
+                "msi_ci_upper",
+                "artifact_probability",
+                "artifact_threshold",
+                "n_bootstrap",
+                "verdict",
+            ):
+                if key not in score:
+                    errors.append(f"Nonlinearity score missing {key}: {task_name}")
+            if not (0.0 <= score.get("artifact_probability", -1) <= 1.0):
+                errors.append(f"Invalid artifact_probability for {task_name}")
+            ci_low = score.get("msi_ci_lower", float("inf"))
+            ci_high = score.get("msi_ci_upper", float("-inf"))
+            if ci_low > ci_high:
+                errors.append(f"Invalid MSI CI bounds for {task_name}: [{ci_low}, {ci_high}]")
+            if score.get("artifact_threshold") != MSI_ARTIFACT_THRESHOLD:
+                errors.append(
+                    f"Unexpected artifact threshold for {task_name}: "
+                    f"{score.get('artifact_threshold')}"
+                )
+            if score.get("n_bootstrap") != NONLINEARITY_BOOTSTRAP_SAMPLES:
+                errors.append(
+                    f"Unexpected bootstrap count for {task_name}: {score.get('n_bootstrap')}"
+                )
 
     # Check synthetic demo
     if "synthetic_demo" in data:
@@ -100,9 +143,22 @@ else:
         if n_models < 5:
             errors.append(f"Expected >= 5 MMLU models, got {n_models}")
 
-    # Check seed
-    if data.get("seed") != 42:
-        errors.append(f"Expected seed=42, got {data.get('seed')}")
+    # Check analysis config
+    config = data.get("analysis_config", {})
+    if data.get("seed") != config.get("seed", data.get("seed")):
+        errors.append("Seed mismatch between top-level field and analysis_config.seed")
+    if config.get("msi_artifact_threshold") != MSI_ARTIFACT_THRESHOLD:
+        errors.append(
+            f"Expected msi_artifact_threshold={MSI_ARTIFACT_THRESHOLD}, "
+            f"got {config.get('msi_artifact_threshold')}"
+        )
+    if config.get("n_bootstrap") != NONLINEARITY_BOOTSTRAP_SAMPLES:
+        errors.append(
+            f"Expected n_bootstrap={NONLINEARITY_BOOTSTRAP_SAMPLES}, "
+            f"got {config.get('n_bootstrap')}"
+        )
+    if data.get("seed") != DEFAULT_SEED:
+        errors.append(f"Expected seed={DEFAULT_SEED}, got {data.get('seed')}")
 
 # ── Check report ─────────────────────────────────────────────────────────────
 
@@ -118,6 +174,8 @@ else:
         errors.append(f"Report too short: {report_len} characters")
     if "Schaeffer" not in report:
         errors.append("Report does not reference Schaeffer et al.")
+    if "95% CI" not in report:
+        errors.append("Report missing bootstrap uncertainty annotation (95% CI)")
 
 # ── Check figures ────────────────────────────────────────────────────────────
 

@@ -11,7 +11,7 @@ This skill re-analyzes published LLM benchmark data to test the claim by Schaeff
 ## Prerequisites
 
 - Requires **Python 3.10+** (no GPU, no API keys, no internet access needed after setup).
-- Expected runtime: **under 1 minute** on any modern CPU.
+- Expected runtime: **under 2 minutes** on a modern CPU (including tests).
 - All commands must be run from the **submission directory** (`submissions/emergent-abilities/`).
 - All benchmark data is hardcoded from published papers -- no model downloads required.
 
@@ -41,7 +41,7 @@ Verify the analysis modules work correctly:
 .venv/bin/python -m pytest tests/ -v
 ```
 
-Expected: Pytest exits with `51 passed` and exit code 0.
+Expected: Pytest exits with all tests passed and exit code 0.
 
 ## Step 3: Run the Analysis
 
@@ -52,6 +52,8 @@ Execute the full emergent abilities analysis:
 ```
 
 Expected: Script prints `[4/4] Saving results to results/` and exits with code 0.
+It should also print the reproducibility config line, e.g.:
+`Config: seed=42, msi_threshold=2.0, bootstrap=120`
 
 This will:
 1. Analyze 8 BIG-Bench tasks across GPT-3, LaMDA, and PaLM model families
@@ -74,12 +76,13 @@ Expected output:
 ```
 BIG-Bench tasks analyzed: 8
 Tasks with nonlinearity scores: 8
-  Likely artifacts (MSI > 2): 7
+  Likely artifacts (MSI > 2.0): 4
   Definitional (n_tokens = 1): 1
-  Possibly genuine (MSI <= 2, excluding n_tokens = 1): 0
+  Possibly genuine (MSI <= 2.0, excluding n_tokens = 1): 0
+  Uncertain / sparse-evidence: 3
 Synthetic demo points: 20
 MMLU models analyzed: 13
-Report length: ~9400 characters
+Report length: ~10000 characters
 Figures generated: 6
 
 Validation passed.
@@ -95,6 +98,7 @@ cat results/report.md
 
 The report contains:
 - Metric Sensitivity Index table for all 8 BIG-Bench tasks
+- 95% bootstrap CI and `P(MSI > threshold)` for each task
 - Synthetic demonstration showing how p -> p^n creates apparent emergence
 - MMLU scaling analysis across model families
 - Detailed metric comparison tables (exact match vs. partial credit)
@@ -102,15 +106,18 @@ The report contains:
 
 ## Key Scientific Findings
 
-1. **7 of 8 tasks show MSI > 2**: Most apparent emergence is a metric artifact
-2. **The lone MSI <= 2 case is definitional**: Sports understanding has `n_tokens=1`, so exact match equals per-token accuracy by construction
-3. **Synthetic demo confirms mechanism**: Linear per-token improvement creates sharp phase transition under exact-match scoring
-4. **MMLU scales smoothly**: Multiple-choice accuracy (more continuous) shows relatively smooth scaling with model size
+1. **4 of 8 tasks are likely artifacts under MSI > 2.0** with strong bootstrap support
+2. **3 of 8 tasks are uncertainty-limited** under current sample size and bootstrap variance
+3. **The lone MSI <= 2 case is definitional**: Sports understanding has `n_tokens=1`, so exact match equals per-token accuracy by construction
+4. **Synthetic demo confirms mechanism**: Linear per-token improvement creates sharp phase transition under exact-match scoring
+5. **MMLU scales smoothly**: Multiple-choice accuracy (more continuous) shows relatively smooth scaling with model size
 
 ## How to Extend
 
 - **Add a task**: Add entries to `BIGBENCH_TASKS` and `_BIGBENCH_DATA` in `src/data.py`.
 - **Add a model family**: Add entries to `_BIGBENCH_DATA` or `MMLU_DATA` in `src/data.py`.
-- **Change the MSI threshold**: Modify the `> 2.0` threshold in `src/analysis.py` and `src/report.py`.
+- **Change the MSI threshold**: Update `MSI_ARTIFACT_THRESHOLD` in `src/config.py` or run `run.py --msi-threshold <value>`.
+- **Change bootstrap uncertainty strength**: Update `NONLINEARITY_BOOTSTRAP_SAMPLES` in `src/config.py` or run `run.py --bootstrap-samples <n>`.
+- **Run with a different seed**: `run.py --seed <int>` (seed is recorded in `results/results.json`).
 - **Add a new metric**: Implement in `src/metrics.py`, then add to `compute_metric_comparison()` in `src/analysis.py`.
 - **Change answer length**: Modify the `n_tokens` field in `BIGBENCH_TASKS` in `src/data.py`.

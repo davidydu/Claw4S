@@ -1,9 +1,13 @@
 """Tests for src/report.py -- markdown report generation."""
 
+from functools import lru_cache
+
 from src.analysis import run_full_analysis
+from src.config import MSI_ARTIFACT_THRESHOLD
 from src.report import generate_report
 
 
+@lru_cache(maxsize=1)
 def _get_report():
     """Helper: generate report from full analysis."""
     results = run_full_analysis(seed=42)
@@ -59,3 +63,16 @@ def test_report_mentions_schaeffer():
     """Report references Schaeffer et al."""
     report = _get_report()
     assert "Schaeffer" in report
+
+
+def test_report_mentions_bootstrap_uncertainty():
+    """Report includes uncertainty language for MSI interpretation."""
+    report = _get_report()
+    assert "bootstrap" in report.lower()
+    assert "95% CI" in report
+
+
+def test_report_uses_configured_msi_threshold():
+    """Report text reflects the configured MSI threshold."""
+    report = _get_report()
+    assert f"MSI > {MSI_ARTIFACT_THRESHOLD:.1f}" in report

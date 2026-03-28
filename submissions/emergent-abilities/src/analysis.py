@@ -7,15 +7,25 @@ Implements four analyses:
 4. MMLU scaling analysis: smooth scaling across model families
 """
 
+import copy
+import hashlib
+from functools import lru_cache
+
 import numpy as np
 
+from src.config import (
+    DEFAULT_SEED,
+    MSI_ARTIFACT_THRESHOLD,
+    NONLINEARITY_BOOTSTRAP_SAMPLES,
+    NONLINEARITY_CI_LEVEL,
+    NONLINEARITY_MIN_POINTS,
+)
 from src.data import (
     get_bigbench_tasks,
     get_bigbench_data,
     get_bigbench_task_info,
     get_mmlu_data,
     get_model_families,
-    MMLU_DATA,
 )
 from src.metrics import (
     exact_match_from_token_accuracy,
@@ -29,6 +39,102 @@ from src.metrics import (
 
 
 # ── Helper ───────────────────────────────────────────────────────────────────
+
+def _compute_msi(disc_advantage: float, cont_advantage: float) -> float:
+    """Compute Metric Sensitivity Index from fit advantages."""
+    if cont_advantage > 1e-6:
+        return disc_advantage / cont_advantage
+    if disc_advantage > 1e-6:
+        return float("inf")
+    return 1.0
+
+
+def _task_seed(task_name: str, seed: int) -> int:
+    """Derive a deterministic per-task seed from a global seed."""
+    digest = hashlib.sha256(f"{task_name}:{seed}".encode("utf-8")).hexdigest()
+    return int(digest[:16], 16) % (2 ** 32)
+
+
+def _bootstrap_msi_summary(
+    task_name: str,
+    log_params: np.ndarray,
+    exact_matches: np.ndarray,
+    partial_credits: np.ndarray,
+    seed: int,
+    artifact_threshold: float,
+    n_bootstrap: int,
+) -> dict:
+    """Estimate MSI uncertainty via deterministic bootstrap resampling."""
+    rng = np.random.default_rng(_task_seed(task_name, seed))
+    n_points = len(log_params)
+
+    msi_samples = []
+    artifact_hits = 0
+    alpha = 1.0 - NONLINEARITY_CI_LEVEL
+
+    for _ in range(n_bootstrap):
+        # Avoid degenerate samples with all identical x values.
+        for _attempt in range(10):
+            idx = rng.integers(0, n_points, size=n_points)
+            if np.unique(log_params[idx]).size >= 2:
+                break
+        else:
+            idx = np.arange(n_points)
+
+        x = log_params[idx]
+        em = exact_matches[idx]
+        pc = partial_credits[idx]
+
+        _, lin_r2_disc, _ = linear_fit(x, em)
+        _, sig_r2_disc, _ = sigmoid_fit(x, em)
+        _, lin_r2_cont, _ = linear_fit(x, pc)
+        _, sig_r2_cont, _ = sigmoid_fit(x, pc)
+
+        disc_advantage = max(sig_r2_disc - lin_r2_disc, 0.0)
+        cont_advantage = max(sig_r2_cont - lin_r2_cont, 0.0)
+        msi = _compute_msi(disc_advantage, cont_advantage)
+
+        if msi > artifact_threshold:
+            artifact_hits += 1
+        if np.isfinite(msi):
+            msi_samples.append(float(msi))
+
+    if msi_samples:
+        lower = float(np.percentile(msi_samples, alpha / 2 * 100))
+        upper = float(np.percentile(msi_samples, (1.0 - alpha / 2) * 100))
+    else:
+        lower = float("inf")
+        upper = float("inf")
+
+    return {
+        "msi_ci_lower": lower,
+        "msi_ci_upper": upper,
+        "artifact_probability": artifact_hits / n_bootstrap,
+        "n_bootstrap": n_bootstrap,
+    }
+
+
+def _classify_msi(
+    *,
+    msi: float,
+    n_tokens: int,
+    artifact_probability: float,
+    artifact_threshold: float,
+    n_points: int,
+) -> str:
+    """Assign a conservative verdict label for report and validation."""
+    if n_tokens == 1:
+        return "definitional_single_token"
+    if n_points < NONLINEARITY_MIN_POINTS:
+        if msi > artifact_threshold and artifact_probability >= 0.8:
+            return "likely_artifact_sparse"
+        return "inconclusive_sparse"
+    if msi > artifact_threshold and artifact_probability >= 0.8:
+        return "likely_artifact"
+    if msi <= artifact_threshold and artifact_probability <= 0.2:
+        return "possibly_genuine"
+    return "uncertain"
+
 
 def infer_per_token_accuracy(exact_match: float, n_tokens: int) -> float:
     """Infer per-token accuracy from exact-match accuracy.
@@ -95,22 +201,13 @@ def compute_metric_comparison(task_name: str) -> dict:
 
 # ── Analysis 2: Nonlinearity Detection ──────────────────────────────────────
 
-def compute_nonlinearity_scores() -> dict[str, dict]:
-    """Compute nonlinearity scores for all BIG-Bench tasks.
-
-    For each task, fit both linear and sigmoid models to:
-    - Discontinuous metric (exact match) vs. log(params)
-    - Continuous metric (partial credit) vs. log(params)
-
-    Then compute the Metric Sensitivity Index (MSI):
-        MSI = (sigmoid_R2 - linear_R2)_discontinuous / (sigmoid_R2 - linear_R2)_continuous
-
-    High MSI means the nonlinearity is mostly a metric artifact.
-    Low MSI (near 1) means genuine nonlinearity.
-
-    Returns:
-        Dict mapping task_name -> score dict.
-    """
+@lru_cache(maxsize=16)
+def _compute_nonlinearity_scores_cached(
+    seed: int,
+    artifact_threshold: float,
+    n_bootstrap: int,
+) -> dict[str, dict]:
+    """Cached core implementation for nonlinearity scoring."""
     scores = {}
 
     for task_name in get_bigbench_tasks():
@@ -136,12 +233,7 @@ def compute_nonlinearity_scores() -> dict[str, dict]:
         disc_advantage = max(sig_r2_disc - lin_r2_disc, 0.0)
         cont_advantage = max(sig_r2_cont - lin_r2_cont, 0.0)
 
-        if cont_advantage > 1e-6:
-            msi = disc_advantage / cont_advantage
-        elif disc_advantage > 1e-6:
-            msi = float("inf")
-        else:
-            msi = 1.0  # Both metrics show similar (non-)linearity
+        msi = _compute_msi(disc_advantage, cont_advantage)
 
         # RSS for AIC/BIC
         rss_lin_disc = float(np.sum(lin_res_disc ** 2))
@@ -159,6 +251,23 @@ def compute_nonlinearity_scores() -> dict[str, dict]:
         aic_sig_disc = compute_aic(n, max(rss_sig_disc, eps), k_sig)
         bic_lin_disc = compute_bic(n, max(rss_lin_disc, eps), k_lin)
         bic_sig_disc = compute_bic(n, max(rss_sig_disc, eps), k_sig)
+
+        bootstrap_summary = _bootstrap_msi_summary(
+            task_name=task_name,
+            log_params=log_params,
+            exact_matches=exact_matches,
+            partial_credits=partial_credits,
+            seed=seed,
+            artifact_threshold=artifact_threshold,
+            n_bootstrap=n_bootstrap,
+        )
+        verdict = _classify_msi(
+            msi=msi,
+            n_tokens=comparison["n_tokens"],
+            artifact_probability=bootstrap_summary["artifact_probability"],
+            artifact_threshold=artifact_threshold,
+            n_points=n,
+        )
 
         scores[task_name] = {
             "msi": msi,
@@ -181,15 +290,45 @@ def compute_nonlinearity_scores() -> dict[str, dict]:
             "sigmoid_preferred_aic": aic_sig_disc < aic_lin_disc,
             "sigmoid_preferred_bic": bic_sig_disc < bic_lin_disc,
             "n_points": n,
+            "artifact_threshold": artifact_threshold,
+            "fit_reliability": "sparse" if n < NONLINEARITY_MIN_POINTS else "standard",
+            "verdict": verdict,
+            **bootstrap_summary,
         }
 
     return scores
 
 
+def compute_nonlinearity_scores(
+    *,
+    seed: int = DEFAULT_SEED,
+    artifact_threshold: float = MSI_ARTIFACT_THRESHOLD,
+    n_bootstrap: int = NONLINEARITY_BOOTSTRAP_SAMPLES,
+) -> dict[str, dict]:
+    """Compute nonlinearity scores for all BIG-Bench tasks.
+
+    For each task, fit both linear and sigmoid models to:
+    - Discontinuous metric (exact match) vs. log(params)
+    - Continuous metric (partial credit) vs. log(params)
+
+    Then compute the Metric Sensitivity Index (MSI):
+        MSI = (sigmoid_R2 - linear_R2)_discontinuous / (sigmoid_R2 - linear_R2)_continuous
+
+    High MSI means the nonlinearity is mostly a metric artifact.
+    Low MSI (near 1) means genuine nonlinearity.
+
+    Returns:
+        Dict mapping task_name -> score dict.
+    """
+    return copy.deepcopy(
+        _compute_nonlinearity_scores_cached(seed, artifact_threshold, n_bootstrap)
+    )
+
+
 # ── Analysis 3: Synthetic Demonstration ──────────────────────────────────────
 
 def generate_synthetic_demo(
-    seed: int = 42,
+    seed: int = DEFAULT_SEED,
     n_points: int = 20,
     n_tokens: int = 5,
     p_min: float = 0.3,
@@ -300,25 +439,34 @@ def compute_mmlu_analysis() -> dict:
 
 # ── Full Pipeline ────────────────────────────────────────────────────────────
 
-def run_full_analysis(seed: int = 42) -> dict:
+def run_full_analysis(
+    seed: int = DEFAULT_SEED,
+    *,
+    artifact_threshold: float = MSI_ARTIFACT_THRESHOLD,
+    n_bootstrap: int = NONLINEARITY_BOOTSTRAP_SAMPLES,
+) -> dict:
     """Run all analyses and return combined results.
 
     Args:
         seed: Random seed for reproducibility.
+        artifact_threshold: MSI threshold for artifact classification.
+        n_bootstrap: Number of bootstrap resamples per task.
 
     Returns:
         Dict with keys: metric_comparisons, nonlinearity_scores,
         synthetic_demo, mmlu_analysis.
     """
-    np.random.seed(seed)
-
     # Analysis 1: Metric comparisons for all tasks
     metric_comparisons = {}
     for task_name in get_bigbench_tasks():
         metric_comparisons[task_name] = compute_metric_comparison(task_name)
 
     # Analysis 2: Nonlinearity scores
-    nonlinearity_scores = compute_nonlinearity_scores()
+    nonlinearity_scores = compute_nonlinearity_scores(
+        seed=seed,
+        artifact_threshold=artifact_threshold,
+        n_bootstrap=n_bootstrap,
+    )
 
     # Analysis 3: Synthetic demonstration
     synthetic_demo = generate_synthetic_demo(seed=seed)
@@ -332,4 +480,9 @@ def run_full_analysis(seed: int = 42) -> dict:
         "synthetic_demo": synthetic_demo,
         "mmlu_analysis": mmlu_analysis,
         "seed": seed,
+        "analysis_config": {
+            "seed": seed,
+            "msi_artifact_threshold": artifact_threshold,
+            "n_bootstrap": n_bootstrap,
+        },
     }

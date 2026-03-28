@@ -21,7 +21,7 @@
 \maketitle
 
 \begin{abstract}
-We re-analyze published benchmark data from BIG-Bench (8 tasks, 3 model families) and MMLU (13 models, 5 families) to test the claim by \citet{schaeffer2023} that emergent abilities in large language models are artifacts of discontinuous evaluation metrics. By applying both discontinuous (exact string match) and continuous (partial credit) metrics to the same published performance data, we quantify the \emph{Metric Sensitivity Index} (MSI) for each task. We find that 7 of 8 analyzed tasks show MSI $> 2$, indicating that the apparent phase transition is primarily driven by the choice of metric. A synthetic demonstration confirms that linear per-token improvement creates dramatic apparent emergence under exact-match scoring. MMLU accuracy, a more continuous metric, scales smoothly across model families. The lone MSI $\leq 2$ case is a single-token multiple-choice task, so its MSI is definitional rather than diagnostic.
+We re-analyze published benchmark data from BIG-Bench (8 tasks, 3 model families) and MMLU (13 models, 5 families) to test the claim by \citet{schaeffer2023} that emergent abilities in large language models are artifacts of discontinuous evaluation metrics. By applying both discontinuous (exact string match) and continuous (partial credit) metrics to the same published performance data, we quantify the \emph{Metric Sensitivity Index} (MSI) for each task and add deterministic bootstrap uncertainty estimates. Point estimates exceed MSI $> 2$ in 7 of 8 tasks, but bootstrap support is decisive for 4 tasks, uncertainty-limited for 3 tasks, and definitional for 1 single-token task. A synthetic demonstration confirms that linear per-token improvement creates dramatic apparent emergence under exact-match scoring. MMLU accuracy, a more continuous metric, scales smoothly across model families.
 \end{abstract}
 
 \section{Introduction}
@@ -55,11 +55,10 @@ where $n$ is the number of tokens in the answer. This assumes token-level indepe
     p = \text{ExactMatch}^{1/n}
 \end{equation}
 
-We define three continuous metrics:
+We define two continuous metrics:
 \begin{itemize}
     \item \textbf{Partial Credit}: $\text{PC} = p$ (fraction of tokens correct)
     \item \textbf{Token Edit Distance}: $\text{TED} = n(1-p)$ (expected errors)
-    \item \textbf{Brier Score}: $\text{BS} = (p - y)^2$ for classification tasks
 \end{itemize}
 
 \subsection{Nonlinearity Detection}
@@ -71,6 +70,9 @@ For each task, we fit both linear and logistic sigmoid models to performance vs.
 
 High MSI ($> 2$) indicates the nonlinearity is primarily a metric artifact. MSI $\leq 2$ suggests potentially genuine nonlinear scaling.
 
+To quantify uncertainty, we run 120 deterministic bootstrap resamples per task and report (i) a 95\% confidence interval for MSI and (ii) $P(\text{MSI}>2)$.
+We classify a task as \emph{likely artifact} only when both conditions hold: MSI $>2$ and $P(\text{MSI}>2)\geq 0.8$.
+
 \subsection{Synthetic Demonstration}
 
 We generate synthetic data where per-token accuracy improves linearly with $\log_{10}(\text{parameters})$ from $p=0.3$ to $p=0.95$ across 20 simulated model sizes. We then apply both exact-match ($p^5$) and partial-credit scoring to demonstrate how the nonlinear mapping creates apparent emergence.
@@ -79,24 +81,24 @@ We generate synthetic data where per-token accuracy improves linearly with $\log
 
 \subsection{Metric Sensitivity Index}
 
-Of 8 BIG-Bench tasks analyzed, \textbf{7 show MSI $> 2$}, indicating that the apparent phase transition is predominantly a metric artifact (Table~\ref{tab:msi}). The remaining task, sports understanding, has a single-token output under multiple-choice accuracy, so exact match and per-token accuracy are identical by construction and MSI is not informative for that case.
+Of 8 BIG-Bench tasks analyzed, point estimates exceed MSI $>2$ for 7 tasks. However, after bootstrap uncertainty quantification, only \textbf{4 tasks satisfy our likely-artifact criterion} (MSI $>2$ and $P(\text{MSI}>2)\geq 0.8$), while 3 tasks remain uncertainty-limited and 1 task is definitional due to single-token outputs (Table~\ref{tab:msi}).
 
 \begin{table}[h]
 \centering
-\caption{Metric Sensitivity Index for BIG-Bench tasks. MSI $> 2$ indicates likely metric artifact.}
+\caption{Metric Sensitivity Index for BIG-Bench tasks with deterministic bootstrap uncertainty (120 resamples).}
 \label{tab:msi}
 \begin{tabular}{lcccc}
 \toprule
-\textbf{Task} & \textbf{MSI} & \textbf{$R^2_{\text{sig}}$ (EM)} & \textbf{$R^2_{\text{lin}}$ (PC)} & \textbf{Verdict} \\
+\textbf{Task} & \textbf{MSI} & \textbf{95\% CI} & \textbf{$P(\text{MSI}>2)$} & \textbf{Verdict} \\
 \midrule
-2-Digit Multiplication & 27.06 & 0.864 & 0.549 & Artifact \\
-4-Digit Addition & 55.17 & 0.753 & 0.595 & Artifact \\
-IPA Transliterate & 4.78 & 0.986 & 0.979 & Artifact \\
-Word Unscramble & 1401.51 & 0.978 & 0.846 & Artifact \\
-Modified Arithmetic & 7.82 & 0.978 & 0.868 & Artifact \\
-Word Sorting & 6.57 & 0.979 & 0.969 & Artifact \\
-Persian QA & 7.69 & 0.993 & 0.979 & Artifact \\
-Sports Understanding & 1.00 & 0.890 & 0.890 & N/A (single token) \\
+2-Digit Multiplication & 27.06 & [0.06, 159.14] & 0.78 & Uncertain \\
+4-Digit Addition & 55.17 & [0.11, 350.71] & 0.80 & Likely artifact \\
+IPA Transliterate & 4.78 & [0.24, 54.65] & 0.76 & Uncertain \\
+Word Unscramble & 1401.51 & [0.29, 1165.52] & 0.82 & Likely artifact \\
+Modified Arithmetic & 7.82 & [0.94, 63.15] & 0.83 & Likely artifact \\
+Word Sorting & 6.57 & [0.34, 57.19] & 0.69 & Uncertain \\
+Persian QA & 7.69 & [0.82, 433.60] & 0.84 & Likely artifact \\
+Sports Understanding & 1.00 & [1.00, 1.00] & 0.00 & N/A (single token) \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -116,11 +118,11 @@ MMLU accuracy (5-shot, multiple-choice) scales relatively smoothly across all mo
 
 \section{Discussion}
 
-Our re-analysis provides evidence consistent with \citet{schaeffer2023}: most apparent emergent abilities are metric artifacts caused by the nonlinear mapping $p \to p^n$ inherent in exact-match scoring. The Metric Sensitivity Index provides a quantitative framework for distinguishing genuine capability transitions from metric artifacts.
+Our re-analysis provides evidence consistent with \citet{schaeffer2023}: several apparent emergent abilities are metric artifacts caused by the nonlinear mapping $p \to p^n$ inherent in exact-match scoring. Under uncertainty-aware criteria, 4 tasks are likely artifacts, 3 remain uncertainty-limited, and 1 is definitional. The Metric Sensitivity Index, combined with bootstrap support, provides a more conservative framework for distinguishing genuine capability transitions from metric artifacts.
 
 However, we note several important caveats:
 \begin{enumerate}
-    \item \textbf{Sparse data}: With only 3--14 model sizes per task, curve-fitting comparisons have limited statistical power.
+    \item \textbf{Sparse data}: With only 3--14 model sizes per task, curve-fitting comparisons have limited statistical power and wide MSI bootstrap intervals.
     \item \textbf{Token independence}: Our per-token accuracy inference assumes independence, which may not hold for reasoning-intensive tasks.
     \item \textbf{Aggregated scores}: We use published accuracy values, not raw model outputs, preventing direct verification of the per-token distribution.
     \item \textbf{Hardcoded data}: All data is transcribed from published figures and tables, introducing potential transcription error.
@@ -130,7 +132,7 @@ Sports understanding should not be treated as counterevidence to the metric-arti
 
 \section{Conclusion}
 
-We confirm the central finding of \citet{schaeffer2023} using an independent re-analysis: 7 of 8 BIG-Bench tasks show high Metric Sensitivity Index, indicating that apparent emergence is primarily a metric artifact. The Metric Sensitivity Index provides a useful quantitative tool for future studies of scaling behavior, and our fully reproducible analysis requires no model inference.
+We partially confirm the central finding of \citet{schaeffer2023} using an independent re-analysis: MSI point estimates are high in 7 of 8 BIG-Bench tasks, and 4 tasks remain likely artifacts under bootstrap support thresholds while 3 are uncertainty-limited. The Metric Sensitivity Index with uncertainty reporting provides a useful quantitative tool for future studies of scaling behavior, and our fully reproducible analysis requires no model inference.
 
 \bibliographystyle{plainnat}
 \begin{thebibliography}{99}

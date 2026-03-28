@@ -8,6 +8,7 @@ from src.analysis import (
     generate_synthetic_demo,
     run_full_analysis,
 )
+from src.config import NONLINEARITY_BOOTSTRAP_SAMPLES
 
 
 def test_infer_per_token_accuracy():
@@ -76,6 +77,25 @@ def test_nonlinearity_scores_include_task_metadata():
     assert sports["metric_type"] == "multiple_choice"
 
 
+def test_nonlinearity_scores_include_uncertainty_fields():
+    """Scores include deterministic bootstrap uncertainty metadata."""
+    scores = compute_nonlinearity_scores()
+    for task_name, task_scores in scores.items():
+        assert "msi_ci_lower" in task_scores, f"Missing CI lower for {task_name}"
+        assert "msi_ci_upper" in task_scores, f"Missing CI upper for {task_name}"
+        assert "artifact_probability" in task_scores
+        assert "artifact_threshold" in task_scores
+        assert "n_bootstrap" in task_scores
+        assert task_scores["n_bootstrap"] == NONLINEARITY_BOOTSTRAP_SAMPLES
+
+        assert 0.0 <= task_scores["artifact_probability"] <= 1.0
+        assert task_scores["msi_ci_lower"] <= task_scores["msi_ci_upper"]
+
+        if np.isfinite(task_scores["msi"]):
+            assert np.isfinite(task_scores["msi_ci_lower"])
+            assert np.isfinite(task_scores["msi_ci_upper"])
+
+
 def test_synthetic_demo_shows_divergence():
     """Synthetic demo: exact match << partial credit at low per-token accuracy."""
     demo = generate_synthetic_demo(seed=42)
@@ -111,7 +131,9 @@ def test_full_analysis_deterministic():
     r2 = run_full_analysis(seed=42)
     # Check that nonlinearity scores match
     for task in r1["nonlinearity_scores"]:
-        assert abs(
-            r1["nonlinearity_scores"][task]["msi"]
-            - r2["nonlinearity_scores"][task]["msi"]
-        ) < 1e-10
+        s1 = r1["nonlinearity_scores"][task]
+        s2 = r2["nonlinearity_scores"][task]
+        assert abs(s1["msi"] - s2["msi"]) < 1e-10
+        assert abs(s1["msi_ci_lower"] - s2["msi_ci_lower"]) < 1e-10
+        assert abs(s1["msi_ci_upper"] - s2["msi_ci_upper"]) < 1e-10
+        assert abs(s1["artifact_probability"] - s2["artifact_probability"]) < 1e-10
