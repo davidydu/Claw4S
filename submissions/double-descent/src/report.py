@@ -35,6 +35,8 @@ def generate_report(all_results: dict) -> str:
     lines.append(f"- **RF interpolation threshold**: p = n = {meta['rf_interpolation_threshold']}")
     lines.append(f"- **MLP interpolation threshold**: h ~ {meta['mlp_interpolation_threshold']}")
     lines.append(f"- **Runtime**: {meta['runtime_seconds']:.1f}s")
+    if "results_fingerprint" in meta:
+        lines.append(f"- **Results fingerprint**: `{meta['results_fingerprint']}`")
     lines.append("")
 
     # Random features analysis
@@ -116,9 +118,11 @@ def generate_report(all_results: dict) -> str:
     lines.append("## Experiment 4: Variance Across Seeds")
     lines.append("")
     variance_stats = compute_variance_bands(all_results["variance"])
+    variance_noise = meta.get("variance_noise_std", max(meta["noise_levels"]))
     lines.append(
         f"We repeat the random features experiment with "
-        f"{variance_stats['n_seeds']} different seeds to measure variability."
+        f"{variance_stats['n_seeds']} different seeds at "
+        f"sigma={variance_noise} to measure variability."
     )
     lines.append("")
 

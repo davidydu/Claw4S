@@ -53,6 +53,8 @@ where $\boldsymbol{\Phi}^{\dagger}$ is the Moore-Penrose pseudoinverse. The numb
 
 \paragraph{Variance estimation.} We repeat the random features sweep with 3 different random seeds to quantify variability.
 
+\paragraph{Reproducibility controls.} All dependencies are version-pinned in \texttt{requirements.txt}, every stochastic component is seeded, and the pipeline emits a SHA-256 fingerprint of scientific outputs. The validator recomputes this fingerprint from \texttt{results.json} to catch stale or corrupted artifacts before claims are made.
+
 \section{Results}
 
 \subsection{Model-Wise Double Descent}

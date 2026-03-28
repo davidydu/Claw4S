@@ -1,5 +1,6 @@
 """Tests for analysis utilities."""
 
+import copy
 import pytest
 
 from src.analysis import (
@@ -9,6 +10,7 @@ from src.analysis import (
     detect_double_descent,
     detect_epoch_wise_double_descent,
     compute_variance_bands,
+    compute_results_fingerprint,
 )
 
 
@@ -117,3 +119,63 @@ class TestComputeVarianceBands:
         stats = compute_variance_bands([])
         assert stats["widths"] == []
         assert stats["n_seeds"] == 0
+
+    def test_does_not_clip_outliers_by_default(self):
+        variance_results = []
+        for seed in range(100):
+            loss = 1000.0 if seed == 99 else 1.0
+            variance_results.append({
+                "seed": seed,
+                "results": make_sweep_results([50], [loss]),
+            })
+
+        stats = compute_variance_bands(variance_results)
+        expected_mean = (99 * 1.0 + 1000.0) / 100
+        assert stats["mean_test_loss"][0] == pytest.approx(expected_mean)
+
+
+class TestComputeResultsFingerprint:
+    def test_ignores_runtime_metadata_noise(self):
+        base = {
+            "random_features": {
+                "noise_1.0": make_sweep_results([10, 20], [2.0, 4.0]),
+            },
+            "mlp_sweep": [
+                {"width": 2, "n_params": 45, "param_ratio": 0.23, "train_loss": 1.0, "test_loss": 2.0},
+            ],
+            "epoch_wise": {
+                "noise_1.0": {
+                    "width": 9,
+                    "n_params": 199,
+                    "param_ratio": 1.0,
+                    "epochs": [1, 2],
+                    "train_losses": [2.0, 1.0],
+                    "test_losses": [3.0, 2.0],
+                },
+            },
+            "variance": [
+                {"seed": 42, "results": make_sweep_results([10], [3.0])},
+            ],
+            "metadata": {
+                "n_train": 200,
+                "n_test": 200,
+                "d": 20,
+                "seed": 42,
+                "lr": 0.001,
+                "noise_levels": [1.0],
+                "rf_widths": [10, 20],
+                "mlp_widths": [2],
+                "rf_interpolation_threshold": 200,
+                "mlp_interpolation_threshold": 9,
+                "mlp_epochs": 4000,
+                "epoch_wise_max_epochs": 6000,
+                "variance_seeds": [42],
+                "variance_noise_std": 1.0,
+                "runtime_seconds": 10.0,
+            },
+        }
+
+        changed_runtime = copy.deepcopy(base)
+        changed_runtime["metadata"]["runtime_seconds"] = 999.0
+
+        assert compute_results_fingerprint(base) == compute_results_fingerprint(changed_runtime)

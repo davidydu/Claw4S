@@ -4,6 +4,8 @@ import json
 import os
 import sys
 
+from src.analysis import detect_double_descent, compute_results_fingerprint
+
 # Working-directory guard
 if not os.path.exists(os.path.join("src", "sweep.py")):
     print(
@@ -32,15 +34,37 @@ print(f"Noise levels:         {meta.get('noise_levels', '?')}")
 print(f"RF widths tested:     {len(meta.get('rf_widths', []))}")
 print(f"MLP widths tested:    {len(meta.get('mlp_widths', []))}")
 print(f"Variance seeds:       {meta.get('variance_seeds', '?')}")
-print(f"Runtime:              {meta.get('runtime_seconds', '?'):.1f}s")
+runtime_seconds = meta.get("runtime_seconds")
+runtime_display = (
+    f"{runtime_seconds:.1f}s"
+    if isinstance(runtime_seconds, (int, float))
+    else "?"
+)
+print(f"Runtime:              {runtime_display}")
+print(f"Variance noise level: {meta.get('variance_noise_std', '?')}")
 print()
 
 # Check runtime
-runtime = meta.get("runtime_seconds", 999)
-if runtime > 180:
+runtime = meta.get("runtime_seconds")
+if not isinstance(runtime, (int, float)):
+    errors.append("Missing or non-numeric metadata.runtime_seconds")
+elif runtime > 180:
     errors.append(f"Runtime {runtime:.0f}s exceeds 3-minute limit")
 else:
     print(f"Runtime OK ({runtime:.1f}s < 180s)")
+
+# Check reproducibility fingerprint
+expected_fp = meta.get("results_fingerprint")
+computed_fp = compute_results_fingerprint(data)
+if not expected_fp:
+    errors.append("Missing metadata.results_fingerprint (rerun run.py)")
+elif expected_fp != computed_fp:
+    errors.append(
+        "results_fingerprint mismatch: results.json may be stale/corrupted "
+        f"(expected {expected_fp}, computed {computed_fp})"
+    )
+else:
+    print(f"Fingerprint OK ({computed_fp[:12]}...)")
 
 # Check random features results
 rf = data.get("random_features", {})
@@ -49,27 +73,49 @@ if len(rf) < 2:
 else:
     print(f"Random features noise levels: {len(rf)}")
 
+threshold = meta.get("rf_interpolation_threshold")
+
 for label, results in rf.items():
     if len(results) < 10:
         errors.append(f"random_features[{label}] has only {len(results)} widths")
+
+    detection = detect_double_descent(results)
     test_losses = [r["test_loss"] for r in results]
     peak_loss = max(test_losses)
     min_loss = min(test_losses)
     ratio = peak_loss / max(min_loss, 1e-10)
     noise_val = label.replace("noise_", "sigma=")
-    print(f"  {noise_val}: {len(results)} widths, peak/min ratio={ratio:.1f}x")
+    print(
+        f"  {noise_val}: {len(results)} widths, peak/min ratio={ratio:.1f}x, "
+        f"peak_width={detection['peak_width']}"
+    )
 
-# Check for double descent detection
-highest_noise = f"noise_{max(meta.get('noise_levels', [1.0]))}"
-if highest_noise in rf:
-    results = rf[highest_noise]
-    test_losses = [r["test_loss"] for r in results]
-    peak = max(test_losses)
-    final = test_losses[-1]
-    if final < peak * 0.1:
-        print(f"  Double descent confirmed: final loss << peak loss")
-    else:
-        errors.append("Double descent not clearly visible in highest noise condition")
+    if not detection["detected"]:
+        errors.append(
+            f"{label} does not satisfy double-descent checks "
+            f"({detection['message']})"
+        )
+
+    if isinstance(threshold, int) and threshold > 0:
+        tolerance = max(5, int(round(0.15 * threshold)))
+        if abs(detection["peak_width"] - threshold) > tolerance:
+            errors.append(
+                f"{label} peak width {detection['peak_width']} is too far from "
+                f"threshold {threshold} (tolerance +/-{tolerance})"
+            )
+
+        threshold_rows = [r for r in results if r.get("width") == threshold]
+        if not threshold_rows:
+            errors.append(
+                f"{label} does not include width={threshold} at interpolation threshold"
+            )
+        else:
+            train_at_threshold = threshold_rows[0].get("train_loss", float("inf"))
+            if train_at_threshold > 1e-3:
+                errors.append(
+                    f"{label} train_loss at threshold is {train_at_threshold:.4f} "
+                    "(expected near 0)"
+                )
 
 # Check MLP results
 mlp = data.get("mlp_sweep", [])
@@ -95,6 +141,10 @@ if len(variance) < 2:
     errors.append(f"Variance has only {len(variance)} seeds, expected >= 2")
 else:
     print(f"Variance seeds: {len(variance)}")
+
+variance_noise_std = meta.get("variance_noise_std")
+if not isinstance(variance_noise_std, (int, float)):
+    errors.append("Missing metadata.variance_noise_std")
 
 # Check plot files
 expected_plots = [

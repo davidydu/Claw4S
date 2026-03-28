@@ -19,7 +19,7 @@ if not os.path.exists(expected_marker):
 
 try:
     from src.sweep import run_all_sweeps
-    from src.analysis import compute_variance_bands
+    from src.analysis import compute_variance_bands, compute_results_fingerprint
     from src.plots import (
         plot_model_wise,
         plot_noise_comparison,
@@ -40,6 +40,7 @@ try:
 
     all_results = run_all_sweeps()
     meta = all_results["metadata"]
+    meta["results_fingerprint"] = compute_results_fingerprint(all_results)
 
     # Generate plots
     print()
@@ -100,6 +101,7 @@ try:
 
     print()
     print(f"Done. Total runtime: {meta['runtime_seconds']:.1f}s")
+    print(f"Results fingerprint: {meta['results_fingerprint']}")
     print()
     print(report)
 

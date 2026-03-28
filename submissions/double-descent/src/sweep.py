@@ -8,6 +8,8 @@ Three experiments:
 """
 
 import time
+import platform
+import sys
 
 import torch
 
@@ -182,6 +184,8 @@ def run_all_sweeps(config: dict | None = None) -> dict:
     epoch_wise_record = config.get("epoch_wise_record_every", 25)
 
     noise_levels = config.get("noise_levels", [0.1, 0.5, 1.0])
+    highest_noise = max(noise_levels)
+    variance_noise_std = config.get("variance_noise_std", highest_noise)
 
     # Random features widths: dense near threshold (p=n_train)
     rf_widths = config.get("rf_widths", [
@@ -213,7 +217,6 @@ def run_all_sweeps(config: dict | None = None) -> dict:
 
     # --- Experiment 2: MLP sweep at highest noise ---
     print("[2/4] MLP model-wise sweep...")
-    highest_noise = max(noise_levels)
     mlp_results = mlp_sweep(
         widths=mlp_widths,
         n_train=n_train, n_test=n_test, d=d,
@@ -244,7 +247,7 @@ def run_all_sweeps(config: dict | None = None) -> dict:
         results = random_features_sweep(
             widths=rf_widths,
             n_train=n_train, n_test=n_test, d=d,
-            noise_std=1.0, seed=s,
+            noise_std=variance_noise_std, seed=s,
         )
         variance_results.append({
             "seed": s,
@@ -273,6 +276,10 @@ def run_all_sweeps(config: dict | None = None) -> dict:
             "mlp_epochs": mlp_epochs,
             "epoch_wise_max_epochs": epoch_wise_max,
             "variance_seeds": variance_seeds,
+            "variance_noise_std": variance_noise_std,
+            "python_version": sys.version.split()[0],
+            "platform": platform.platform(),
+            "torch_version": torch.__version__,
             "runtime_seconds": elapsed,
         },
     }

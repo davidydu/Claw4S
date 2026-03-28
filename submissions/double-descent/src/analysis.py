@@ -4,6 +4,9 @@ Functions to detect and quantify the double descent phenomenon
 from sweep results.
 """
 
+import hashlib
+import json
+
 import numpy as np
 
 
@@ -214,12 +217,8 @@ def compute_variance_bands(
         for w_idx, result in enumerate(seed_data["results"]):
             all_losses[s_idx, w_idx] = result["test_loss"]
 
-    # Cap extreme values for stable statistics (interpolation threshold can blow up)
-    cap = np.percentile(all_losses, 99)
-    all_losses_capped = np.minimum(all_losses, cap * 2)
-
-    mean_loss = all_losses_capped.mean(axis=0).tolist()
-    std_loss = all_losses_capped.std(axis=0).tolist()
+    mean_loss = all_losses.mean(axis=0).tolist()
+    std_loss = all_losses.std(axis=0).tolist()
 
     return {
         "widths": widths,
@@ -227,3 +226,53 @@ def compute_variance_bands(
         "std_test_loss": std_loss,
         "n_seeds": n_seeds,
     }
+
+
+def _round_floats(value, digits: int = 12):
+    """Recursively round floating-point values for stable hashing."""
+    if isinstance(value, float):
+        return round(value, digits)
+    if isinstance(value, list):
+        return [_round_floats(v, digits) for v in value]
+    if isinstance(value, dict):
+        return {k: _round_floats(v, digits) for k, v in value.items()}
+    return value
+
+
+def compute_results_fingerprint(all_results: dict) -> str:
+    """Compute a stable fingerprint of scientific outputs.
+
+    Excludes volatile timing/hash fields so reruns with identical outputs
+    yield the same fingerprint.
+    """
+    meta = all_results.get("metadata", {})
+
+    canonical = {
+        "random_features": all_results.get("random_features", {}),
+        "mlp_sweep": all_results.get("mlp_sweep", []),
+        "epoch_wise": all_results.get("epoch_wise", {}),
+        "variance": all_results.get("variance", []),
+        "metadata": {
+            "n_train": meta.get("n_train"),
+            "n_test": meta.get("n_test"),
+            "d": meta.get("d"),
+            "seed": meta.get("seed"),
+            "lr": meta.get("lr"),
+            "noise_levels": meta.get("noise_levels"),
+            "rf_widths": meta.get("rf_widths"),
+            "mlp_widths": meta.get("mlp_widths"),
+            "rf_interpolation_threshold": meta.get("rf_interpolation_threshold"),
+            "mlp_interpolation_threshold": meta.get("mlp_interpolation_threshold"),
+            "mlp_epochs": meta.get("mlp_epochs"),
+            "epoch_wise_max_epochs": meta.get("epoch_wise_max_epochs"),
+            "variance_seeds": meta.get("variance_seeds"),
+            "variance_noise_std": meta.get("variance_noise_std"),
+        },
+    }
+
+    payload = json.dumps(
+        _round_floats(canonical),
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()

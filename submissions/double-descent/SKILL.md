@@ -55,6 +55,7 @@ Execute the full double descent analysis:
 ```
 
 Expected: Script completes in about 15-25 seconds on CPU. Prints progress `[1/4]` through `[6/6]` and exits with code 0.
+Also prints a deterministic `Results fingerprint: <sha256>`.
 
 This will:
 1. Generate synthetic noisy regression data (n=200, d=20).
@@ -83,6 +84,7 @@ Check that results were produced correctly and double descent was detected:
 
 Expected output includes:
 - Runtime under 180s.
+- Fingerprint check passes (`Fingerprint OK ...`).
 - Peak/min ratio >> 1 for all noise levels (confirming double descent).
 - All 5 plot files present.
 - Report generated.
@@ -109,6 +111,10 @@ In `src/sweep.py`, modify `run_all_sweeps()` config parameters:
 - Change `d` for different input dimensions.
 - Change `n_train` to shift the interpolation threshold.
 - Change `noise_levels` to explore different noise regimes.
+
+### Different variance setting
+- Set `variance_noise_std` in `run_all_sweeps(config=...)` to choose which noise level is used for seed-wise variance bands.
+- If omitted, the variance study defaults to the highest noise level from `noise_levels`.
 
 ### Different model types
 - Add new model classes in `src/model.py` (e.g., deeper MLPs, random Fourier features).
