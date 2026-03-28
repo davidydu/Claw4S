@@ -12,7 +12,7 @@ This skill trains 2-layer MLPs on grokking-prone (modular addition mod 97) and s
 
 - Requires **Python 3.10+** (tested with 3.13). No GPU needed (CPU only).
 - No internet access required (all data is generated synthetically).
-- Expected runtime: **1-3 minutes** on a modern CPU.
+- Expected runtime: **about 4-6 minutes** on a modern CPU (observed: ~5.2 minutes on Apple Silicon with Python 3.13 / PyTorch 2.6.0).
 - All commands must be run from the **submission directory** (`submissions/gradient-norms/`).
 
 ## Step 1: Environment Setup
@@ -51,7 +51,7 @@ Execute the full gradient norm phase transition experiment (6 primary runs + 9 v
 .venv/bin/python run.py
 ```
 
-Expected: Script prints training progress for each of the 6 primary runs (2 tasks x 3 fractions), then runs multi-seed variance analysis (3 seeds x 3 fractions for modular addition), generates plots, and saves results. Final output includes a summary table showing gradient transition epoch, metric transition epoch, and lag for each run, plus multi-seed lag statistics. Runtime: ~3 minutes on CPU. Exits with code 0. Files created:
+Expected: Script prints training progress for each of the 6 primary runs (2 tasks x 3 fractions), then runs multi-seed variance analysis (3 seeds x 3 fractions for modular addition), generates plots, and saves results. Final output includes a summary table showing gradient transition epoch, metric transition epoch, and lag for each run, plus multi-seed lag statistics. Runtime: about 4-6 minutes on CPU (observed: 309.6s on Apple Silicon with Python 3.13 / PyTorch 2.6.0). Exits with code 0. Files created:
 
 - `results/results.json` -- structured experiment results
 - `results/run_modular_addition_frac*.png` -- per-run gradient norm + accuracy overlay (3 files)

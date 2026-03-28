@@ -15,7 +15,7 @@
 \maketitle
 
 \begin{abstract}
-We investigate whether per-layer gradient $L_2$ norms exhibit phase transitions that predict generalization before test accuracy does. Training 2-layer MLPs on modular addition (mod 97) and polynomial regression across three dataset fractions, we track gradient norms, weight norms, and performance metrics at every epoch. We find that gradient norm peaks consistently precede test accuracy transitions in grokking-prone tasks, leading by 19--1095 epochs depending on data fraction. In contrast, smooth-learning tasks show simultaneous gradient and metric transitions. These results suggest that gradient norm dynamics serve as a reliable early warning signal for the memorization-to-generalization shift in delayed generalization (grokking) settings.
+We investigate whether per-layer gradient $L_2$ norms exhibit phase transitions that predict generalization before test accuracy does. Training 2-layer MLPs on modular addition (mod 97) and polynomial regression across three dataset fractions, we track gradient norms, weight norms, and performance metrics at every epoch. We find that gradient norm peaks consistently precede test accuracy transitions in the modular-addition runs, leading by 12--699 epochs in the primary seed-42 sweep. Across a 3-seed modular-addition variance analysis, the mean lag remains positive at every data fraction (54--642 epochs). In contrast, the smooth-learning regression control shows immediate metric improvement and no positive lag. These results suggest that gradient norm dynamics serve as a reliable early warning signal for the memorization-to-generalization shift in delayed generalization (grokking) settings.
 \end{abstract}
 
 \section{Introduction}
@@ -73,9 +73,9 @@ We additionally compute cross-correlation between the derivative of the gradient
 \toprule
 Task & Frac & Grad Peak & Metric Trans & Lag & Pearson $r$ \\
 \midrule
-Modular addition & 50\% & 512 & 1607 & \textbf{1095} & $-0.929$ \\
-Modular addition & 70\% & 502 & 665 & \textbf{163} & $-0.823$ \\
-Modular addition & 90\% & 357 & 376 & \textbf{19} & $-0.658$ \\
+Modular addition & 50\% & 562 & 1261 & \textbf{699} & $-0.929$ \\
+Modular addition & 70\% & 501 & 693 & \textbf{192} & $-0.821$ \\
+Modular addition & 90\% & 362 & 374 & \textbf{12} & $-0.662$ \\
 \midrule
 Regression & 50\% & 60 & 0 & $-60$ & $-0.946$ \\
 Regression & 70\% & 60 & 0 & $-60$ & $-0.947$ \\
@@ -87,9 +87,9 @@ Regression & 90\% & 60 & 0 & $-60$ & $-0.948$ \\
 Table~\ref{tab:results} summarizes the key findings. For all three modular addition configurations, the gradient norm peak \emph{precedes} the test accuracy transition:
 
 \begin{itemize}
-    \item At 50\% data fraction, gradient norms peak at epoch 512, while grokking has not yet completed by epoch 3000 (test accuracy 7.1\%). The gradient peak leads by over 1000 epochs, indicating the internal dynamics have already shifted even though generalization has not yet manifested in test accuracy.
-    \item At 70\%, the peak-to-generalization lag is 163 epochs, and the model reaches 76.8\% test accuracy.
-    \item At 90\%, the lag is 19 epochs---still positive but small, consistent with the faster generalization observed with more training data.
+    \item At 50\% data fraction, gradient norms peak at epoch 562, while test accuracy remains low by epoch 3000 (6.6\%). The steepest test-accuracy increase is still detected later, at epoch 1261, so the gradient peak leads by 699 epochs. This suggests the internal dynamics shift well before strong held-out generalization is visible.
+    \item At 70\%, the peak-to-generalization lag is 192 epochs, and the model reaches 76.2\% test accuracy.
+    \item At 90\%, the lag is 12 epochs---still positive but small, consistent with the faster generalization observed with more training data.
 \end{itemize}
 
 \subsection{Regression: No Delayed Generalization, No Lag}
@@ -112,9 +112,9 @@ To assess robustness, we repeat the modular addition experiments across 3 random
 \toprule
 Frac & Mean Lag & Std Dev & Min & Max \\
 \midrule
-50\% & 945.7 & 266.5 & 638 & 1104 \\
-70\% & 193.7 & 26.6 & 163 & 209 \\
-90\% & 64.0 & 39.4 & 19 & 92 \\
+50\% & 641.7 & 197.3 & 422 & 804 \\
+70\% & 199.0 & 24.3 & 179 & 226 \\
+90\% & 54.3 & 37.2 & 12 & 82 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -125,7 +125,7 @@ The variance is highest at 50\% data fraction, where grokking dynamics are most 
 
 Our results support the hypothesis that gradient norm phase transitions---specifically, the peak of gradient $L_2$ norms---precede generalization transitions in grokking-prone settings. The gradient norm peak marks the point where the network's optimization landscape shifts from building memorization circuits (high gradient activity) to consolidating generalization circuits (declining gradients as weight decay regularization takes effect).
 
-The monotonic relationship between data fraction and lag is noteworthy: less training data produces a larger lag ($946 \pm 267$ epochs at 50\% vs.\ $64 \pm 39$ epochs at 90\%). This aligns with the theoretical picture where weight decay must work longer to overcome the memorization solution when data is scarce \citep{liu2022omnigrok}. The multi-seed analysis confirms this pattern is robust to initialization.
+The monotonic relationship between data fraction and lag is noteworthy: less training data produces a larger lag ($642 \pm 197$ epochs at 50\% vs.\ $54 \pm 37$ epochs at 90\%). This aligns with the theoretical picture where weight decay must work longer to overcome the memorization solution when data is scarce \citep{liu2022omnigrok}. The multi-seed analysis confirms this pattern is robust to initialization.
 
 \subsection{Limitations}
 
@@ -138,7 +138,7 @@ The monotonic relationship between data fraction and lag is noteworthy: less tra
 
 \section{Conclusion}
 
-Gradient $L_2$ norm peaks serve as an early warning signal for the memorization-to-generalization transition in grokking-prone tasks, preceding test accuracy improvements by $64$--$946$ epochs on average (robust across 3 seeds). This finding has practical implications for training diagnostics: monitoring gradient norm trajectories could allow practitioners to predict whether and when a model will generalize, without waiting for test performance to improve.
+Gradient $L_2$ norm peaks serve as an early warning signal for the memorization-to-generalization transition in grokking-prone tasks, preceding test accuracy improvements by 12--699 epochs in the primary runs and by 54--642 epochs on average in the 3-seed modular-addition sweeps. This finding has practical implications for training diagnostics: monitoring gradient norm trajectories could allow practitioners to predict whether and when a model will generalize, without waiting for test performance to improve.
 
 \bibliographystyle{plainnat}
 \begin{thebibliography}{4}
