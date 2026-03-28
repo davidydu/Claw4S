@@ -64,6 +64,7 @@ def main() -> None:
 
     results = data.get("results", [])
     summary = data.get("summary", {})
+    dataset_summaries = data.get("dataset_summaries", {})
     aggregated = data.get("aggregated", [])
 
     # 4. Check result count
@@ -164,13 +165,21 @@ def main() -> None:
             errors.append(f"Expected {expected_agg} aggregated entries, got {len(aggregated)}")
 
     # 9. Check summary statistics
-    if not summary:
-        errors.append("Missing summary statistics in results.json")
+    if not dataset_summaries:
+        errors.append("Missing dataset_summaries in results.json")
     else:
-        if "per_width" not in summary:
-            errors.append("Summary missing 'per_width' key")
-        if "corr_logparams_fgsm_gap" not in summary:
-            errors.append("Summary missing correlation statistics")
+        found_summary_datasets = sorted(dataset_summaries.keys())
+        if found_summary_datasets != sorted(EXPECTED_DATASETS):
+            errors.append("dataset_summaries missing expected datasets "
+                          f"(found {found_summary_datasets})")
+        for ds_name in EXPECTED_DATASETS:
+            ds_summary = dataset_summaries.get(ds_name, {})
+            if "per_width" not in ds_summary:
+                errors.append(f"{ds_name} summary missing 'per_width' key")
+            if "corr_logparams_fgsm_gap" not in ds_summary:
+                errors.append(f"{ds_name} summary missing correlation statistics")
+    if summary and "per_width" not in summary:
+        errors.append("Legacy summary missing 'per_width' key")
 
     # 10. Check plot files are non-empty
     for fname in ["clean_vs_robust.png", "robustness_gap.png", "param_scaling.png"]:
@@ -202,20 +211,25 @@ def _report(errors: list[str]) -> None:
             with open(json_path) as f:
                 data = json.load(f)
             summary = data.get("summary", {})
+            dataset_summaries = data.get("dataset_summaries", {})
             config = data.get("config", {})
             results = data.get("results", [])
-            if summary.get("per_width"):
+            if dataset_summaries:
                 n_datasets = len(config.get("datasets", []))
                 n_seeds = len(config.get("seeds", []))
                 print(f"Configuration: {n_datasets} datasets, {n_seeds} seeds, "
                       f"{len(results)} total experiments")
-                print(f"  - {summary['n_experiments']} per-seed experiments across "
-                      f"{len(summary['widths'])} model sizes")
-                if summary.get("corr_logparams_fgsm_gap") is not None:
-                    print(f"  - Corr(log params, FGSM gap): "
-                          f"{summary['corr_logparams_fgsm_gap']:.4f}")
-                    print(f"  - Corr(log params, PGD gap):  "
-                          f"{summary['corr_logparams_pgd_gap']:.4f}")
+                if summary.get("per_width"):
+                    print(f"  - Legacy summary preserved for "
+                          f"{len(summary['widths'])} model sizes")
+                for ds_name in EXPECTED_DATASETS:
+                    ds_summary = dataset_summaries.get(ds_name)
+                    if ds_summary and ds_summary.get("corr_logparams_fgsm_gap") is not None:
+                        print(f"  - {ds_name}: {ds_summary['n_experiments']} dataset results, "
+                              f"Corr(log params, FGSM gap) = "
+                              f"{ds_summary['corr_logparams_fgsm_gap']:.4f}, "
+                              f"Corr(log params, PGD gap) = "
+                              f"{ds_summary['corr_logparams_pgd_gap']:.4f}")
                 print()
         except (json.JSONDecodeError, FileNotFoundError, KeyError):
             pass  # Summary printing is best-effort

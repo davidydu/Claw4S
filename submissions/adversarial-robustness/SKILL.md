@@ -2,22 +2,22 @@
 
 ## Overview
 
-This skill trains 2-layer ReLU MLPs of varying widths (16 to 512 neurons) on two synthetic 2D classification tasks (concentric circles and two moons), generates adversarial examples using FGSM and PGD attacks across an epsilon sweep, and measures how the robustness gap (clean accuracy minus robust accuracy) scales with model capacity. Experiments run across 3 random seeds for statistical variance, totaling 180 individual evaluations.
+This skill trains 2-layer ReLU MLPs of varying widths (16 to 512 neurons) on two synthetic 2D classification tasks (concentric circles and two moons), generates adversarial examples using FGSM and PGD attacks across an epsilon sweep, and measures how the robustness gap (clean accuracy minus robust accuracy) changes with model capacity. Experiments run across 3 random seeds for statistical variance, totaling 180 individual evaluations.
 
-**Key finding:** In the small-model regime, the robustness gap is largely independent of model capacity. Contrary to the hypothesis that larger models are more vulnerable, the gap remains stable (circles: r = -0.06) or slightly decreases (moons: r = -0.67) with model size, suggesting that adversarial vulnerability in small MLPs is governed by task geometry rather than model capacity.
+**Key finding:** Larger models are not uniformly more vulnerable. With cross-seed averaging, the circles task shows a modest increase and plateau in robustness gap as width grows (FGSM/PGD correlation with log parameter count: `r = 0.64 / 0.64`), while the moons task shows improved robustness for larger models (`r = -0.80 / -0.56`). The relationship is dataset-dependent rather than a single monotonic scaling law.
 
 ## Prerequisites
 
-- Python 3.13 at `/opt/homebrew/bin/python3.13`
+- `python3` resolving to Python 3.13 (verified with Python 3.13.5)
 - ~500 MB disk for PyTorch (CPU-only)
-- No GPU required; total runtime ~60-90 seconds on CPU
+- No GPU required; allow about 1-3 minutes on CPU depending on system load
 - No API keys or authentication needed
 
 ## Step 1: Set up the virtual environment
 
 ```bash
 cd submissions/adversarial-robustness
-/opt/homebrew/bin/python3.13 -m venv .venv
+python3 -m venv .venv
 .venv/bin/python -m pip install --upgrade pip
 .venv/bin/python -m pip install -r requirements.txt
 ```
@@ -81,7 +81,7 @@ Total runs:    180
 [Dataset: moons] (noise=0.15)
   ...
 
-Total training + evaluation time: ~60-90s
+Total training + evaluation time: ~80-160s
 
   [CIRCLES] Per-width summary (mean +/- std across 3 seeds):
    Width   Params        Clean         FGSM Gap          PGD Gap
@@ -90,28 +90,28 @@ Total training + evaluation time: ~60-90s
      ...
      512   265218 0.94XX+/-0.0XXX 0.32XX+/-0.0XXX 0.33XX+/-0.0XXX
 
-  Corr(log params, FGSM gap): ~-0.06
-  Corr(log params, PGD gap):  ~-0.16
+  Corr(log params, FGSM gap): ~0.64
+  Corr(log params, PGD gap):  ~0.64
 
   [MOONS] Per-width summary (mean +/- std across 3 seeds):
   ...
-  Corr(log params, FGSM gap): ~-0.67
-  Corr(log params, PGD gap):  ~-0.18
+  Corr(log params, FGSM gap): ~-0.80
+  Corr(log params, PGD gap):  ~-0.56
 
 ======================================================================
 Experiment complete. Results saved to results/
 ======================================================================
 ```
 
-**Runtime:** ~60-90 seconds on CPU.
+**Runtime:** allow about 1-3 minutes on CPU depending on system load.
 
 **Generated files:**
 | File | Description |
 |------|-------------|
-| `results/results.json` | All 180 experiment results + aggregated stats + summary |
-| `results/clean_vs_robust.png` | Clean vs robust accuracy across model sizes (circles) |
-| `results/robustness_gap.png` | Robustness gap vs model size per epsilon (circles) |
-| `results/param_scaling.png` | Mean robustness gap vs parameter count (log scale) |
+| `results/results.json` | All 180 experiment results + cross-seed aggregates + per-dataset summaries |
+| `results/clean_vs_robust.png` | Clean vs robust accuracy across model sizes for the circles dataset (seed 42 visualization) |
+| `results/robustness_gap.png` | Robustness gap vs model size per epsilon for the circles dataset (seed 42 visualization) |
+| `results/param_scaling.png` | Mean robustness gap vs parameter count for the circles dataset (seed 42 visualization) |
 
 ## Step 4: Validate results
 
@@ -129,9 +129,9 @@ Adversarial Robustness Scaling -- Validation Report
 PASSED -- all checks passed.
 
 Configuration: 2 datasets, 3 seeds, 180 total experiments
-  - 30 per-seed experiments across 6 model sizes
-  - Corr(log params, FGSM gap): -0.XXXX
-  - Corr(log params, PGD gap):  -0.XXXX
+  - Legacy summary preserved for 6 model sizes
+  - circles: 90 dataset results, Corr(log params, FGSM gap) = 0.6365, Corr(log params, PGD gap) = 0.6363
+  - moons: 90 dataset results, Corr(log params, FGSM gap) = -0.8029, Corr(log params, PGD gap) = -0.5583
 ```
 
 Validation checks:
@@ -142,7 +142,7 @@ Validation checks:
 - PGD at least as strong as FGSM (within tolerance)
 - Robust accuracy generally decreases with epsilon
 - Cross-seed aggregated results present (60 entries)
-- Summary statistics, correlation values, and plots present and non-empty
+- Per-dataset summary statistics, correlation values, and plots present and non-empty
 
 ## How to Extend
 

@@ -34,11 +34,10 @@ from src.train import train_model, evaluate_clean
 from src.attacks import fgsm_attack, pgd_attack, evaluate_robust, EPSILONS
 from src.analysis import (
     compute_robustness_gaps,
-    compute_summary_statistics,
+    summarize_results_by_dataset,
     plot_clean_vs_robust,
     plot_robustness_gap,
     plot_param_count_scaling,
-    save_results,
 )
 
 SEEDS = [42, 123, 7]
@@ -184,16 +183,12 @@ def main() -> None:
 
     # Aggregate across seeds
     aggregated = aggregate_across_seeds(all_results)
+    dataset_summaries = summarize_results_by_dataset(all_results)
 
     # Per-dataset summaries
     for ds_cfg in DATASETS:
         ds_name = ds_cfg["name"]
-        ds_results = [r for r in all_results if r["dataset"] == ds_name]
-        # Use first seed's results for the standard analysis functions
-        ds_first_seed = [r for r in ds_results if r["seed"] == SEEDS[0]]
-
-        # Compute summary on first seed (for correlation stats)
-        summary = compute_summary_statistics(ds_first_seed)
+        summary = dataset_summaries[ds_name]
 
         print(f"\n  [{ds_name.upper()}] Per-width summary (mean +/- std across {len(SEEDS)} seeds):")
         print(f"  {'Width':>6} {'Params':>8} {'Clean':>12} {'FGSM Gap':>16} {'PGD Gap':>16}")
@@ -238,11 +233,11 @@ def main() -> None:
     print(f"  Saved: {p3}")
 
     # Save all data
-    circles_summary = compute_summary_statistics(circles_first)
     output_data = {
         "results": all_results,
         "aggregated": aggregated,
-        "summary": circles_summary,
+        "summary": dataset_summaries["circles"],
+        "dataset_summaries": dataset_summaries,
         "config": {
             "hidden_widths": HIDDEN_WIDTHS,
             "epsilons": EPSILONS,

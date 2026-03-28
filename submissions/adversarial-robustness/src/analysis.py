@@ -33,10 +33,11 @@ def compute_robustness_gaps(results: list[dict]) -> list[dict]:
 
 
 def compute_summary_statistics(results: list[dict]) -> dict:
-    """Compute summary statistics across all experiments.
+    """Compute summary statistics for one dataset across all results.
 
     Args:
-        results: List of experiment result dicts with robustness gaps.
+        results: List of experiment result dicts with robustness gaps for one
+                 dataset across any number of seeds and epsilons.
 
     Returns:
         Dictionary with summary statistics.
@@ -55,7 +56,7 @@ def compute_summary_statistics(results: list[dict]) -> dict:
     for w in widths:
         w_results = [r for r in results if r["hidden_width"] == w]
         per_width[w] = {
-            "clean_acc": w_results[0]["clean_acc"],  # same for all epsilons
+            "clean_acc": float(np.mean([r["clean_acc"] for r in w_results])),
             "param_count": w_results[0]["param_count"],
             "mean_fgsm_gap": float(np.mean([r["fgsm_gap"] for r in w_results])),
             "mean_pgd_gap": float(np.mean([r["pgd_gap"] for r in w_results])),
@@ -80,6 +81,17 @@ def compute_summary_statistics(results: list[dict]) -> dict:
         summary["corr_logparams_pgd_gap"] = None
 
     return summary
+
+
+def summarize_results_by_dataset(results: list[dict]) -> dict[str, dict]:
+    """Compute summary statistics for each dataset in a result collection."""
+    datasets = sorted(set(r["dataset"] for r in results))
+    return {
+        dataset: compute_summary_statistics(
+            [r for r in results if r["dataset"] == dataset]
+        )
+        for dataset in datasets
+    }
 
 
 def plot_clean_vs_robust(results: list[dict], output_dir: str) -> str:
