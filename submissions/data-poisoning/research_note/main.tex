@@ -15,7 +15,7 @@
 \maketitle
 
 \begin{abstract}
-We systematically sweep label-flip poisoning rates from 0\% to 50\% on two-layer MLPs of varying width (32, 64, 128 hidden units) trained on synthetic Gaussian classification data. We find that (1) accuracy degradation follows a sigmoid curve with $R^2 > 0.98$, indicating a smooth but sharp phase transition rather than gradual decay; (2) the critical poison threshold---defined as the fraction where accuracy drops to the midpoint of clean performance and chance---decreases monotonically with model size (43.4\%, 37.3\%, 34.8\% for widths 32, 64, 128 respectively); and (3) the generalization gap at high poisoning rates is 3x larger for the largest model compared to the smallest. These findings suggest that overparameterized models, while more expressive, are more vulnerable to training data corruption. All experiments complete in under 20 seconds on CPU and are fully reproducible.
+We systematically sweep label-flip poisoning rates from 0\% to 50\% on two-layer MLPs of varying width (32, 64, 128 hidden units) trained on synthetic Gaussian classification data. We find that (1) accuracy degradation follows a sigmoid curve with $R^2 > 0.98$, indicating a smooth but sharp phase transition rather than gradual decay; (2) the critical poison threshold---defined as the fraction where accuracy drops to the midpoint of clean performance and chance---decreases monotonically with model size (43.4\%, 37.3\%, 34.9\% for widths 32, 64, 128 respectively); and (3) the generalization gap at high poisoning rates is 3x larger for the largest model compared to the smallest. These findings suggest that overparameterized models, while more expressive, are more vulnerable to training data corruption. In our verification environment, the full 81-run experiment completed in under 2 minutes on CPU, and the deterministic scientific results reproduced across reruns with fixed seeds.
 \end{abstract}
 
 \section{Introduction}
@@ -52,7 +52,7 @@ Width & Clean Acc & $k$ (steepness) & $x_0$ (midpoint) & Threshold & $R^2$ \\
 \midrule
 32  & 0.907 & 4.84  & 0.184 & 43.4\% & 0.993 \\
 64  & 0.904 & 8.34  & 0.188 & 37.3\% & 0.985 \\
-128 & 0.898 & 7.20  & 0.137 & 34.8\% & 0.996 \\
+128 & 0.898 & 7.00  & 0.134 & 34.9\% & 0.996 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -61,7 +61,7 @@ Width & Clean Acc & $k$ (steepness) & $x_0$ (midpoint) & Threshold & $R^2$ \\
 The sigmoid fit quality ($R^2 > 0.98$) confirms that accuracy degradation is well-described by a logistic function rather than a linear decline. The steepness $k > 5$ for widths 64 and 128 indicates a relatively sharp transition, though not a discontinuous phase change.
 
 \subsection{Model-Size Sensitivity}
-The critical threshold decreases monotonically with model width: 43.4\% $\to$ 37.3\% $\to$ 34.8\% (Table~\ref{tab:fits}). Larger models require less poisoning to reach the same accuracy degradation, consistent with the hypothesis that overparameterized networks memorize poisoned labels more readily.
+The critical threshold decreases monotonically with model width: 43.4\% $\to$ 37.3\% $\to$ 34.9\% (Table~\ref{tab:fits}). Larger models require less poisoning to reach the same accuracy degradation, consistent with the hypothesis that overparameterized networks memorize poisoned labels more readily.
 
 \subsection{Generalization Gap}
 At 50\% poisoning, the generalization gap (train accuracy minus test accuracy) increases dramatically with model size: 0.114 (width 32), 0.240 (width 64), 0.351 (width 128). This 3x amplification demonstrates that larger models fit the corrupted training distribution more tightly while losing generalization to clean data.
@@ -76,7 +76,7 @@ Our results reveal a tension in model design: wider networks achieve similar cle
 
 \section{Reproducibility}
 
-All code is in the accompanying \texttt{SKILL.md}. The full experiment runs in $\sim$20 seconds on CPU with no external data dependencies. Pinned dependencies: \texttt{torch==2.6.0}, \texttt{numpy==2.2.4}, \texttt{scipy==1.15.2}. Seeds are fixed (42, 123, 7) with a data generation seed of 42.
+All code is in the accompanying \texttt{SKILL.md}. The full experiment completed in under 2 minutes on CPU in our verification environment, with no external data dependencies. Pinned dependencies: \texttt{torch==2.6.0}, \texttt{numpy==2.2.4}, \texttt{scipy==1.15.2}. Seeds are fixed (42, 123, 7) with a data generation seed of 42, and runtime metadata is stored separately from the deterministic scientific artifact.
 
 \begin{thebibliography}{1}
 \bibitem{biggio2012poisoning}

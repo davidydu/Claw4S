@@ -6,17 +6,17 @@ This skill sweeps poison fraction (0%--50%) on 2-layer MLP classifiers trained o
 
 ## Prerequisites
 
-- Python 3.13 (`/opt/homebrew/bin/python3.13`)
+- Python 3.13 on PATH (verified here with `python3.13`)
 - ~200 MB disk for venv
 - CPU only, no GPU required
 - No API keys or authentication needed
-- Runtime: ~20 seconds
+- Runtime: `run.py` completes in about 1-2 minutes on CPU in the verification environment used for this PR
 
 ## Step 1: Create virtual environment and install dependencies
 
 ```bash
 cd submissions/data-poisoning
-/opt/homebrew/bin/python3.13 -m venv .venv
+python3.13 -m venv .venv
 .venv/bin/pip install -r requirements.txt
 ```
 
@@ -36,7 +36,7 @@ cd submissions/data-poisoning
 .venv/bin/python run.py
 ```
 
-**Expected output:** 81 training runs (9 poison fractions x 3 model widths x 3 seeds) complete in ~20 seconds. Output includes:
+**Expected output:** 81 training runs (9 poison fractions x 3 model widths x 3 seeds) complete in about 1-2 minutes on CPU in the verification environment used for this PR. Output includes:
 - Progress updates every 9 runs
 - Sigmoid fit parameters (k, x0, threshold, R-squared) per model size
 - Key findings: critical thresholds, steepness, larger-model sensitivity
@@ -47,7 +47,7 @@ Example findings:
 Critical thresholds (midpoint between clean and chance):
   Width 32: 43.4% poison
   Width 64: 37.3% poison
-  Width 128: 34.8% poison
+  Width 128: 34.9% poison
 Larger models: MORE SENSITIVE to poisoning (lower threshold)
 ```
 
@@ -58,12 +58,13 @@ Larger models: MORE SENSITIVE to poisoning (lower threshold)
 ```
 
 **Expected output:** `VALIDATION PASSED — all checks OK`. Validates:
-- All output files exist (JSON + 3 PNG plots)
+- All output files exist (`results.json`, `performance.json`, and 3 PNG plots)
 - 81 runs, 27 aggregated points, 3 sigmoid fits
 - Clean accuracy > 0.7 for all model sizes
 - Accuracy degrades at 50% poison
 - Monotonically decreasing accuracy vs. poison fraction
 - Sigmoid R-squared > 0.8 for all model sizes
+- Deterministic scientific results exclude runtime metadata
 - Standard deviations reported
 - Runtime under 3 minutes
 
@@ -86,9 +87,9 @@ Larger models: MORE SENSITIVE to poisoning (lower threshold)
 
 ## Key Results
 
-1. **Sharp phase transition exists**: Sigmoid steepness k > 5 for larger models (k=8.3 for width 64, k=7.2 for width 128), indicating a sharp rather than gradual accuracy collapse.
+1. **Sharp phase transition exists**: Sigmoid steepness k > 5 for larger models (k=8.3 for width 64, k=7.0 for width 128), indicating a sharp rather than gradual accuracy collapse.
 
-2. **Larger models are more sensitive**: Critical thresholds decrease with model size (32: 43.4%, 64: 37.3%, 128: 34.8%). Larger models memorize poisoned labels more readily, degrading faster.
+2. **Larger models are more sensitive**: Critical thresholds decrease with model size (32: 43.4%, 64: 37.3%, 128: 34.9%). Larger models memorize poisoned labels more readily, degrading faster.
 
 3. **Generalization gap amplifies**: At 50% poison, gen gap increases with width (32: 0.11, 64: 0.24, 128: 0.35), confirming that larger models overfit poisoned data more.
 
@@ -98,7 +99,8 @@ Larger models: MORE SENSITIVE to poisoning (lower threshold)
 
 | File | Description |
 |------|-------------|
-| `results/results.json` | Full experiment data: config, 81 runs, 27 aggregated points, 3 sigmoid fits, findings |
+| `results/results.json` | Deterministic scientific results: config, 81 runs, 27 aggregated points, 3 sigmoid fits, findings |
+| `results/performance.json` | Runtime metadata for the latest execution (kept separate from scientific results for reproducibility) |
 | `results/accuracy_vs_poison.png` | Test accuracy vs. poison fraction with sigmoid fits and threshold markers |
 | `results/generalization_gap.png` | Generalization gap vs. poison fraction per model size |
 | `results/train_vs_test.png` | Training vs. test accuracy panel plot (3 model sizes) |

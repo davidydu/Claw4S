@@ -1,11 +1,11 @@
-"""Analysis: aggregate results, fit sigmoid curves, find critical thresholds."""
+"""Analysis: aggregate results, fit sigmoid curves, and export results."""
 
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 
 import numpy as np
 from scipy.optimize import curve_fit
 
-from src.experiment import RunResult
+from src.experiment import ExperimentConfig, RunResult
 
 
 @dataclass
@@ -208,3 +208,60 @@ def compute_findings(
     findings["clean_test_accuracy"] = clean_accs
 
     return findings
+
+
+def build_results_payload(
+    config: ExperimentConfig,
+    results: list[RunResult],
+    agg_points: list[AggregatedPoint],
+    fits: list[SigmoidFit],
+    findings: dict,
+) -> dict:
+    """Build a deterministic scientific results payload.
+
+    Timing metadata is intentionally excluded so repeated runs with the same
+    seeds produce the same scientific artifact.
+    """
+    serialized_runs = []
+    for result in results:
+        run_data = asdict(result)
+        run_data.pop("elapsed_seconds", None)
+        serialized_runs.append(run_data)
+
+    return {
+        "config": asdict(config),
+        "runs": serialized_runs,
+        "aggregated": [asdict(point) for point in agg_points],
+        "sigmoid_fits": [asdict(fit) for fit in fits],
+        "findings": findings,
+        "metadata": {
+            "total_runs": len(results),
+            "n_poison_fractions": len(config.poison_fractions),
+            "n_hidden_widths": len(config.hidden_widths),
+            "n_seeds": len(config.seeds),
+        },
+    }
+
+
+def build_performance_payload(
+    results: list[RunResult],
+    total_time_seconds: float,
+) -> dict:
+    """Build a performance payload with non-deterministic runtime metadata."""
+    run_times = [result.elapsed_seconds for result in results]
+    if run_times:
+        mean_time = float(np.mean(run_times))
+        min_time = float(np.min(run_times))
+        max_time = float(np.max(run_times))
+    else:
+        mean_time = 0.0
+        min_time = 0.0
+        max_time = 0.0
+
+    return {
+        "total_time_seconds": float(total_time_seconds),
+        "n_runs": len(results),
+        "mean_run_time_seconds": mean_time,
+        "min_run_time_seconds": min_time,
+        "max_run_time_seconds": max_time,
+    }

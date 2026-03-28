@@ -26,6 +26,7 @@ def main() -> int:
     # ── Check files exist ────────────────────────────────────────────
     required_files = [
         "results/results.json",
+        "results/performance.json",
         "results/accuracy_vs_poison.png",
         "results/generalization_gap.png",
         "results/train_vs_test.png",
@@ -44,6 +45,8 @@ def main() -> int:
     # ── Load results ─────────────────────────────────────────────────
     with open("results/results.json") as f:
         data = json.load(f)
+    with open("results/performance.json") as f:
+        performance = json.load(f)
 
     meta = data.get("metadata", {})
     runs = data.get("runs", [])
@@ -70,6 +73,11 @@ def main() -> int:
     print(f"  Sigmoid fits: {actual_fits} (expected {expected_fits})")
     if actual_fits != expected_fits:
         errors.append(f"Expected {expected_fits} sigmoid fits, got {actual_fits}")
+
+    if any("elapsed_seconds" in run for run in runs):
+        errors.append("results.json should exclude per-run elapsed_seconds")
+    if "total_time_seconds" in meta:
+        errors.append("results.json metadata should exclude total_time_seconds")
 
     # ── Check scientific soundness ───────────────────────────────────
     print("\n--- Scientific Soundness ---")
@@ -130,7 +138,7 @@ def main() -> int:
 
     # ── Check runtime ────────────────────────────────────────────────
     print("\n--- Performance ---")
-    total_time = meta.get("total_time_seconds", 0)
+    total_time = performance.get("total_time_seconds", 0)
     print(f"  Total runtime: {total_time:.1f}s")
     if total_time > 180:
         errors.append(f"Runtime {total_time:.1f}s exceeds 3-minute limit")

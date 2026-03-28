@@ -3,8 +3,17 @@
 import numpy as np
 import pytest
 
-from src.experiment import RunResult
-from src.analysis import aggregate_results, fit_sigmoid_curve, compute_findings, _sigmoid
+from src.experiment import ExperimentConfig, RunResult
+from src.analysis import (
+    AggregatedPoint,
+    SigmoidFit,
+    _sigmoid,
+    aggregate_results,
+    build_performance_payload,
+    build_results_payload,
+    compute_findings,
+    fit_sigmoid_curve,
+)
 
 
 def _make_run(pf: float, hw: int, seed: int, test_acc: float) -> RunResult:
@@ -98,3 +107,59 @@ class TestSigmoidFunction:
         y_high = _sigmoid(x_high, L=1.0, k=10.0, x0=0.0, b=0.0)
         assert y_low[0] > 0.99  # Far left -> L + b
         assert y_high[0] < 0.01 + 0.0  # Far right -> b
+
+
+class TestResultSerialization:
+    """Tests for exporting deterministic scientific results."""
+
+    def test_results_payload_excludes_timing_fields(self):
+        config = ExperimentConfig(
+            poison_fractions=(0.0,),
+            hidden_widths=(32,),
+            seeds=(42,),
+        )
+        runs = [_make_run(0.0, 32, 42, 0.9)]
+        agg = [
+            AggregatedPoint(
+                poison_fraction=0.0,
+                hidden_width=32,
+                test_acc_mean=0.9,
+                test_acc_std=0.0,
+                train_acc_mean=0.95,
+                train_acc_std=0.0,
+                train_clean_acc_mean=0.88,
+                train_clean_acc_std=0.0,
+                gen_gap_mean=0.05,
+                gen_gap_std=0.0,
+                n_seeds=1,
+            )
+        ]
+        fits = [
+            SigmoidFit(
+                hidden_width=32,
+                L=0.7,
+                k=4.8,
+                x0=0.18,
+                b=0.2,
+                r_squared=0.99,
+                threshold_midpoint=0.43,
+            )
+        ]
+        findings = compute_findings(agg, fits)
+
+        payload = build_results_payload(config, runs, agg, fits, findings)
+
+        assert "elapsed_seconds" not in payload["runs"][0]
+        assert "total_time_seconds" not in payload["metadata"]
+
+    def test_performance_payload_keeps_runtime_metadata(self):
+        runs = [
+            _make_run(0.0, 32, 42, 0.9),
+            _make_run(0.5, 32, 42, 0.5),
+        ]
+
+        payload = build_performance_payload(runs, total_time_seconds=12.5)
+
+        assert payload["total_time_seconds"] == pytest.approx(12.5)
+        assert payload["n_runs"] == 2
+        assert payload["mean_run_time_seconds"] == pytest.approx(0.1)

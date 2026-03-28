@@ -8,7 +8,6 @@ import json
 import os
 import sys
 import time
-from dataclasses import asdict
 
 # ── Working-directory guard ──────────────────────────────────────────
 _here = os.path.dirname(os.path.abspath(__file__))
@@ -19,7 +18,13 @@ if os.path.abspath(os.getcwd()) != _here:
 sys.path.insert(0, _here)
 
 from src.experiment import ExperimentConfig, run_sweep
-from src.analysis import aggregate_results, fit_sigmoid_curve, compute_findings
+from src.analysis import (
+    aggregate_results,
+    build_performance_payload,
+    build_results_payload,
+    compute_findings,
+    fit_sigmoid_curve,
+)
 from src.plotting import plot_accuracy_vs_poison, plot_generalization_gap, plot_train_vs_test
 
 
@@ -75,23 +80,15 @@ def main() -> None:
     print("  Saved: accuracy_vs_poison.png, generalization_gap.png, train_vs_test.png")
 
     # Save JSON results
-    output = {
-        "config": asdict(config),
-        "runs": [asdict(r) for r in results],
-        "aggregated": [asdict(a) for a in agg],
-        "sigmoid_fits": [asdict(f) for f in fits],
-        "findings": findings,
-        "metadata": {
-            "total_runs": len(results),
-            "total_time_seconds": elapsed,
-            "n_poison_fractions": len(config.poison_fractions),
-            "n_hidden_widths": len(config.hidden_widths),
-            "n_seeds": len(config.seeds),
-        },
-    }
+    output = build_results_payload(config, results, agg, fits, findings)
     with open("results/results.json", "w") as f:
         json.dump(output, f, indent=2, default=str)
     print("  Saved: results.json")
+
+    performance = build_performance_payload(results, elapsed)
+    with open("results/performance.json", "w") as f:
+        json.dump(performance, f, indent=2, default=str)
+    print("  Saved: performance.json")
 
     # ── Summary ──────────────────────────────────────────────────────
     print("\n" + "=" * 60)
