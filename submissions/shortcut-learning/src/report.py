@@ -55,8 +55,9 @@ def generate_report(results: dict[str, Any]) -> str:
     lines.append("")
     lines.append(
         "Shortcut reliance is defined as `test_acc_with_shortcut - test_acc_without_shortcut`. "
-        "A value near zero means the model relies on genuine features; a large positive value "
-        "indicates dependence on the spurious shortcut feature."
+        "A large positive value indicates dependence on the spurious shortcut feature. "
+        "Near-zero shortcut reliance can also arise when the model fails to learn anything, "
+        "so it should be interpreted alongside train and test accuracy."
     )
     lines.append("")
 

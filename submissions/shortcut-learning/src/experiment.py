@@ -199,11 +199,25 @@ def _compute_findings(aggregates: list[dict]) -> list[str]:
             )
 
     # Finding 5: Best regularization (with nuance about over-regularization)
-    best = min(aggregates, key=lambda a: a["shortcut_reliance_mean"])
-    findings.append(
-        f"Lowest shortcut reliance ({best['shortcut_reliance_mean']:.3f}) achieved with "
-        f"hidden_dim={best['hidden_dim']}, weight_decay={best['weight_decay']}."
-    )
+    best_reliance = min(a["shortcut_reliance_mean"] for a in aggregates)
+    best_configs = [
+        a for a in aggregates if a["shortcut_reliance_mean"] == best_reliance
+    ]
+    if len(best_configs) == 1:
+        best = best_configs[0]
+        findings.append(
+            f"Lowest shortcut reliance ({best_reliance:.3f}) achieved with "
+            f"hidden_dim={best['hidden_dim']}, weight_decay={best['weight_decay']}."
+        )
+    else:
+        tied_configs = ", ".join(
+            f"(hidden_dim={cfg['hidden_dim']}, weight_decay={cfg['weight_decay']})"
+            for cfg in best_configs
+        )
+        findings.append(
+            f"Lowest shortcut reliance ({best_reliance:.3f}) is tied across "
+            f"{len(best_configs)} configurations: {tied_configs}."
+        )
 
     # Finding 6: Over-regularization check (wd=1.0 may kill all learning)
     strong_reg = [a for a in aggregates if a["weight_decay"] == 1.0]

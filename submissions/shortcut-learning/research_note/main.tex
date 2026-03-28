@@ -23,7 +23,7 @@
 \maketitle
 
 \begin{abstract}
-Neural networks are known to exploit spurious correlations---``shortcuts''---present in training data rather than learning genuinely predictive features. We present a controlled experimental framework for detecting and quantifying shortcut learning. Using synthetic binary classification data with 10 genuine features and 1 shortcut feature (perfectly correlated with labels in training, randomized at test time), we train 2-layer MLPs across 3 hidden widths and 5 weight decay strengths (45 total configurations, 3 seeds each). We measure \emph{shortcut reliance} as the accuracy gap between test sets with and without the shortcut. Our results confirm that unregularized models develop substantial shortcut reliance, and that L2 regularization (weight decay) systematically reduces this dependence. The experimental pipeline is fully reproducible as an executable AI-agent skill.
+Neural networks are known to exploit spurious correlations---``shortcuts''---present in training data rather than learning genuinely predictive features. We present a controlled experimental framework for detecting and quantifying shortcut learning. Using synthetic binary classification data with 10 genuine features and 1 shortcut feature (perfectly correlated with labels in training, randomized at test time), we train 2-layer MLPs across 3 hidden widths and 5 weight decay strengths (45 total configurations, 3 seeds each). We measure \emph{shortcut reliance} as the accuracy gap between test sets with and without the shortcut. Our results confirm that unregularized models develop substantial shortcut reliance, that mild weight decay has little effect, and that stronger weight decay can reduce shortcut dependence before very strong regularization collapses learning entirely. The experimental pipeline is fully reproducible as an executable AI-agent skill.
 \end{abstract}
 
 \section{Introduction}
@@ -36,7 +36,7 @@ Our contributions:
 \begin{enumerate}
   \item A reproducible experimental framework for shortcut detection with synthetic data.
   \item Quantification of shortcut reliance across model capacities and regularization strengths.
-  \item Evidence that L2 regularization reduces shortcut dependence.
+  \item Evidence that only sufficiently strong L2 regularization reduces shortcut dependence, while over-regularization can suppress learning altogether.
 \end{enumerate}
 
 \section{Method}
@@ -66,7 +66,7 @@ We define \emph{shortcut reliance} as:
 \[
   R = \text{Acc}_{\text{test, with shortcut}} - \text{Acc}_{\text{test, without shortcut}}
 \]
-A large $R > 0$ indicates the model depends on the spurious shortcut. $R \approx 0$ means the model relies on genuine features.
+A large $R > 0$ indicates the model depends on the spurious shortcut. Values near $R \approx 0$ are only meaningful when accuracy remains above chance; otherwise they may simply indicate that the model failed to learn anything useful.
 
 \subsection{Experimental Design}
 
@@ -80,13 +80,13 @@ All 45 configurations were trained on CPU in under 3 minutes.
 With weight decay $= 0$, models across all widths show substantial shortcut reliance, confirming that neural networks preferentially learn the spurious feature when it is a simpler predictor of the label.
 
 \paragraph{Effect of weight decay.}
-Increasing weight decay systematically reduces shortcut reliance. L2 regularization penalizes large weights, which discourages the model from placing disproportionate weight on any single feature---including the shortcut.
+Increasing weight decay does not help uniformly. In our runs, weight decay values of 0.001 and 0.01 leave shortcut reliance essentially unchanged, weight decay 0.1 materially reduces it, and weight decay 1.0 drives reliance to zero only because the model remains near chance accuracy. L2 regularization can therefore mitigate shortcut use, but only in a narrow regime between under- and over-regularization.
 
 \paragraph{Model width.}
 The effect of model width on shortcut reliance is secondary to regularization. All three widths (32, 64, 128) exhibit qualitatively similar patterns.
 
 \paragraph{Generalization accuracy.}
-On the test set without the shortcut (the ``honest'' evaluation), moderate weight decay (0.01--0.1) often achieves the best accuracy, as it forces the model to learn from genuine features.
+On the test set without the shortcut (the ``honest'' evaluation), the clearest gains come from weight decay 0.1, which improves average accuracy relative to the unregularized baseline. Weight decay 0.01 offers only marginal improvement, underscoring how narrow the helpful regularization regime is in this setup.
 
 \section{Discussion}
 
@@ -100,7 +100,7 @@ The framework can be extended to: (a) multiple simultaneous shortcuts, (b) parti
 
 \section{Conclusion}
 
-We present a controlled experimental framework for detecting shortcut learning in neural networks. Through feature ablation on synthetic data, we confirm that models preferentially exploit spurious shortcuts, and that L2 regularization reduces this dependence. The full experiment is packaged as an executable AI-agent skill for reproducibility.
+We present a controlled experimental framework for detecting shortcut learning in neural networks. Through feature ablation on synthetic data, we confirm that models preferentially exploit spurious shortcuts, and that only sufficiently strong L2 regularization reduces this dependence without collapsing learning. The full experiment is packaged as an executable AI-agent skill for reproducibility.
 
 \bibliographystyle{plainnat}
 \begin{thebibliography}{9}

@@ -41,7 +41,7 @@ Verify all modules work correctly before running the experiment:
 .venv/bin/python -m pytest tests/ -v
 ```
 
-Expected: All tests pass (exit code 0). You should see 15 tests pass covering data generation, model construction, training, and experiment logic.
+Expected: All tests pass (exit code 0). You should currently see 19 tests pass covering data generation, model construction, training, experiment logic, and report wording.
 
 ## Step 3: Run the Experiment
 
@@ -96,8 +96,9 @@ The report includes a table of all 15 aggregate configurations with mean and sta
 ## Expected Scientific Findings
 
 1. Without regularization, models show significant shortcut reliance (accuracy drops when shortcut is removed).
-2. Weight decay reduces shortcut reliance by penalizing large weights on any single feature.
-3. The effect is consistent across model widths (32, 64, 128 hidden units).
+2. Mild weight decay (`0.001`, `0.01`) does little, while stronger weight decay (`0.1`) can reduce shortcut reliance.
+3. Extremely strong weight decay (`1.0`) can drive reliance to zero by preventing learning entirely, so shortcut reliance must be interpreted alongside train/test accuracy.
+4. The qualitative pattern is similar across model widths (32, 64, 128 hidden units).
 
 ## How to Extend
 
