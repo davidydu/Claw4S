@@ -75,7 +75,7 @@ Trained MLPs show a qualitatively similar pattern but with a less pronounced pea
 
 Our results provide a clean, fast, and reproducible demonstration of the double descent phenomenon. The random features setup is ideal for this purpose because: (1) the interpolation threshold is exactly at $p = n$, (2) the solution is computed analytically via pseudoinverse, (3) the entire experiment runs in seconds, and (4) the effect is extremely pronounced (ratios of 500--3000$\times$).
 
-\paragraph{Limitations.} Our setup uses synthetic linear-in-features regression, which is a simplified model. Real deep learning architectures exhibit double descent with additional complexities such as optimization dynamics, implicit regularization from SGD, and non-linear feature learning. Our MLP comparison partially addresses this gap.
+\paragraph{Limitations.} Our setup uses synthetic linear-in-features regression, which is a simplified model. Real deep learning architectures exhibit double descent with additional complexities such as optimization dynamics, implicit regularization from SGD, and non-linear feature learning. Our MLP comparison partially addresses this gap. Additionally, epoch-wise double descent may not manifest with tiny MLPs and the Adam optimizer; it typically requires larger models, SGD, and longer training~\citep{nakkiran2019deep}.
 
 \paragraph{Broader implications.} The double descent phenomenon has important practical implications: (1) the traditional approach of selecting model complexity via a validation set may miss the overparameterized regime, (2) adding more parameters can \emph{improve} rather than hurt generalization, and (3) the interpolation threshold is a dangerous regime to be avoided in practice.
 
