@@ -22,9 +22,8 @@ model approach from Shokri et al. (2017).
 Create a virtual environment and install dependencies:
 
 ```bash
-/opt/homebrew/bin/python3.13 -m venv .venv
-.venv/bin/pip install --upgrade pip
-.venv/bin/pip install -r requirements.txt
+python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
 ```
 
 Verify all packages are installed:
@@ -43,7 +42,7 @@ Verify the analysis modules work correctly:
 .venv/bin/python -m pytest tests/ -v
 ```
 
-Expected: All tests pass (20+ tests), pytest exits with code 0.
+Expected: All tests pass (currently 25 tests), pytest exits with code 0.
 
 ## Step 3: Run the Experiment
 
@@ -83,7 +82,7 @@ Read the generated report:
 cat results/report.md
 ```
 
-Review the results table and key findings about whether overfitting gap or model size is the stronger predictor of attack success.
+Review the results table and key findings about whether overfitting gap or model size appears more predictive in this run.
 
 ## How to Extend
 

@@ -92,6 +92,37 @@ def test_generate_report_creates_file():
         assert "Attack AUC" in content
 
 
+def test_generate_report_uses_cautious_language_for_nonsignificant_predictors():
+    """Report should not overclaim when both AUC correlations are non-significant."""
+    results = _make_mock_results()
+    corrs = {
+        "auc_vs_log_params": {
+            "r": 0.7434,
+            "p": 0.1498,
+            "description": "Attack AUC vs log2(parameter count)",
+        },
+        "auc_vs_overfit_gap": {
+            "r": 0.7821,
+            "p": 0.1181,
+            "description": "Attack AUC vs overfitting gap",
+        },
+        "gap_vs_log_params": {
+            "r": 0.9579,
+            "p": 0.0103,
+            "description": "Overfitting gap vs log2(parameter count)",
+        },
+    }
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        path = os.path.join(tmpdir, "report.md")
+        generate_report(results, corrs, path)
+        with open(path) as f:
+            content = f.read()
+
+    assert "neither association is statistically significant" in content
+    assert "supports the thesis" not in content
+
+
 def test_save_results_creates_valid_json():
     """Results are saved as valid JSON with expected structure."""
     results = _make_mock_results()

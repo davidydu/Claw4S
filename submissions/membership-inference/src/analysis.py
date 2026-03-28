@@ -279,9 +279,13 @@ def generate_report(
             f"p = {corr['p']:.4f} ({sig})"
         )
 
-    # Key finding
-    auc_gap_r = correlations["auc_vs_overfit_gap"]["r"]
-    auc_size_r = correlations["auc_vs_log_params"]["r"]
+    # Key findings
+    auc_gap = correlations["auc_vs_overfit_gap"]
+    auc_size = correlations["auc_vs_log_params"]
+    gap_vs_size = correlations["gap_vs_log_params"]
+    auc_gap_r = auc_gap["r"]
+    auc_size_r = auc_size["r"]
+    gap_is_stronger = abs(auc_gap_r) > abs(auc_size_r)
 
     lines.extend([
         "",
@@ -289,23 +293,61 @@ def generate_report(
         "",
     ])
 
-    if abs(auc_gap_r) > abs(auc_size_r):
+    if auc_gap["p"] >= 0.05 and auc_size["p"] >= 0.05:
+        if gap_is_stronger:
+            lines.append(
+                f"- In this run, the overfitting gap has a slightly larger "
+                f"correlation with attack AUC (r={auc_gap_r:.3f}, p={auc_gap['p']:.3f}) "
+                f"than raw model size (r={auc_size_r:.3f}, p={auc_size['p']:.3f}), "
+                "but neither association is statistically significant."
+            )
+        else:
+            lines.append(
+                f"- In this run, raw model size has a slightly larger "
+                f"correlation with attack AUC (r={auc_size_r:.3f}, p={auc_size['p']:.3f}) "
+                f"than the overfitting gap (r={auc_gap_r:.3f}, p={auc_gap['p']:.3f}), "
+                "but neither association is statistically significant."
+            )
+        if gap_vs_size["p"] < 0.05:
+            lines.append(
+                "- The clearest supported pattern is that larger models "
+                "overfit more, which may help explain the directionally higher "
+                "attack AUCs without proving a predictor ranking."
+            )
+        else:
+            lines.append(
+                "- Treat the predictor ranking as directional evidence from a "
+                "small toy study, not a conclusive result."
+            )
+    elif gap_is_stronger and auc_gap["p"] < 0.05 and auc_size["p"] >= 0.05:
         lines.append(
-            f"- The overfitting gap is a **stronger predictor** of attack success "
-            f"(r={auc_gap_r:.3f}) than raw model size (r={auc_size_r:.3f})."
+            f"- The overfitting gap is the better-supported predictor of attack "
+            f"success in this run (r={auc_gap_r:.3f}, p={auc_gap['p']:.3f}) "
+            f"than raw model size (r={auc_size_r:.3f}, p={auc_size['p']:.3f})."
         )
         lines.append(
-            "- This supports the thesis that membership inference vulnerability "
-            "is driven by memorization (generalization gap), not model capacity alone."
+            "- This is consistent with membership inference vulnerability being "
+            "driven more by memorization behavior than by capacity alone."
+        )
+    elif (not gap_is_stronger) and auc_size["p"] < 0.05 and auc_gap["p"] >= 0.05:
+        lines.append(
+            f"- Raw model size is the better-supported predictor of attack "
+            f"success in this run (r={auc_size_r:.3f}, p={auc_size['p']:.3f}) "
+            f"than the overfitting gap (r={auc_gap_r:.3f}, p={auc_gap['p']:.3f})."
+        )
+        lines.append(
+            "- This suggests capacity may matter independently of the measured "
+            "generalization gap in this particular setup."
         )
     else:
         lines.append(
-            f"- Model size is a **stronger predictor** of attack success "
-            f"(r={auc_size_r:.3f}) than overfitting gap (r={auc_gap_r:.3f})."
+            f"- Both predictors show statistically supported correlations with "
+            f"attack AUC, and {'the overfitting gap' if gap_is_stronger else 'raw model size'} "
+            f"is numerically stronger in this run."
         )
         lines.append(
-            "- Larger models may be inherently more vulnerable regardless of "
-            "generalization behavior."
+            "- Even so, the difference between the two correlations should be "
+            "interpreted cautiously unless replicated at more widths."
         )
 
     lines.extend([
@@ -322,6 +364,7 @@ def generate_report(
         "## Limitations",
         "",
         "- Synthetic data may not capture real-world memorization patterns.",
+        "- Only five model widths are tested, which limits statistical power for the correlation analysis.",
         "- Small dataset (500 samples) amplifies overfitting even in tiny models.",
         "- Only 2-layer MLPs tested; deeper architectures may behave differently.",
         "- Shadow models use same architecture (stronger assumption than needed).",

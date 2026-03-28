@@ -8,7 +8,7 @@
 \usepackage{natbib}
 \usepackage{xcolor}
 
-\title{Membership Inference Attacks Scale with Overfitting, Not Model Size}
+\title{Membership Inference in Small MLPs: A Toy Study of Model Size and Overfitting}
 \author{
   Yun Du\thanks{Stanford University} \and
   Lina Ji\footnotemark[1] \and
@@ -20,17 +20,18 @@
 \maketitle
 
 \begin{abstract}
-We investigate how membership inference attack success scales with neural
+We investigate how membership inference attack success covaries with neural
 network model size and overfitting. Using the shadow model approach of
 Shokri et al.\ (2017), we attack 2-layer MLPs of varying widths (16--256
-hidden units) trained on synthetic Gaussian cluster data. We find that
-attack AUC correlates more strongly with the generalization gap
-(train accuracy minus test accuracy) than with raw parameter count,
-supporting the thesis that membership inference vulnerability is
-fundamentally driven by memorization rather than model capacity alone.
-Our fully reproducible experimental pipeline trains 60 models in under
-1 minute on CPU, enabling rapid exploration of privacy--utility tradeoffs
-across model scales.
+hidden units) trained on synthetic Gaussian cluster data. In this toy
+setting, attack AUC is slightly more correlated with the generalization gap
+(train accuracy minus test accuracy, $r=0.782$, $p=0.118$) than with raw
+parameter count ($r=0.743$, $p=0.150$), but both associations are
+statistically non-significant across the five widths tested. The strongest
+supported effect is that overfitting increases with model size
+($r=0.958$, $p=0.010$). Our fully reproducible experimental pipeline trains
+60 models in under 1 minute on CPU, enabling rapid exploration of
+privacy--utility tradeoffs across model scales.
 \end{abstract}
 
 \section{Introduction}
@@ -108,10 +109,12 @@ seeds for variance estimation.
 
 \subsection{Attack Success Across Model Sizes}
 
-Table~\ref{tab:results} summarizes the main results. Attack AUC
-increases with model size, but the relationship is mediated by
-overfitting: larger models exhibit larger generalization gaps, which
-in turn enable more successful attacks.
+Table~\ref{tab:results} summarizes the main results. Attack AUC tends to
+increase with model size overall, but not monotonically: the width-128
+model is slightly less vulnerable than the width-64 model despite a larger
+overfitting gap. The cleaner trend is that larger models exhibit larger
+generalization gaps, while attack success rises only modestly above the
+random baseline.
 
 \begin{table}[h]
 \centering
@@ -135,30 +138,30 @@ Width & Params & Train Acc & Test Acc & Overfit Gap & Attack AUC \\
 We compute Pearson correlations between attack AUC and two predictors:
 
 \begin{itemize}
-  \item \textbf{AUC vs.\ $\log_2$(parameters)}: $r = 0.749$, $p = 0.145$.
+  \item \textbf{AUC vs.\ $\log_2$(parameters)}: $r = 0.743$, $p = 0.150$.
     Model capacity alone does not significantly predict attack success.
-  \item \textbf{AUC vs.\ overfitting gap}: $r = 0.785$, $p = 0.116$.
+  \item \textbf{AUC vs.\ overfitting gap}: $r = 0.782$, $p = 0.118$.
     Overfitting gap is a slightly stronger (though also not individually
     significant at $\alpha=0.05$) predictor.
   \item \textbf{Gap vs.\ $\log_2$(parameters)}: $r = 0.958$, $p = 0.010$.
     The overfitting gap itself increases significantly with model size.
 \end{itemize}
 
-The overfitting gap shows a stronger correlation with attack AUC than
-raw parameter count ($r = 0.785$ vs.\ $r = 0.749$), consistent with
-the hypothesis that memorization behavior---not capacity per se---drives
-membership inference vulnerability. The modest AUC values (0.516--0.544)
-reflect the inherent difficulty of membership inference on small datasets
-with simple logistic regression attacks, but the monotonic trend is clear.
+The overfitting gap shows a slightly stronger correlation with attack AUC
+than raw parameter count ($r = 0.782$ vs.\ $r = 0.743$), but both effects
+remain inconclusive with only five width settings. The modest AUC values
+(0.516--0.544) reflect the inherent difficulty of membership inference on
+small datasets with simple logistic regression attacks, so we interpret the
+correlation ranking as directional evidence rather than a decisive result.
 
 \section{Discussion}
 
 \paragraph{Implications for privacy.}
-Our results suggest that privacy risk from membership inference is best
-predicted by monitoring the generalization gap rather than simply limiting
-model size. Regularization techniques that reduce overfitting (dropout,
-weight decay, data augmentation) may be more effective privacy defenses
-than model compression.
+Within this toy setup, privacy risk from membership inference appears to
+track the generalization gap at least as well as raw model size, though we
+do not establish a decisive predictor ordering. Regularization techniques
+that reduce overfitting (dropout, weight decay, data augmentation) remain
+plausible privacy defenses worth testing in larger studies.
 
 \paragraph{Limitations.}
 Our experiment uses synthetic data and small MLPs; real-world datasets
@@ -167,8 +170,8 @@ The 500-sample dataset with overlapping clusters deliberately creates
 a regime where overfitting varies with model size; larger datasets
 would require larger models to observe similar gaps. The AUC values
 (0.516--0.544) are modest, reflecting the difficulty of membership
-inference in this low-data regime, but the consistent monotonic trend
-across model sizes supports our conclusions. We test only the shadow
+inference in this low-data regime, and the width-128 result breaks a
+strictly monotonic increase in attack success. We test only the shadow
 model attack variant; other attack strategies (e.g., loss-based,
 label-only) may show different scaling patterns. The correlations,
 while directionally consistent, do not reach individual significance
@@ -177,11 +180,13 @@ model sizes (5 points); more width values would increase statistical power.
 
 \section{Conclusion}
 
-We provide a reproducible, agent-executable experiment showing that
-membership inference attack success correlates more strongly with
-overfitting gap than with raw model size. This supports the view that
-privacy vulnerability in machine learning is fundamentally a
-memorization problem, not a capacity problem.
+We provide a reproducible, agent-executable experiment suggesting that
+membership inference attack success in this toy setting tracks
+overfitting slightly more closely than raw model size, while remaining
+statistically inconclusive across five widths. The strongest supported
+result is that overfitting itself grows sharply with model size, making
+this submission a useful starting point for broader privacy-scaling
+studies rather than a final causal verdict.
 
 \bibliographystyle{plainnat}
 \begin{thebibliography}{1}
