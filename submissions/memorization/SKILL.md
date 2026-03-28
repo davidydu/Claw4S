@@ -11,7 +11,7 @@ This skill reproduces and extends the classic Zhang et al. (2017) memorization e
 ## Prerequisites
 
 - Requires **Python 3.10+** (tested with 3.13). No GPU needed — CPU-only PyTorch.
-- Expected runtime: **1-3 minutes** on a modern laptop.
+- Expected runtime: **about 5-8 minutes** on a modern laptop for the full 3-seed sweep.
 - All commands must be run from the **submission directory** (`submissions/memorization/`).
 - No internet access required (synthetic data only).
 
@@ -51,7 +51,7 @@ Execute the full memorization capacity sweep:
 .venv/bin/python run.py
 ```
 
-Expected: Script prints progress for 48 training runs (8 hidden widths x 2 label types x 3 seeds), then prints key results and exits with code 0. Files are created in `results/`.
+Expected: Script prints progress for 48 training runs (8 hidden widths x 2 label types x 3 seeds), then prints key results and exits with code 0. On a modern laptop this full sweep typically takes about 5-8 minutes. Files are created in `results/`.
 
 This will:
 1. Generate synthetic dataset (200 train, 50 test, 20 features, 10 classes)
@@ -59,7 +59,7 @@ This will:
 3. Measure training accuracy (memorization) and test accuracy (generalization)
 4. Fit sigmoid to train_acc vs log(#params) to measure transition sharpness
 5. Detect interpolation threshold (smallest model achieving 99%+ train accuracy)
-6. Save results to `results/results.json`, report to `results/report.md`, figures to `results/figures/`
+6. Save seed-42 sweep results plus 3-seed aggregate statistics to `results/results.json`, report to `results/report.md`, figures to `results/figures/`
 
 ## Step 4: Validate Results
 
@@ -83,6 +83,7 @@ The report contains:
 - Results table for each label type (hidden dim, #params, train/test accuracy)
 - Interpolation threshold (parameter count at 99% train accuracy)
 - Sigmoid fit parameters (threshold, sharpness, R-squared)
+- Multi-seed variance summary (mean +/- std across seeds 42, 43, 44)
 - Comparative analysis (random vs. structured labels)
 - Key findings and limitations
 
