@@ -54,7 +54,7 @@ All models achieve $>90\%$ test accuracy across depths and seeds, confirming tha
 
 \begin{table}[h]
 \centering
-\caption{Mean Spearman $\rho$ between attribution method pairs across model depths. Values are mean $\pm$ std over 100 samples $\times$ 3 seeds.}
+\caption{Mean Spearman $\rho$ between attribution method pairs across model depths. Values are mean $\pm$ std over 100 samples $\times$ 3 seeds. Exact values depend on the random seed configuration (seeds 42, 123, 456); the qualitative ranking of method pairs is stable.}
 \label{tab:agreement}
 \begin{tabular}{lccc}
 \toprule
@@ -84,11 +84,11 @@ Key observations:
 
 \section{Discussion}
 
-Our findings reinforce a growing concern in the interpretability literature: different attribution methods can tell different stories about the same prediction \citep{krishna2022disagreement}. Even on a simple synthetic task where all models achieve 100\% test accuracy, method choice produces meaningfully different feature importance rankings. The overall mean Spearman $\rho$ across all pairs is 0.807, but this average masks a stark bifurcation: GI and IG agree strongly ($\rho \approx 0.95$), while VG correlates with both at only $\rho \approx 0.69$--$0.78$.
+Our findings reinforce a growing concern in the interpretability literature: different attribution methods can tell different stories about the same prediction \citep{krishna2022disagreement}. Even on a simple synthetic task where all models achieve $>90\%$ test accuracy, method choice produces meaningfully different feature importance rankings. GI and IG agree strongly, while VG correlates with both at a notably lower level.
 
-The high agreement between gradient$\times$input and integrated gradients ($\rho = 0.937$--$0.962$) aligns with theoretical expectations: IG satisfies the completeness axiom (attributions sum to the difference between the output at the input and baseline), and gradient$\times$input can be seen as a single-step approximation. Both methods scale by input magnitude, producing similar rankings. Vanilla gradients, lacking input scaling, capture a fundamentally different signal---local sensitivity rather than contribution---explaining the lower agreement.
+The high agreement between gradient$\times$input and integrated gradients aligns with theoretical expectations: IG satisfies the completeness axiom (attributions sum to the difference between the output at the input and baseline), and gradient$\times$input can be seen as a single-step approximation. Both methods scale by input magnitude, producing similar rankings. Vanilla gradients, lacking input scaling, capture a fundamentally different signal---local sensitivity rather than contribution---explaining the lower agreement.
 
-Interestingly, VG agreement with other methods \emph{increases} slightly with depth (from $\rho = 0.687$ to $0.739$ for VG vs.\ IG), while GI--IG agreement \emph{decreases} slightly (from $0.950$ to $0.937$). This suggests that deeper networks may produce gradient landscapes where input scaling matters less, partially homogenising attributions.
+We observe that VG agreement with other methods tends to \emph{increase} slightly with depth, while GI--IG agreement \emph{decreases} slightly. This suggests that deeper networks may produce gradient landscapes where input scaling matters less, partially homogenising attributions.
 
 \section{Reproducibility}
 
