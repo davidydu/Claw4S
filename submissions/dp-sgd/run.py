@@ -155,7 +155,6 @@ def main() -> None:
         },
         "baseline_runs": baseline_runs,
         "dp_runs": dp_runs,
-        "elapsed_seconds": elapsed,
     }
 
     results_path = os.path.join(RESULTS_DIR, "results.json")

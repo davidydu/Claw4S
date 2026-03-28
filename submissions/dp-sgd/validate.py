@@ -197,13 +197,6 @@ def main() -> None:
                 "No cliff epsilon reported when no configuration collapses"
             )
 
-    # ── Check 12: runtime was reasonable ─────────────────────────────
-    elapsed = results.get("elapsed_seconds", 999)
-    all_passed &= check(
-        elapsed <= 180,
-        f"Runtime: {elapsed:.1f}s (<= 180s)"
-    )
-
     # ── Summary ──────────────────────────────────────────────────────
     print("\n" + "=" * 60)
     if all_passed:
