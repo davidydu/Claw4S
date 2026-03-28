@@ -60,6 +60,12 @@ Expected: Script prints `Analysis complete.` and exits with code 0. The pipeline
 9. Generate 4+ figures in `results/figures/`
 10. Save results to `results/results.json` and report to `results/report.md`
 
+Expected summary counts for default settings:
+- `num_tokenizers = 4`
+- `num_corpora = 9` (7 natural-language + 2 code)
+- `analyses = 36` (4 x 9 complete matrix)
+- `results/results.json` metadata includes pinned dataset revisions, tokenizer configs, and dependency versions for provenance
+
 ## Step 4: Validate Results
 
 Check that results were produced correctly:
@@ -73,11 +79,15 @@ Expected: Prints analysis summary for all 36 (tokenizer, corpus) pairs and `Vali
 Validation checks:
 - At least 2 tokenizers loaded
 - At least 3 corpora analyzed
-- At least 6 analyses completed
+- Exactly `num_tokenizers x num_corpora` analyses completed (no silent partial runs)
 - All alpha values in plausible range [0.1, 3.0]
 - All R^2 values in [0, 1]
 - At least 3 figures generated
 - Report file exists and is non-trivial
+- Provenance metadata present in `results/results.json`:
+  - dataset revisions (Tatoeba + CodeSearchNet)
+  - tokenizer configuration snapshot
+  - Python/runtime dependency versions
 
 ## Step 5: Review the Report
 
@@ -92,6 +102,7 @@ The report contains:
 - Piecewise exponent table (head/body/tail alpha) for all combinations
 - Summary by corpus type (natural language vs code)
 - Correlation analysis (Zipf exponent vs compression ratio)
+- Exploratory per-corpus-type correlation breakdown (natural language vs code)
 - Automatically detected key findings
 - Limitations of the analysis
 

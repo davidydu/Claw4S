@@ -8,9 +8,11 @@ Must be run from the submissions/zipf-law/ directory.
 
 import json
 import os
+import platform
 import sys
 import traceback
 from datetime import datetime, timezone
+from importlib.metadata import PackageNotFoundError, version
 
 import numpy as np
 from scipy import stats
@@ -25,7 +27,8 @@ if not os.path.exists(expected_marker):
 os.makedirs("results/figures", exist_ok=True)
 
 from src.data_loader import load_tatoeba_sentences, load_code_samples, LANG_NAMES
-from src.tokenizer_manager import load_tokenizers, tokenize
+from src.data_loader import TATOEBA_REVISION, CODESEARCHNET_REVISION
+from src.tokenizer_manager import load_tokenizers, tokenize, TOKENIZER_CONFIGS
 from src.zipf_analysis import compute_rank_frequency, analyze_corpus
 from src.plots import (
     plot_zipf_fit,
@@ -38,6 +41,26 @@ from src.report import generate_report
 
 SEED = 42
 np.random.seed(SEED)
+
+CORE_DEPENDENCIES = [
+    "numpy",
+    "scipy",
+    "datasets",
+    "tiktoken",
+    "transformers",
+    "matplotlib",
+]
+
+
+def _dependency_versions() -> dict[str, str]:
+    """Return installed versions for core dependencies."""
+    versions = {}
+    for package in CORE_DEPENDENCIES:
+        try:
+            versions[package] = version(package)
+        except PackageNotFoundError:
+            versions[package] = "missing"
+    return versions
 
 
 def main():
@@ -280,14 +303,23 @@ def main():
 
     output = {
         "metadata": {
+            "results_schema_version": "1.1",
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "num_tokenizers": len(tokenizers),
             "num_corpora": len(nl_samples) + len(code_samples),
             "seed": SEED,
+            "python_version": platform.python_version(),
+            "platform": platform.platform(),
+            "dependency_versions": _dependency_versions(),
+            "dataset_revisions": {
+                "sentence-transformers/parallel-sentences-tatoeba": TATOEBA_REVISION,
+                "code_search_net": CODESEARCHNET_REVISION,
+            },
             "tokenizers": {
                 name: {"vocab_size": entry["vocab_size"]}
                 for name, entry in tokenizers.items()
             },
+            "tokenizer_configs": TOKENIZER_CONFIGS,
             "natural_languages": list(nl_samples.keys()),
             "code_languages": list(code_samples.keys()),
         },

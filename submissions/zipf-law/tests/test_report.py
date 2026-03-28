@@ -96,3 +96,112 @@ def test_generate_report_writes_file():
         generate_report(results, output_path=path)
         assert os.path.exists(path)
         assert os.path.getsize(path) > 0
+
+
+def test_generate_report_negative_correlation_wording_is_directionally_correct():
+    """Negative correlation should map to 'more Zipfian -> worse compression'."""
+    results = _make_sample_results()
+    results["correlation"]["pearson_r"] = -0.62
+    results["correlation"]["pearson_p"] = 0.03
+    results["correlation"]["spearman_r"] = -0.51
+    results["correlation"]["spearman_p"] = 0.05
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        path = os.path.join(tmpdir, "report.md")
+        report = generate_report(results, output_path=path)
+
+    assert "more Zipfian distributions are associated with worse tokenizer compression" in report
+    assert "less Zipfian distributions are associated with worse tokenizer compression" not in report
+
+
+def test_generate_report_includes_corpus_type_correlation_breakdown():
+    """Correlation section should report natural-language vs code sub-analyses."""
+    results = _make_sample_results()
+    results["analyses"] = [
+        {
+            "tokenizer": "tokA",
+            "corpus": "English",
+            "corpus_type": "natural_language",
+            "compression_ratio": 4.0,
+            "global_fit": {"alpha": 0.7, "q": 0.0, "r_squared": 0.9, "C": 1.0},
+            "piecewise_fit": {
+                "head": {"alpha": 0.7, "r_squared": 0.9},
+                "body": {"alpha": 0.8, "r_squared": 0.9},
+                "tail": {"alpha": 0.9, "r_squared": 0.9},
+            },
+            "breakpoints": [],
+        },
+        {
+            "tokenizer": "tokB",
+            "corpus": "French",
+            "corpus_type": "natural_language",
+            "compression_ratio": 3.2,
+            "global_fit": {"alpha": 1.0, "q": 0.0, "r_squared": 0.9, "C": 1.0},
+            "piecewise_fit": {
+                "head": {"alpha": 0.7, "r_squared": 0.9},
+                "body": {"alpha": 0.8, "r_squared": 0.9},
+                "tail": {"alpha": 0.9, "r_squared": 0.9},
+            },
+            "breakpoints": [],
+        },
+        {
+            "tokenizer": "tokC",
+            "corpus": "German",
+            "corpus_type": "natural_language",
+            "compression_ratio": 2.4,
+            "global_fit": {"alpha": 1.3, "q": 0.0, "r_squared": 0.9, "C": 1.0},
+            "piecewise_fit": {
+                "head": {"alpha": 0.7, "r_squared": 0.9},
+                "body": {"alpha": 0.8, "r_squared": 0.9},
+                "tail": {"alpha": 0.9, "r_squared": 0.9},
+            },
+            "breakpoints": [],
+        },
+        {
+            "tokenizer": "tokA",
+            "corpus": "Python",
+            "corpus_type": "code",
+            "compression_ratio": 3.7,
+            "global_fit": {"alpha": 0.8, "q": 0.0, "r_squared": 0.9, "C": 1.0},
+            "piecewise_fit": {
+                "head": {"alpha": 0.7, "r_squared": 0.9},
+                "body": {"alpha": 0.8, "r_squared": 0.9},
+                "tail": {"alpha": 0.9, "r_squared": 0.9},
+            },
+            "breakpoints": [],
+        },
+        {
+            "tokenizer": "tokB",
+            "corpus": "Java",
+            "corpus_type": "code",
+            "compression_ratio": 3.0,
+            "global_fit": {"alpha": 1.1, "q": 0.0, "r_squared": 0.9, "C": 1.0},
+            "piecewise_fit": {
+                "head": {"alpha": 0.7, "r_squared": 0.9},
+                "body": {"alpha": 0.8, "r_squared": 0.9},
+                "tail": {"alpha": 0.9, "r_squared": 0.9},
+            },
+            "breakpoints": [],
+        },
+        {
+            "tokenizer": "tokC",
+            "corpus": "Go",
+            "corpus_type": "code",
+            "compression_ratio": 2.3,
+            "global_fit": {"alpha": 1.4, "q": 0.0, "r_squared": 0.9, "C": 1.0},
+            "piecewise_fit": {
+                "head": {"alpha": 0.7, "r_squared": 0.9},
+                "body": {"alpha": 0.8, "r_squared": 0.9},
+                "tail": {"alpha": 0.9, "r_squared": 0.9},
+            },
+            "breakpoints": [],
+        },
+    ]
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        path = os.path.join(tmpdir, "report.md")
+        report = generate_report(results, output_path=path)
+
+    assert "By corpus type (exploratory):" in report
+    assert "natural_language (n=3)" in report
+    assert "code (n=3)" in report

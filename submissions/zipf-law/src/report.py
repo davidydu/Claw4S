@@ -7,7 +7,37 @@ Writes the report to output_path and returns the report as a string.
 import os
 import statistics
 
-from scipy.stats import mannwhitneyu
+from scipy.stats import mannwhitneyu, pearsonr, spearmanr
+
+
+def _compute_alpha_compression_correlation(analyses: list[dict]) -> dict | None:
+    """Compute Pearson/Spearman alpha-compression correlation for analyses."""
+    if len(analyses) < 3:
+        return None
+
+    alphas = [a["global_fit"]["alpha"] for a in analyses]
+    compressions = [a.get("compression_ratio", 0.0) for a in analyses]
+    try:
+        pearson_r, pearson_p = pearsonr(alphas, compressions)
+        spearman_r, spearman_p = spearmanr(alphas, compressions)
+    except ValueError:
+        return None
+
+    return {
+        "pearson_r": float(pearson_r),
+        "pearson_p": float(pearson_p),
+        "spearman_r": float(spearman_r),
+        "spearman_p": float(spearman_p),
+    }
+
+
+def _zipf_compression_relationship(pearson_r: float) -> tuple[str, str]:
+    """Map correlation sign to directional interpretation."""
+    if pearson_r > 0:
+        return "more", "better"
+    if pearson_r < 0:
+        return "more", "worse"
+    return "equally", "similar"
 
 
 def generate_report(results: dict, output_path: str = "results/report.md") -> str:
@@ -102,6 +132,24 @@ def generate_report(results: dict, output_path: str = "results/report.md") -> st
                       f"(p = {correlation.get('pearson_p', 1):.4f})")
         lines.append(f"- **Spearman rho:** {correlation.get('spearman_r', 0):.4f} "
                       f"(p = {correlation.get('spearman_p', 1):.4f})")
+
+        lines.append("- By corpus type (exploratory):")
+        for ctype in ["natural_language", "code"]:
+            ctype_analyses = [a for a in analyses if a["corpus_type"] == ctype]
+            ctype_corr = _compute_alpha_compression_correlation(ctype_analyses)
+            if ctype_corr is None:
+                lines.append(
+                    f"  - {ctype} (n={len(ctype_analyses)}): insufficient data "
+                    "for stable correlation estimates."
+                )
+                continue
+            lines.append(
+                f"  - {ctype} (n={len(ctype_analyses)}): "
+                f"Pearson r = {ctype_corr['pearson_r']:.4f} "
+                f"(p = {ctype_corr['pearson_p']:.4f}), "
+                f"Spearman rho = {ctype_corr['spearman_r']:.4f} "
+                f"(p = {ctype_corr['spearman_p']:.4f})"
+            )
     else:
         lines.append("- Insufficient data for correlation analysis.")
     lines.append("")
@@ -146,12 +194,14 @@ def generate_report(results: dict, output_path: str = "results/report.md") -> st
     if correlation and abs(correlation.get("pearson_r", 0)) > 0.3:
         direction = "positive" if correlation["pearson_r"] > 0 else "negative"
         strength = "strong" if abs(correlation["pearson_r"]) > 0.7 else "moderate"
+        zipf_direction, compression_direction = _zipf_compression_relationship(
+            correlation["pearson_r"]
+        )
         lines.append(
             f"- {strength.capitalize()} {direction} correlation between Zipf exponent "
             f"and compression ratio (r = {correlation['pearson_r']:.3f}), suggesting "
-            f"that {'more' if correlation['pearson_r'] > 0 else 'less'} Zipfian "
-            f"distributions are associated with {'better' if correlation['pearson_r'] > 0 else 'worse'} "
-            f"tokenizer compression."
+            f"that {zipf_direction} Zipfian distributions are associated with "
+            f"{compression_direction} tokenizer compression."
         )
 
     # Tail breakdown finding (aggregate)

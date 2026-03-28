@@ -40,23 +40,54 @@ if len(analyses) < 6:
 
 # --- Check expected count (tokenizers * corpora) ---
 expected_count = meta["num_tokenizers"] * meta["num_corpora"]
-if len(analyses) < expected_count:
-    shortfall = expected_count - len(analyses)
-    msg = (
-        f"Expected {expected_count} analyses "
+if len(analyses) != expected_count:
+    errors.append(
+        f"Expected exactly {expected_count} analyses "
         f"({meta['num_tokenizers']} tokenizers x {meta['num_corpora']} corpora), "
-        f"got {len(analyses)} — {shortfall} may have failed silently"
+        f"got {len(analyses)}"
     )
-    if shortfall > expected_count * 0.1:
-        errors.append(msg)
-    else:
-        print(f"  WARNING: {msg}")
+
+# --- Check provenance metadata ---
+required_meta_keys = [
+    "results_schema_version",
+    "python_version",
+    "platform",
+    "dependency_versions",
+    "dataset_revisions",
+    "tokenizer_configs",
+]
+for key in required_meta_keys:
+    if key not in meta:
+        errors.append(f"Missing metadata field: {key}")
+
+dataset_revisions = meta.get("dataset_revisions", {})
+for dataset_name in [
+    "sentence-transformers/parallel-sentences-tatoeba",
+    "code_search_net",
+]:
+    revision = dataset_revisions.get(dataset_name, "")
+    if not isinstance(revision, str) or len(revision.strip()) < 8:
+        errors.append(f"Missing or invalid pinned revision for dataset: {dataset_name}")
+
+tokenizer_configs = meta.get("tokenizer_configs", {})
+if not isinstance(tokenizer_configs, dict) or len(tokenizer_configs) < 2:
+    errors.append("Missing tokenizer_configs metadata or too few tokenizer configs")
+
+dependency_versions = meta.get("dependency_versions", {})
+for dep in ["numpy", "scipy", "datasets", "tiktoken", "transformers"]:
+    dep_version = dependency_versions.get(dep)
+    if not dep_version or dep_version == "missing":
+        errors.append(f"Dependency version missing from metadata: {dep}")
 
 # --- Check each analysis ---
 corpus_types_seen = set()
+seen_labels = set()
 for a in analyses:
     label = a.get("label", "unknown")
     corpus_types_seen.add(a.get("corpus_type", "unknown"))
+    if label in seen_labels:
+        errors.append(f"Duplicate analysis label detected: {label}")
+    seen_labels.add(label)
 
     # Check global fit
     gf = a.get("global_fit", {})

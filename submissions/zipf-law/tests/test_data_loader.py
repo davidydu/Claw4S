@@ -1,61 +1,94 @@
 # tests/test_data_loader.py
 """Tests for data loading functions."""
 
-from src.data_loader import (
-    load_tatoeba_sentences,
-    load_code_samples,
-    LANG_NAMES,
-    CODE_LANGUAGES,
-)
+from src import data_loader
 
 
-def test_load_tatoeba_returns_dict_with_en():
-    """Tatoeba loader must return a dict containing 'en' key."""
-    result = load_tatoeba_sentences(pairs=["en-de"], max_sentences=5)
-    assert isinstance(result, dict)
-    assert "en" in result
-    assert "de" in result
+class FakeDataset:
+    """Minimal dataset stub implementing len/select/iteration."""
+
+    def __init__(self, rows):
+        self.rows = rows
+
+    def __len__(self):
+        return len(self.rows)
+
+    def __iter__(self):
+        return iter(self.rows)
+
+    def select(self, indices):
+        return FakeDataset([self.rows[i] for i in indices])
 
 
-def test_load_tatoeba_returns_nonempty_strings():
-    """Tatoeba sentences must be non-empty strings."""
-    result = load_tatoeba_sentences(pairs=["en-fr"], max_sentences=5)
-    for lang, text in result.items():
-        assert isinstance(text, str)
-        assert len(text) > 0, f"Empty text for language {lang}"
+def _fake_tatoeba_rows(n=10):
+    return [
+        {
+            "english": f"English sentence {i}",
+            "non_english": f"Target sentence {i}",
+        }
+        for i in range(n)
+    ]
 
 
-def test_load_tatoeba_caps_english():
-    """English text should be capped to max_sentences, not accumulated."""
-    result = load_tatoeba_sentences(
-        pairs=["en-de", "en-fr"], max_sentences=5
-    )
-    en_lines = result["en"].strip().split("\n")
-    assert len(en_lines) <= 5
+def _fake_code_rows(n=10):
+    return [{"whole_func_string": f"def fn_{i}():\n    return {i}"} for i in range(n)]
 
 
-def test_load_code_samples_returns_dict():
-    """Code loader must return dict with language keys."""
-    result = load_code_samples(languages=["python"], max_samples=5)
-    assert isinstance(result, dict)
-    assert "python" in result
+def test_load_tatoeba_returns_expected_languages_and_caps_english(monkeypatch):
+    """Tatoeba loader should return English + target language with capped English."""
+    call_args = []
+
+    def fake_load_dataset(name, pair, split, revision):
+        call_args.append((name, pair, split, revision))
+        return FakeDataset(_fake_tatoeba_rows(12))
+
+    monkeypatch.setattr(data_loader, "load_dataset", fake_load_dataset)
+
+    result = data_loader.load_tatoeba_sentences(pairs=["en-de", "en-fr"], max_sentences=5)
+
+    assert set(result.keys()) == {"en", "de", "fr"}
+    assert len(result["en"].splitlines()) == 5
+    assert len(result["de"].splitlines()) == 5
+    assert len(result["fr"].splitlines()) == 5
+    assert all(args[3] == data_loader.TATOEBA_REVISION for args in call_args)
 
 
-def test_load_code_samples_nonempty():
-    """Code samples must be non-empty strings."""
-    result = load_code_samples(languages=["python"], max_samples=5)
-    for lang, text in result.items():
-        assert isinstance(text, str)
-        assert len(text) > 0, f"Empty code for language {lang}"
+def test_load_tatoeba_uses_pinned_revision(monkeypatch):
+    """Tatoeba loader should pass the pinned dataset revision."""
+    seen_revision = None
+
+    def fake_load_dataset(name, pair, split, revision):
+        nonlocal seen_revision
+        seen_revision = revision
+        return FakeDataset(_fake_tatoeba_rows(5))
+
+    monkeypatch.setattr(data_loader, "load_dataset", fake_load_dataset)
+    data_loader.load_tatoeba_sentences(pairs=["en-ja"], max_sentences=3)
+
+    assert seen_revision == data_loader.TATOEBA_REVISION
 
 
-def test_lang_names_has_entries():
-    """LANG_NAMES should map codes to readable names."""
-    assert len(LANG_NAMES) >= 10
-    assert LANG_NAMES["en"] == "English"
+def test_load_code_samples_returns_nonempty_strings_and_uses_revision(monkeypatch):
+    """Code loader should return joined code text and pinned revision."""
+    seen_calls = []
+
+    def fake_load_dataset(name, lang, split, revision):
+        seen_calls.append((name, lang, split, revision))
+        return FakeDataset(_fake_code_rows(8))
+
+    monkeypatch.setattr(data_loader, "load_dataset", fake_load_dataset)
+
+    result = data_loader.load_code_samples(languages=["python", "java"], max_samples=4)
+
+    assert set(result.keys()) == {"python", "java"}
+    assert "def fn_0()" in result["python"]
+    assert "def fn_0()" in result["java"]
+    assert all(call[3] == data_loader.CODESEARCHNET_REVISION for call in seen_calls)
 
 
-def test_code_languages_has_entries():
-    """CODE_LANGUAGES should list available code languages."""
-    assert len(CODE_LANGUAGES) >= 2
-    assert "python" in CODE_LANGUAGES
+def test_lang_names_and_code_languages_have_expected_entries():
+    """Basic schema expectations for language metadata."""
+    assert len(data_loader.LANG_NAMES) >= 10
+    assert data_loader.LANG_NAMES["en"] == "English"
+    assert len(data_loader.CODE_LANGUAGES) >= 2
+    assert "python" in data_loader.CODE_LANGUAGES

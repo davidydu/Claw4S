@@ -42,7 +42,9 @@ We investigate how well this law holds for \emph{token} frequency distributions 
 Fitting the Zipf-Mandelbrot model $f(r) = C/(r+q)^\alpha$ to 36 tokenizer-corpus combinations, we find that:
 (1)~code exhibits systematically higher Zipf exponents ($\alpha \approx 1.40$) than natural language ($\alpha \approx 1.06$), indicating steeper rank-frequency curves;
 (2)~the tail region universally breaks Zipf's law, with flat frequency plateaus in approximately 34/36 analyses;
-(3)~there is a modest negative Pearson correlation between Zipf exponent and compression ratio ($r \approx -0.34$, $p \approx 0.044$), while the rank-based Spearman test is not significant ($\rho \approx -0.26$, $p \approx 0.124$), suggesting that more Zipfian distributions may be associated with \emph{lower} compression efficiency.
+(3)~there is a modest negative Pearson correlation between Zipf exponent and compression ratio ($r \approx -0.34$, $p \approx 0.044$), while the rank-based Spearman test is not significant ($\rho \approx -0.26$, $p \approx 0.124$);
+(4)~exploratory within-type analyses preserve the negative trend (natural language: Pearson $r \approx -0.57$, $p \approx 0.0016$; code: Spearman $\rho \approx -0.86$, $p \approx 0.0065$, with small $n=8$).
+Together, these results suggest that more Zipfian distributions may be associated with \emph{lower} compression efficiency.
 This mixed evidence contradicts naive expectations and suggests that tokenizer efficiency depends at least as much on vocabulary allocation as on distributional shape.
 The full analysis is agent-executable via a single \texttt{SKILL.md} file.
 \end{abstract}
@@ -159,14 +161,20 @@ The two exceptions---Arabic with GPT-4 ($\alpha_\text{tail} = 11.7$) and Mistral
 
 \subsection{Correlation with Compression}
 
-The correlation between $\alpha$ and compression ratio is modestly negative in the Pearson analysis, but less stable in the rank-based Spearman analysis:
+The correlation between $\alpha$ and compression ratio is modestly negative in the pooled analysis, but the evidence differs by test:
 \begin{itemize}
   \item Pearson $r = -0.337$ ($p = 0.044$)
   \item Spearman $\rho = -0.261$ ($p = 0.124$)
 \end{itemize}
 
-This is a counterintuitive pattern, but it should be interpreted cautiously because only the Pearson test reaches conventional significance.
-Higher $\alpha$ (steeper, more Zipfian distributions) is associated with \emph{lower} compression ratios.
+Exploratory within-type analyses retain the same sign:
+\begin{itemize}
+  \item Natural language only ($n=28$): Pearson $r=-0.568$ ($p=0.0016$), Spearman $\rho=-0.571$ ($p=0.0015$)
+  \item Code only ($n=8$): Pearson $r=-0.701$ ($p=0.0526$), Spearman $\rho=-0.857$ ($p=0.0065$)
+\end{itemize}
+
+This pattern is counterintuitive and should still be interpreted cautiously because the code subset is small and one of two code-side tests is marginal.
+Higher $\alpha$ (steeper, more Zipfian distributions) is associated with \emph{lower} compression ratios, both overall and in these subgroup analyses.
 The explanation lies in what drives high $\alpha$: it often indicates that the tokenizer fragments text into many single-use tokens (e.g., Arabic with Mistral), producing a steep rank-frequency curve but poor compression.
 Conversely, tokenizers with large, well-allocated vocabularies (e.g., GPT-4o) produce flatter distributions ($\alpha \approx 0.8$) \emph{and} better compression, because their vocabulary efficiently covers the input space.
 
