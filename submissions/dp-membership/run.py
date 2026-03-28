@@ -6,15 +6,12 @@ Generates results/results.json and plots in results/.
 
 import json
 import os
-import sys
+
+from src.runtime import ensure_submission_cwd
+
+ensure_submission_cwd(__file__)
 
 # Working directory guard
-expected_marker = os.path.join(os.path.dirname(os.path.abspath(__file__)), "SKILL.md")
-if not os.path.exists(expected_marker):
-    print("ERROR: run.py must be executed from the submissions/dp-membership/ directory.")
-    print(f"  Expected to find: {expected_marker}")
-    sys.exit(1)
-
 from src.experiment import run_full_experiment, print_summary
 from src.plot import generate_all_plots
 

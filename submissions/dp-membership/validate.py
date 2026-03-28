@@ -9,12 +9,10 @@ import json
 import os
 import sys
 
+from src.runtime import ensure_submission_cwd
+
 # Working directory guard
-expected_marker = os.path.join(os.path.dirname(os.path.abspath(__file__)), "SKILL.md")
-if not os.path.exists(expected_marker):
-    print("ERROR: validate.py must be executed from the submissions/dp-membership/ directory.")
-    print(f"  Expected to find: {expected_marker}")
-    sys.exit(1)
+ensure_submission_cwd(__file__)
 
 # Load results
 results_path = "results/results.json"

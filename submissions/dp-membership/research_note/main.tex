@@ -24,7 +24,7 @@
 \maketitle
 
 \begin{abstract}
-We empirically quantify how differentially private stochastic gradient descent (DP-SGD) mitigates membership inference attacks. Using synthetic Gaussian cluster classification data and 2-layer MLPs, we train models under four privacy regimes---non-private, weak DP ($\sigma{=}0.5$, $\varepsilon{\approx}53$), moderate DP ($\sigma{=}2.0$, $\varepsilon{\approx}9$), and strong DP ($\sigma{=}5.0$, $\varepsilon{\approx}3$)---and mount shadow-model membership inference attacks against each. Our results confirm the thesis: non-private models are vulnerable (attack AUC $= 0.664 \pm 0.060$), while strong DP reduces attack AUC to near-random ($0.521 \pm 0.005$), a reduction of 0.143. We observe a clear privacy-utility trade-off: strong DP degrades test accuracy from 79.2\% to 70.9\%, but effectively closes the membership inference channel. All code and experiments are fully reproducible via an executable SKILL.md.
+We empirically quantify how differentially private stochastic gradient descent (DP-SGD) mitigates membership inference attacks. Using synthetic Gaussian cluster classification data and 2-layer MLPs, we train models under four privacy regimes---non-private, weak DP ($\sigma{=}0.5$, $\varepsilon{\approx}53$), moderate DP ($\sigma{=}2.0$, $\varepsilon{\approx}9$), and strong DP ($\sigma{=}5.0$, $\varepsilon{\approx}3$)---and mount shadow-model membership inference attacks against each. Our results confirm the thesis: non-private models are vulnerable (attack AUC $= 0.664 \pm 0.060$), while strong DP reduces attack AUC to near-random ($0.518 \pm 0.004$), a reduction of 0.146. We observe a clear privacy-utility trade-off: strong DP degrades test accuracy from 79.2\% to 70.9\%, while substantially suppressing the membership inference channel. All code and experiments are reproducible via an executable SKILL.md.
 \end{abstract}
 
 \section{Introduction}
@@ -94,8 +94,8 @@ Privacy Level & $\sigma$ & $\varepsilon$ & Test Acc. & Attack AUC \\
 \midrule
 Non-private & 0.0 & $\infty$ & $0.792 \pm 0.116$ & $\mathbf{0.664 \pm 0.060}$ \\
 Weak DP & 0.5 & 53.5 & $0.849 \pm 0.085$ & $0.532 \pm 0.019$ \\
-Moderate DP & 2.0 & 9.4 & $0.805 \pm 0.091$ & $0.543 \pm 0.011$ \\
-Strong DP & 5.0 & 3.4 & $0.709 \pm 0.118$ & $0.521 \pm 0.005$ \\
+Moderate DP & 2.0 & 9.4 & $0.805 \pm 0.091$ & $0.541 \pm 0.010$ \\
+Strong DP & 5.0 & 3.4 & $0.709 \pm 0.118$ & $0.518 \pm 0.004$ \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -105,7 +105,7 @@ Strong DP & 5.0 & 3.4 & $0.709 \pm 0.118$ & $0.521 \pm 0.005$ \\
 \begin{enumerate}
   \item \textbf{Non-private models are vulnerable.} Without DP, the attack achieves AUC = 0.664, well above random (0.5). The model's overfitting (generalization gap) leaks membership information through its confidence patterns.
 
-  \item \textbf{DP-SGD effectively mitigates the attack.} Even weak DP ($\sigma{=}0.5$) dramatically reduces attack AUC from 0.664 to 0.532. Strong DP ($\sigma{=}5.0$) further reduces it to 0.521, near random guessing.
+  \item \textbf{DP-SGD effectively mitigates the attack.} Even weak DP ($\sigma{=}0.5$) dramatically reduces attack AUC from 0.664 to 0.532. Strong DP ($\sigma{=}5.0$) further reduces it to 0.518, near random guessing.
 
   \item \textbf{Privacy-utility trade-off.} Strong DP reduces test accuracy from 79.2\% to 70.9\% (a 8.3 percentage point drop). This quantifies the cost of privacy protection.
 
@@ -122,7 +122,7 @@ The strong practical effectiveness even at moderate privacy levels ($\sigma{=}0.
 
 \section{Reproducibility}
 
-All experiments are reproducible via the accompanying SKILL.md. The DP-SGD implementation uses no external DP libraries. Seeds are fixed at [42, 123, 456]. Dependencies are pinned: PyTorch 2.6.0, NumPy 2.2.4. Runtime is approximately 22 seconds on a modern CPU.
+All experiments are reproducible via the accompanying SKILL.md. The DP-SGD implementation uses no external DP libraries. Seeds are fixed at [42, 123, 456]. Dependencies are pinned: PyTorch 2.6.0, NumPy 2.2.4. In our CPU-only verification runs, the metric outputs were stable across reruns while wall-clock runtime varied between roughly 30 and 35 seconds.
 
 \bibliographystyle{plainnat}
 \begin{thebibliography}{3}

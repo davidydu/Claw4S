@@ -1,8 +1,8 @@
 # Skill: Membership Inference Under Differential Privacy
 
-Reproduce an experiment showing that DP-SGD provably reduces membership inference attack success. Train 2-layer MLPs on synthetic Gaussian cluster data with four privacy levels (non-private, weak/moderate/strong DP), then run shadow-model membership inference attacks (Shokri et al. 2017) against each. Measure attack AUC, model utility, and the privacy-utility-leakage triad.
+Reproduce an experiment showing that DP-SGD empirically reduces membership inference attack success in this controlled setting. Train 2-layer MLPs on synthetic Gaussian cluster data with four privacy levels (non-private, weak/moderate/strong DP), then run shadow-model membership inference attacks (Shokri et al. 2017) against each. Measure attack AUC, model utility, and the privacy-utility-leakage triad.
 
-**Key finding:** DP-SGD with strong privacy (sigma=5.0, epsilon~3.4) reduces membership inference AUC from 0.664 to 0.521 (near random guessing at 0.5), confirming that DP effectively prevents membership leakage.
+**Key finding:** On the verified March 28, 2026 runs, DP-SGD with strong privacy (sigma=5.0, epsilon~3.4) reduces membership inference AUC from 0.664 to 0.518 (near random guessing at 0.5), a reduction of 0.146.
 
 ## Prerequisites
 
@@ -10,13 +10,12 @@ Reproduce an experiment showing that DP-SGD provably reduces membership inferenc
 - ~500 MB disk (PyTorch CPU)
 - CPU only; no GPU required
 - No API keys or authentication needed
-- Runtime: ~25 seconds on modern hardware
+- Runtime: about 35 seconds wall-clock on a modern laptop CPU; budget up to 1 minute on slower machines
 
 ## Step 1: Set Up Virtual Environment
 
 ```bash
-/opt/homebrew/bin/python3.13 -m venv .venv
-.venv/bin/python -m pip install --upgrade pip
+python3 -m venv .venv
 .venv/bin/python -m pip install -r requirements.txt
 ```
 
@@ -28,12 +27,13 @@ Reproduce an experiment showing that DP-SGD provably reduces membership inferenc
 .venv/bin/python -m pytest tests/ -v
 ```
 
-**Expected output:** All 26 tests pass. Key test groups:
+**Expected output:** All 28 tests pass. Key test groups:
 - `test_data.py` (6 tests) — synthetic data generation, member/non-member split, reproducibility, no overlap
 - `test_model.py` (3 tests) — MLP forward pass, shape checks, weight reproducibility
-- `test_dp_sgd.py` (9 tests) — per-sample gradients, gradient clipping, noise injection, epsilon accounting
+- `test_dp_sgd.py` (8 tests) — per-sample gradients, gradient clipping, noise injection, epsilon accounting
 - `test_train.py` (3 tests) — standard + DP training, evaluation
 - `test_attack.py` (6 tests) — attack features, classifier training, attack metrics
+- `test_runtime.py` (2 tests) — script working-directory guard behavior
 
 ## Step 3: Run Full Experiment
 
@@ -41,7 +41,7 @@ Reproduce an experiment showing that DP-SGD provably reduces membership inferenc
 .venv/bin/python run.py
 ```
 
-This runs the complete experiment (~25 seconds):
+This runs the complete experiment (about 35 seconds wall-clock on the verified CPU-only runs):
 1. For each of 4 privacy levels x 3 seeds = 12 configurations:
    - Generate 500-sample synthetic classification data (10 features, 5 classes, Gaussian clusters)
    - Train target model (2-layer MLP, hidden=128, 80 epochs)
@@ -57,7 +57,7 @@ This runs the complete experiment (~25 seconds):
   epsilon=inf, test_acc=0.768, attack_auc=0.687
 ...
 [12/12] strong-dp (sigma=5.0), seed=456
-  epsilon=3.38, test_acc=0.596, attack_auc=0.525
+  epsilon=3.38, test_acc=0.596, attack_auc=0.516
 
 Results saved to results/results.json
 Generated 3 plots in results/
@@ -68,8 +68,8 @@ MEMBERSHIP INFERENCE UNDER DIFFERENTIAL PRIVACY — RESULTS
 Privacy Level     sigma    epsilon   Test Acc   Attack AUC   Attack Acc
 non-private         0.0        inf 0.792+/-0.116 0.664+/-0.060 0.613+/-0.058
 weak-dp             0.5       53.5 0.849+/-0.085 0.532+/-0.019 0.520+/-0.012
-moderate-dp         2.0        9.4 0.805+/-0.091 0.543+/-0.011 0.527+/-0.012
-strong-dp           5.0        3.4 0.709+/-0.118 0.521+/-0.005 0.520+/-0.018
+moderate-dp         2.0        9.4 0.805+/-0.091 0.541+/-0.010 0.529+/-0.009
+strong-dp           5.0        3.4 0.709+/-0.118 0.518+/-0.004 0.521+/-0.017
 ========================================================================
 ```
 
@@ -92,8 +92,8 @@ Privacy levels: 4
 Seeds: 3
 Total runs: 12 (expected 12)
 Non-private attack AUC:  0.664
-Strong-DP attack AUC:    0.521
-AUC reduction:           0.143
+Strong-DP attack AUC:    0.518
+AUC reduction:           0.146
 Non-private test accuracy: 0.792
 Plot exists: results/attack_auc_vs_privacy.png
 Plot exists: results/privacy_utility_leakage.png
@@ -123,8 +123,8 @@ Shadow model approach with enriched features:
 |-------|-------|----------------|-------------------|
 | Non-private | 0.0 | inf | 0.664 +/- 0.060 (vulnerable) |
 | Weak DP | 0.5 | ~53 | 0.532 +/- 0.019 |
-| Moderate DP | 2.0 | ~9 | 0.543 +/- 0.011 |
-| Strong DP | 5.0 | ~3 | 0.521 +/- 0.005 (near-random) |
+| Moderate DP | 2.0 | ~9 | 0.541 +/- 0.010 |
+| Strong DP | 5.0 | ~3 | 0.518 +/- 0.004 (near-random) |
 
 ## How to Extend
 
