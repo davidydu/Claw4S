@@ -23,10 +23,11 @@
 \maketitle
 
 \begin{abstract}
-We investigate how neural network calibration degrades under distribution shift as a function of model capacity.
+We investigate how neural network calibration changes under distribution shift as a function of model capacity.
 Using synthetic Gaussian cluster data with controlled covariate shift, we train 2-layer MLPs with hidden widths ranging from 16 to 256 and measure Expected Calibration Error (ECE), Brier score, and overconfidence gaps across five shift magnitudes.
-Our experiments (75 configurations, 3 seeds each) reveal that while wider models achieve comparable or better calibration in-distribution, they exhibit faster calibration degradation under shift, with overconfidence gaps growing more steeply for higher-capacity models.
-These findings suggest that overparameterization, while beneficial for in-distribution performance, can amplify miscalibration under distribution shift---a critical consideration for deploying models in non-stationary environments.
+Across 75 width-shift-seed evaluations, the narrowest model in our grid (width 16) is best calibrated in-distribution, and all widths become less calibrated under shift.
+Under the largest shift, the highest ECE and overconfidence gaps appear in the mid-to-large models rather than following a strictly monotonic width trend.
+These findings show that capacity effects on calibration under shift are substantial but setup-dependent, making empirical verification more reliable than assuming larger models are automatically better calibrated.
 All experiments are fully reproducible via our executable SKILL.md protocol and run in under 3 minutes on a CPU.
 \end{abstract}
 
@@ -36,13 +37,13 @@ Neural network calibration---the alignment between predicted confidence and actu
 A model that predicts class $k$ with probability 0.8 should be correct approximately 80\% of the time.
 Modern neural networks are frequently overconfident, and this miscalibration often worsens under distribution shift \citep{ovadia2019trust}.
 
-We study a specific question: \emph{Does model capacity (overparameterization) affect how calibration degrades under distribution shift?}
-Prior work has shown that larger models can be better calibrated in-distribution when properly trained \citep{guo2017calibration}, but the interaction between capacity and shift-induced miscalibration is less explored.
+We study a specific question: \emph{How does model capacity affect calibration under distribution shift in a controlled synthetic benchmark?}
+Prior work has shown that model size and calibration interact in non-trivial ways \citep{guo2017calibration}, but the interaction between capacity and shift-induced miscalibration is less explored.
 
 Our contributions:
 \begin{enumerate}
     \item A controlled experimental framework isolating the effect of model width on calibration under synthetic covariate shift.
-    \item Evidence that wider MLPs, while often better calibrated in-distribution, exhibit steeper calibration degradation as shift magnitude increases.
+    \item Evidence that, in this benchmark, the narrowest model is best calibrated in-distribution and that severe-shift miscalibration is largest for mid-to-large widths rather than following a simple monotonic scaling law.
     \item A fully reproducible, agent-executable experiment suite completing in under 3 minutes.
 \end{enumerate}
 
@@ -103,24 +104,24 @@ This is consistent with the finding of \citet{guo2017calibration} that larger ne
 
 As shift magnitude increases, ECE rises for all models (Figure~\ref{fig:ece}).
 At the maximum shift ($\delta = 4.0$), ECE approximately doubles for all widths, rising from 0.07--0.10 to 0.11--0.14.
-The overconfidence gap---the difference between mean predicted confidence and actual accuracy---is substantially larger for wider models: 0.139 for width 64 vs.\ 0.102 for width 16 at $\delta = 4.0$.
+The largest severe-shift errors in this run occur for the mid-to-large models, with width 64 reaching ECE 0.143 and overconfidence gap 0.141, while width 16 remains the best calibrated at $\delta = 4.0$ with ECE 0.107.
 
-This occurs because wider models fit the training distribution more tightly, producing higher-confidence predictions that become increasingly incorrect under shift.
-Smaller models, being less expressive, produce more diffuse (lower confidence) predictions that degrade more gracefully, even though they sacrifice some in-distribution performance.
+This benchmark therefore does not support a simple monotonic story in which increasing width uniformly improves in-distribution calibration and then degrades faster under shift.
+Instead, it shows that capacity materially changes calibration behavior, but the strongest effect appears in a subset of larger models and should be interpreted as an empirical pattern of this setup rather than a general law.
 
 \begin{figure}[h]
     \centering
     \includegraphics[width=0.85\textwidth]{../results/ece_vs_shift.pdf}
     \caption{ECE vs.\ distribution shift magnitude for MLPs of varying width.
     Error bars show $\pm 1$ std across 3 seeds.
-    Wider models degrade faster.}
+    All models become less calibrated as shift increases, and the narrowest model remains best calibrated at the largest shift in this benchmark.}
     \label{fig:ece}
 \end{figure}
 
 \subsection{Reliability Diagrams}
 
-Reliability diagrams (Figure~\ref{fig:reliability}) for the width-256 model show near-perfect diagonal alignment at $\delta = 0$ but increasing departure---particularly in high-confidence bins---as shift grows.
-The model remains confident but becomes increasingly wrong.
+Reliability diagrams (Figure~\ref{fig:reliability}) for the width-256 model show increasing departure from the diagonal---particularly in high-confidence bins---as shift grows.
+The model remains confident while its empirical accuracy drops under larger shifts.
 
 \begin{figure}[h]
     \centering
@@ -132,9 +133,9 @@ The model remains confident but becomes increasingly wrong.
 
 \section{Discussion}
 
-Our results support the thesis that overparameterization creates a calibration-robustness tradeoff:
-wider models are more overconfident both in-distribution and under shift, with the overconfidence gap growing faster for higher-capacity models.
-This has practical implications for model selection in deployment environments where distribution shift is expected.
+Our results show that model capacity materially affects calibration under shift in this benchmark, but not through a simple monotonic tradeoff.
+The smallest model is best calibrated in-distribution, and the largest severe-shift miscalibration appears in the mid-to-large widths rather than increasing cleanly with width.
+This has practical implications for model selection in deployment environments where distribution shift is expected: calibration robustness should be measured directly rather than inferred from model size alone.
 
 \paragraph{Limitations.}
 (1) Synthetic Gaussian data may not capture real-world shift patterns.
@@ -148,9 +149,9 @@ Investigating the interaction between regularization (dropout, weight decay) and
 
 \section{Conclusion}
 
-We demonstrate that model capacity amplifies calibration degradation under distribution shift in a controlled synthetic setting.
-While wider MLPs achieve comparable calibration in-distribution, their overconfidence grows faster with shift magnitude.
-This calibration-capacity tradeoff should inform model selection and deployment decisions, particularly in safety-critical domains where distribution shift is expected.
+We demonstrate that model capacity strongly influences calibration under distribution shift in a controlled synthetic setting, but the effect is not a simple monotonic scaling trend.
+In our benchmark, the narrowest model is best calibrated in-distribution, and the largest severe-shift miscalibration appears in the mid-to-large models.
+This setup-dependent calibration pattern should inform model selection and deployment decisions, particularly in safety-critical domains where distribution shift is expected.
 
 \bibliographystyle{plainnat}
 \begin{thebibliography}{3}

@@ -1,12 +1,12 @@
 ---
 name: calibration-under-distribution-shift
-description: Train 2-layer MLPs of varying widths on synthetic Gaussian clusters, measure Expected Calibration Error (ECE) on in-distribution vs shifted test sets. Tests whether overparameterized models are better calibrated in-distribution but degrade faster under covariate shift.
+description: Train 2-layer MLPs of varying widths on synthetic Gaussian clusters and measure Expected Calibration Error (ECE), Brier score, and overconfidence gaps on in-distribution vs shifted test sets. Produces a reproducible empirical comparison of how calibration changes with model width under covariate shift.
 allowed-tools: Bash(python *), Bash(python3 *), Bash(pip *), Bash(.venv/*), Bash(cat *), Read, Write
 ---
 
 # Calibration Under Distribution Shift
 
-This skill investigates how neural network calibration degrades under distribution shift as a function of model capacity. It trains 2-layer MLPs of varying widths (16--256 hidden units) on synthetic Gaussian cluster data and measures Expected Calibration Error (ECE), Brier score, and overconfidence gaps across shift magnitudes from 0 to 4.0.
+This skill investigates how neural network calibration changes under distribution shift as a function of model capacity. It trains 2-layer MLPs of varying widths (16--256 hidden units) on synthetic Gaussian cluster data and measures Expected Calibration Error (ECE), Brier score, and overconfidence gaps across shift magnitudes from 0 to 4.0.
 
 ## Prerequisites
 
@@ -44,13 +44,13 @@ Expected: All tests pass (exit code 0). You should see approximately 20 tests co
 
 ## Step 3: Run the Experiment
 
-Execute the full calibration experiment grid (5 widths x 5 shifts x 3 seeds = 75 experiments):
+Execute the full calibration experiment grid (5 widths x 5 shifts x 3 seeds = 75 width-shift-seed evaluations, organized as 15 width-seed training runs):
 
 ```bash
 .venv/bin/python run.py
 ```
 
-Expected: Script prints progress for each of 15 (width, seed) combinations, generates 5 PDF plots and a markdown report, saves all results to `results/results.json`, and prints the full report. Final line: `Done. 15 experiments completed in <X>s.`
+Expected: Script prints progress for each of 15 (width, seed) training runs, generates 5 PDF plots and a markdown report, saves all results to `results/results.json`, and prints the full report. Final line: `Done. 15 experiments completed in <X>s.`
 
 Output files created in `results/`:
 - `results.json` — raw and aggregated experiment data
@@ -82,9 +82,11 @@ cat results/report.md
 The report contains:
 - ECE table: mean and std across seeds for each (width, shift) combination
 - Accuracy and Brier score tables
-- Key findings on in-distribution calibration and calibration degradation
+- Key findings on in-distribution calibration, severe-shift miscalibration, and overconfidence
 - Overconfidence analysis under shift
 - Limitations of the study
+
+Treat the generated report as the empirical source of truth for this submission. Capacity-shift patterns should be read from the measured tables and plots rather than assumed in advance.
 
 ## How to Extend
 
