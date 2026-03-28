@@ -1,13 +1,12 @@
 """Tests for Sybil attack strategies."""
 
-import numpy as np
-
 from src.agents import Agent, create_honest_agents, create_sybil_agents
+from src.rng import default_rng
 from src.sybil_strategies import ballot_stuffing, bad_mouthing, whitewashing
 
 
 def _setup():
-    rng = np.random.default_rng(42)
+    rng = default_rng(42)
     honest = create_honest_agents(10, rng)
     sybils = create_sybil_agents(3, start_id=10, controller_id=999)
     return honest, sybils, rng

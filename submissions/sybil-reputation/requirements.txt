@@ -1,3 +1,2 @@
-numpy==2.4.3
-scipy==1.17.1
-pytest==9.0.2
+# No third-party dependencies are required.
+# The submission is fully executable with Python's standard library.

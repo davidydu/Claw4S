@@ -9,7 +9,6 @@ Implements four algorithms with increasing Sybil resilience:
 
 from __future__ import annotations
 
-import numpy as np
 from typing import Dict, List, Tuple, TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -90,37 +89,46 @@ def pagerank_trust(
     id_to_idx = {aid: i for i, aid in enumerate(id_list)}
 
     # Build adjacency: edge weight = mean positive rating from i to j
-    edge_sums = np.zeros((n, n), dtype=np.float64)
-    edge_counts = np.zeros((n, n), dtype=np.float64)
+    edge_sums = [[0.0 for _ in range(n)] for _ in range(n)]
+    edge_counts = [[0.0 for _ in range(n)] for _ in range(n)]
 
     for rater, ratee, value, _rnd in ledger:
         if rater in id_to_idx and ratee in id_to_idx and value > 0.5:
             i, j = id_to_idx[rater], id_to_idx[ratee]
-            edge_sums[i, j] += value
-            edge_counts[i, j] += 1
+            edge_sums[i][j] += value
+            edge_counts[i][j] += 1.0
 
     # Normalize rows to create transition matrix
-    adj = np.zeros((n, n), dtype=np.float64)
+    adj = [[0.0 for _ in range(n)] for _ in range(n)]
     for i in range(n):
-        total = edge_counts[i].sum()
+        total = sum(edge_counts[i])
         if total > 0:
-            adj[i] = edge_sums[i] / (edge_sums[i].sum() + 1e-12)
+            row_sum = sum(edge_sums[i])
+            if row_sum > 0:
+                for j in range(n):
+                    adj[i][j] = edge_sums[i][j] / row_sum
 
     # PageRank iteration
-    rank = np.ones(n, dtype=np.float64) / n
-    teleport = np.ones(n, dtype=np.float64) / n
+    rank = [1.0 / n for _ in range(n)]
+    teleport = [1.0 / n for _ in range(n)]
     for _ in range(iterations):
-        rank = (1 - damping) * teleport + damping * adj.T @ rank
-        rank_sum = rank.sum()
+        new_rank = []
+        for j in range(n):
+            inbound = 0.0
+            for i in range(n):
+                inbound += adj[i][j] * rank[i]
+            new_rank.append((1 - damping) * teleport[j] + damping * inbound)
+        rank = new_rank
+        rank_sum = sum(rank)
         if rank_sum > 0:
-            rank /= rank_sum
+            rank = [v / rank_sum for v in rank]
 
     # Normalize to [0, 1]
-    rmin, rmax = rank.min(), rank.max()
+    rmin, rmax = min(rank), max(rank)
     if rmax > rmin:
-        rank = (rank - rmin) / (rmax - rmin)
+        rank = [(v - rmin) / (rmax - rmin) for v in rank]
     else:
-        rank = np.full(n, 0.5)
+        rank = [0.5 for _ in range(n)]
 
     return {id_list[i]: float(rank[i]) for i in range(n)}
 
@@ -143,39 +151,49 @@ def eigentrust(
 
     # Build local trust: s_{ij} = sum of positive ratings from i about j
     # minus sum of negative ratings (below 0.5)
-    s = np.zeros((n, n), dtype=np.float64)
+    s = [[0.0 for _ in range(n)] for _ in range(n)]
     for rater, ratee, value, _rnd in ledger:
         if rater in id_to_idx and ratee in id_to_idx:
             i, j = id_to_idx[rater], id_to_idx[ratee]
-            s[i, j] += value - 0.5  # Centered: positive = good
+            s[i][j] += value - 0.5  # Centered: positive = good
 
     # Clip negatives, normalize rows
-    s = np.maximum(s, 0)
-    c = np.zeros((n, n), dtype=np.float64)
+    c = [[0.0 for _ in range(n)] for _ in range(n)]
     for i in range(n):
-        row_sum = s[i].sum()
+        for j in range(n):
+            if s[i][j] < 0:
+                s[i][j] = 0.0
+        row_sum = sum(s[i])
         if row_sum > 0:
-            c[i] = s[i] / row_sum
+            for j in range(n):
+                c[i][j] = s[i][j] / row_sum
         else:
-            c[i] = 1.0 / n  # uniform prior
+            for j in range(n):
+                c[i][j] = 1.0 / n  # uniform prior
 
     # Pre-trusted peers: uniform distribution
-    p = np.ones(n, dtype=np.float64) / n
+    p = [1.0 / n for _ in range(n)]
 
     # Iterate: t^{k+1} = (1-alpha) * C^T * t^k + alpha * p
-    t = p.copy()
+    t = list(p)
     for _ in range(iterations):
-        t = (1 - alpha) * c.T @ t + alpha * p
-        t_sum = t.sum()
+        next_t = []
+        for j in range(n):
+            inbound = 0.0
+            for i in range(n):
+                inbound += c[i][j] * t[i]
+            next_t.append((1 - alpha) * inbound + alpha * p[j])
+        t = next_t
+        t_sum = sum(t)
         if t_sum > 0:
-            t /= t_sum
+            t = [v / t_sum for v in t]
 
     # Normalize to [0, 1]
-    tmin, tmax = t.min(), t.max()
+    tmin, tmax = min(t), max(t)
     if tmax > tmin:
-        t = (t - tmin) / (tmax - tmin)
+        t = [(v - tmin) / (tmax - tmin) for v in t]
     else:
-        t = np.full(n, 0.5)
+        t = [0.5 for _ in range(n)]
 
     return {id_list[i]: float(t[i]) for i in range(n)}
 

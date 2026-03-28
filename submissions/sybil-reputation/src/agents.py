@@ -24,14 +24,13 @@ def create_honest_agents(n: int, rng) -> List[Agent]:
 
     Args:
         n: Number of honest agents.
-        rng: numpy random generator instance.
+        rng: Random generator with a ``uniform(low, high)`` method.
 
     Returns:
         List of honest Agent objects with IDs 0..n-1.
     """
-    qualities = rng.uniform(0.2, 0.9, size=n)
     return [
-        Agent(agent_id=i, true_quality=float(qualities[i]))
+        Agent(agent_id=i, true_quality=float(rng.uniform(0.2, 0.9)))
         for i in range(n)
     ]
 

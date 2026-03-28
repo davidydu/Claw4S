@@ -1,8 +1,7 @@
 """Tests for reputation algorithms."""
 
-import numpy as np
-
 from src.agents import Agent
+from src.rng import default_rng
 from src.reputation import simple_average, weighted_by_history, pagerank_trust, eigentrust
 
 
@@ -12,10 +11,13 @@ def _make_agents(n):
 
 def _make_ledger(agents, rng, n_ratings=100):
     """Create a simple ledger where ratings reflect true quality + noise."""
+    def _clip(value):
+        return max(0.0, min(1.0, value))
+
     ledger = []
     for rnd in range(n_ratings):
         i, j = rng.choice(len(agents), size=2, replace=False)
-        r = float(np.clip(agents[j].true_quality + rng.normal(0, 0.1), 0, 1))
+        r = float(_clip(agents[j].true_quality + rng.normal(0, 0.1)))
         ledger.append((agents[i].agent_id, agents[j].agent_id, r, rnd))
     return ledger
 
@@ -58,7 +60,7 @@ def test_weighted_history_older_raters_matter_more():
 
 
 def test_pagerank_returns_scores_for_all():
-    rng = np.random.default_rng(42)
+    rng = default_rng(42)
     agents = _make_agents(5)
     ledger = _make_ledger(agents, rng, 50)
     scores = pagerank_trust(agents, ledger)
@@ -67,7 +69,7 @@ def test_pagerank_returns_scores_for_all():
 
 
 def test_eigentrust_returns_scores_for_all():
-    rng = np.random.default_rng(42)
+    rng = default_rng(42)
     agents = _make_agents(5)
     ledger = _make_ledger(agents, rng, 50)
     scores = eigentrust(agents, ledger)
@@ -76,7 +78,7 @@ def test_eigentrust_returns_scores_for_all():
 
 
 def test_all_algorithms_deterministic():
-    rng = np.random.default_rng(99)
+    rng = default_rng(99)
     agents = [Agent(agent_id=i, true_quality=i / 4) for i in range(5)]
     ledger = _make_ledger(agents, rng, 200)
     s1 = simple_average(agents, ledger)

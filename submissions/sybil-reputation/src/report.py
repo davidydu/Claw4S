@@ -4,18 +4,17 @@ from __future__ import annotations
 
 import json
 import os
+import statistics
 from collections import defaultdict
 from typing import Dict, List
 
-import numpy as np
-
 
 def _mean(values: List[float]) -> float:
-    return float(np.mean(values)) if values else 0.0
+    return float(statistics.fmean(values)) if values else 0.0
 
 
 def _std(values: List[float]) -> float:
-    return float(np.std(values, ddof=1)) if len(values) > 1 else 0.0
+    return float(statistics.stdev(values)) if len(values) > 1 else 0.0
 
 
 def generate_report(data: Dict) -> str:

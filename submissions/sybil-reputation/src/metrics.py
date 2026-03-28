@@ -14,12 +14,101 @@ Four primary metrics, each in [0, 1] or [-1, 1]:
 
 from __future__ import annotations
 
-import numpy as np
-from scipy import stats
+import math
+import statistics
 from typing import Dict, List, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from .agents import Agent
+
+
+def _mean(values: List[float]) -> float:
+    return statistics.fmean(values) if values else 0.0
+
+
+def _median(values: List[float]) -> float:
+    if not values:
+        return 0.0
+    return float(statistics.median(values))
+
+
+def _rankdata(values: List[float]) -> List[float]:
+    indexed = sorted((value, idx) for idx, value in enumerate(values))
+    ranks = [0.0 for _ in values]
+    pos = 0
+    while pos < len(indexed):
+        end = pos + 1
+        while end < len(indexed) and indexed[end][0] == indexed[pos][0]:
+            end += 1
+        avg_rank = (pos + 1 + end) / 2.0
+        for _, idx in indexed[pos:end]:
+            ranks[idx] = avg_rank
+        pos = end
+    return ranks
+
+
+def _pearson(x: List[float], y: List[float]) -> float:
+    if len(x) != len(y) or len(x) < 2:
+        return 0.0
+    x_mean = _mean(x)
+    y_mean = _mean(y)
+    num = 0.0
+    x_var = 0.0
+    y_var = 0.0
+    for i in range(len(x)):
+        dx = x[i] - x_mean
+        dy = y[i] - y_mean
+        num += dx * dy
+        x_var += dx * dx
+        y_var += dy * dy
+    if x_var <= 0 or y_var <= 0:
+        return 0.0
+    return num / math.sqrt(x_var * y_var)
+
+
+def _spearmanr(x: List[float], y: List[float]) -> float:
+    return _pearson(_rankdata(x), _rankdata(y))
+
+
+def _sign(value: float) -> int:
+    if value > 0:
+        return 1
+    if value < 0:
+        return -1
+    return 0
+
+
+def _kendalltau(x: List[float], y: List[float]) -> float:
+    if len(x) != len(y) or len(x) < 2:
+        return 0.0
+
+    concordant = 0
+    discordant = 0
+    ties_x = 0
+    ties_y = 0
+
+    for i in range(len(x) - 1):
+        for j in range(i + 1, len(x)):
+            dx = _sign(x[i] - x[j])
+            dy = _sign(y[i] - y[j])
+            if dx == 0 and dy == 0:
+                ties_x += 1
+                ties_y += 1
+            elif dx == 0:
+                ties_x += 1
+            elif dy == 0:
+                ties_y += 1
+            elif dx == dy:
+                concordant += 1
+            else:
+                discordant += 1
+
+    denom = math.sqrt(
+        (concordant + discordant + ties_x) * (concordant + discordant + ties_y)
+    )
+    if denom == 0:
+        return 0.0
+    return (concordant - discordant) / denom
 
 
 def reputation_accuracy(
@@ -38,8 +127,8 @@ def reputation_accuracy(
             reps.append(scores[a.agent_id])
     if len(qualities) < 3:
         return 0.0
-    corr, _ = stats.spearmanr(qualities, reps)
-    if np.isnan(corr):
+    corr = _spearmanr(qualities, reps)
+    if math.isnan(corr):
         return 0.0
     return float(corr)
 
@@ -58,7 +147,7 @@ def sybil_detection_rate(
         return 1.0  # No Sybils to detect -- perfect by definition
 
     honest_scores = [scores.get(a.agent_id, 0.5) for a in honest_agents]
-    median_honest = float(np.median(honest_scores))
+    median_honest = _median(honest_scores)
 
     detected = sum(
         1 for a in sybil_agents if scores.get(a.agent_id, 0.5) < median_honest
@@ -73,7 +162,7 @@ def honest_welfare(
     if len(honest_agents) == 0:
         return 0.0
     vals = [scores.get(a.agent_id, 0.5) for a in honest_agents]
-    return float(np.mean(vals))
+    return _mean(vals)
 
 
 def market_efficiency(
@@ -93,8 +182,8 @@ def market_efficiency(
             reps.append(scores[a.agent_id])
     if len(qualities) < 3:
         return 0.5
-    tau, _ = stats.kendalltau(qualities, reps)
-    if np.isnan(tau):
+    tau = _kendalltau(qualities, reps)
+    if math.isnan(tau):
         return 0.5
     # Convert from [-1, 1] to [0, 1]
     return float((tau + 1) / 2)

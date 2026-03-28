@@ -16,7 +16,7 @@ This skill simulates Sybil attacks on multi-agent reputation systems and measure
 
 ## Step 1: Environment Setup
 
-Create a virtual environment and install dependencies:
+Create a virtual environment and install requirements:
 
 ```bash
 python3 -m venv .venv
@@ -24,13 +24,13 @@ python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
 ```
 
-Verify all packages are installed:
+Verify the local modules are importable:
 
 ```bash
-.venv/bin/python -c "import numpy, scipy, pytest; print('All imports OK')"
+.venv/bin/python -c "from src.simulation import run_single_sim; import validate, pytest; print('Environment OK')"
 ```
 
-Expected output: `All imports OK`
+Expected output: `Environment OK`
 
 ## Step 2: Run Unit Tests
 
@@ -39,6 +39,8 @@ Verify the simulation modules work correctly:
 ```bash
 .venv/bin/python -m pytest tests/ -v
 ```
+
+(`pytest` is provided as a local module in this submission for offline execution.)
 
 Expected: `31 passed` and exit code 0.
 
@@ -50,7 +52,7 @@ Sanity-check with a small simulation grid before the full experiment:
 .venv/bin/python run.py --diagnostic
 ```
 
-Expected: Prints 4 diagnostic results showing baseline accuracy > 0.9 and EigenTrust detecting Sybils (detection=1.000). Exits with code 0.
+Expected: Prints 4 diagnostic result rows (algorithm, K value, and four metrics) and exits with code 0.
 
 ## Step 4: Run the Full Experiment
 
@@ -87,7 +89,7 @@ Read the generated report:
 cat results/report.md
 ```
 
-Expected: Four tables (accuracy, detection, welfare, efficiency) plus key findings. PageRank and EigenTrust should maintain accuracy > 0.95 at K=20 while simple average degrades to ~0.70. Weighted history should show ~0.74 (better than simple average due to quadratic age weighting discounting whitewashing resets).
+Expected: Four tables (accuracy, detection, welfare, efficiency) plus key findings. In typical runs, PageRank remains the top performer at high Sybil counts, while simple average degrades notably under attack.
 
 ## How to Extend
 

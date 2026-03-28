@@ -8,13 +8,17 @@ At the end, reputation is computed and metrics evaluated.
 
 from __future__ import annotations
 
-import numpy as np
 from typing import Dict, List, Tuple
 
 from .agents import Agent, create_honest_agents, create_sybil_agents
 from .reputation import Rating, ALGORITHMS
 from .sybil_strategies import STRATEGIES
 from .metrics import compute_all_metrics
+from .rng import default_rng
+
+
+def _clip(value: float, low: float, high: float) -> float:
+    return max(low, min(high, value))
 
 
 def _honest_transaction(
@@ -27,8 +31,8 @@ def _honest_transaction(
     """
     noise1 = float(rng.normal(0, 0.1))
     noise2 = float(rng.normal(0, 0.1))
-    r1 = float(np.clip(a2.true_quality + noise1, 0, 1))
-    r2 = float(np.clip(a1.true_quality + noise2, 0, 1))
+    r1 = float(_clip(a2.true_quality + noise1, 0.0, 1.0))
+    r2 = float(_clip(a1.true_quality + noise2, 0.0, 1.0))
     return [
         (a1.agent_id, a2.agent_id, r1, round_num),
         (a2.agent_id, a1.agent_id, r2, round_num),
@@ -58,7 +62,7 @@ def run_single_sim(
     Returns:
         Dict with config, metrics, and per-agent reputation scores.
     """
-    rng = np.random.default_rng(seed)
+    rng = default_rng(seed)
 
     honest_agents = create_honest_agents(n_honest, rng)
     sybil_agents = (
