@@ -43,7 +43,7 @@ python3 -m venv .venv
 .venv/bin/python -m pytest tests/ -v
 ```
 
-**Expected output:** All tests passed:
+**Expected output:** Pytest exits with `19 passed` and exit code 0:
 - `tests/test_data.py` — 5 tests (dataset shape, types, classes, reproducibility, seed variation)
 - `tests/test_models.py` — 5 tests (forward shape, 4-layer forward, param count, width/depth effects)
 - `tests/test_adversarial.py` — 6 tests (FGSM perturbation, magnitude bounds, clean accuracy, transfer rate bounds/keys, self-transfer)
