@@ -27,7 +27,7 @@ We fit four parameterized functions (power law, exponential, stretched exponenti
 The stretched exponential $L(t) = a \exp(-(t/\tau)^\gamma) + L_\infty$ is the best fit for 8 of 12 configurations (67\%), dominating across all task types.
 However, regression tasks favor power-law decay at smaller model sizes.
 The stretching exponent $\gamma$ varies widely (0.3--5.0), suggesting the functional form is universal but the exponents are task- and scale-dependent.
-All code is executable via SKILL.md in under 3 minutes on CPU.
+All code is executable via SKILL.md in roughly 3--7 minutes on CPU-only machines, depending on system load.
 \end{abstract}
 
 \section{Introduction}
@@ -127,7 +127,7 @@ The connection between high $\gamma$ and grokking-like dynamics in modular arith
 \section{Reproducibility}
 
 All experiments are fully reproducible via the accompanying \texttt{SKILL.md}.
-Seeds are fixed (\texttt{seed=42}), dependencies are pinned, and the analysis runs in under 3 minutes on CPU.
+Seeds are fixed (\texttt{seed=42}), dependencies are pinned, and the analysis runs in roughly 3--7 minutes on CPU-only machines, depending on system load.
 The complete code, including training, fitting, plotting, and validation, is self-contained in the \texttt{submissions/loss-curves/} directory.
 
 \bibliographystyle{plainnat}

@@ -11,7 +11,7 @@ This skill trains tiny MLPs on 4 tasks (modular addition mod 97, modular multipl
 ## Prerequisites
 
 - Requires **Python 3.10+**. No internet access needed; all data is generated synthetically.
-- Expected runtime: **1-3 minutes** (CPU only, no GPU required).
+- Expected runtime: **3-7 minutes** on CPU-only machines. The modular arithmetic runs are the slowest, and heavily shared machines can take longer.
 - All commands must be run from the **submission directory** (`submissions/loss-curves/`).
 
 ## Step 1: Environment Setup
@@ -57,7 +57,7 @@ This will:
 4. Analyze universality of best-fit forms and exponent distributions
 5. Generate plots and save results
 
-Expected: Script prints progress for each of 12 runs, saves results to `results/`, and prints a summary report. Exit code 0. Files created:
+Expected: Script prints progress for each of 12 runs, with the longest pauses during the modular arithmetic tasks, saves results to `results/`, and prints a summary report. Exit code 0. Files created:
 - `results/results.json` -- compact results with fits and universality analysis
 - `results/full_curves.json` -- full per-epoch loss data for all 12 runs
 - `results/report.txt` -- human-readable summary report

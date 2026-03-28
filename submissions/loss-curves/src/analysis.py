@@ -137,13 +137,18 @@ def _analyze_universality(runs: list[dict]) -> dict:
     best_form_by_task: dict[str, str] = {}
     for task in set(r["task"] for r in runs):
         task_runs = [r for r in runs if r["task"] == task]
-        # Count which form wins (lowest AIC) across sizes for this task
-        form_wins: dict[str, int] = {}
+        form_aic_totals: dict[str, float] = {}
         for r in task_runs:
-            if r["best_form"]:
-                form_wins[r["best_form"]] = form_wins.get(r["best_form"], 0) + 1
-        if form_wins:
-            best_form_by_task[task] = max(form_wins, key=lambda k: form_wins[k])
+            for fit in r["fits"]:
+                if not fit["converged"]:
+                    continue
+                form = fit["form"]
+                form_aic_totals[form] = form_aic_totals.get(form, 0.0) + fit["aic"]
+        if form_aic_totals:
+            best_form_by_task[task] = min(
+                form_aic_totals,
+                key=lambda form: form_aic_totals[form],
+            )
 
     # Determine majority form
     if form_counts:
