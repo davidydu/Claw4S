@@ -50,7 +50,8 @@ class MLP(nn.Module):
 
 
 # ---------------------------------------------------------------------------
-# Pre-defined architecture configs (all ≈10 K params with 10 input, 5 output)
+# Pre-defined architecture configs in the same small-model regime
+# (3.2K-6.1K trainable params with 10 input features and 5 classes).
 # ---------------------------------------------------------------------------
 
 ARCH_CONFIGS = {

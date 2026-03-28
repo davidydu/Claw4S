@@ -16,9 +16,9 @@
 
 \begin{abstract}
 We systematically measure how MLP architecture—specifically depth and width—affects robustness to label noise in classification tasks.
-We sweep label noise from 0\% to 50\% across three architectures (shallow-wide, medium, deep-narrow) with a fixed parameter budget of approximately 10K parameters, plus a width sweep at fixed depth.
-Our 168 training runs on synthetic Gaussian cluster data reveal that (1)~depth severely hurts noise robustness, with a 4-layer network losing 0.31 test accuracy from 0\% to 50\% noise versus 0.06--0.09 for shallower alternatives; (2)~width monotonically improves noise tolerance, with the widest networks (h=128--256) losing only 0.04 accuracy under 50\% noise; and (3)~noise creates characteristic negative generalization gaps where test accuracy exceeds training accuracy, since the model partially learns to ignore corrupted labels.
-All experiments are fully reproducible from a single \texttt{run.py} script in under 30 seconds on CPU.
+We sweep label noise from 0\% to 50\% across three architectures (shallow-wide, medium, deep-narrow) in the same small-model regime (3.2K--6.1K trainable parameters), plus a width sweep at fixed depth.
+Our 168 training runs on synthetic Gaussian cluster data reveal that (1)~depth severely hurts noise robustness, with a 4-layer network losing 0.31 test accuracy from 0\% to 50\% noise versus 0.06--0.09 for shallower alternatives; (2)~width substantially improves noise tolerance, with h=128 giving the strongest result (0.042 accuracy drop under 50\% noise) and h=256 remaining robust (0.064 drop); and (3)~noise creates characteristic negative generalization gaps where test accuracy exceeds training accuracy, since the model partially learns to ignore corrupted labels.
+All experiments are fully reproducible from a single \texttt{run.py} script in about 84 seconds on the verified CPU run in this repository.
 \end{abstract}
 
 \section{Introduction}
@@ -40,11 +40,11 @@ Label noise is injected by randomly flipping a fraction $\eta \in \{0\%, 5\%, 10
 Test labels are always clean.
 
 \paragraph{Architectures.}
-We compare three MLP architectures at roughly 10K parameters:
+We compare three MLP architectures in the same small-model regime, though not with an exactly matched parameter budget:
 \begin{itemize}
-    \item \textbf{Shallow-wide:} 1 hidden layer, width 200 ($\sim$3.2K params)
-    \item \textbf{Medium:} 2 hidden layers, width 70 ($\sim$5.9K params)
-    \item \textbf{Deep-narrow:} 4 hidden layers, width 35 ($\sim$5.1K params)
+    \item \textbf{Shallow-wide:} 1 hidden layer, width 200 (3,205 params)
+    \item \textbf{Medium:} 2 hidden layers, width 70 (6,095 params)
+    \item \textbf{Deep-narrow:} 4 hidden layers, width 35 (4,345 params)
 \end{itemize}
 All use ReLU activations with no regularization (no dropout, no weight decay), to isolate the architectural effect.
 
@@ -53,7 +53,7 @@ For the width sweep, we fix depth at 2 hidden layers and vary width $h \in \{16,
 \paragraph{Training.}
 SGD with learning rate 0.01, batch size 64, 100 epochs, cross-entropy loss.
 Each configuration is run with 3 seeds (42, 43, 44), yielding 168 total runs.
-All training completes in $<$30 seconds on CPU.
+The verified full run in this repository completed in 83.9 seconds on a CPU using Python 3.13.5; faster or slower CPUs may vary.
 
 \paragraph{Metrics.}
 We report test accuracy (on clean labels), training accuracy (on noisy labels), and the generalization gap (train accuracy $-$ test accuracy), all as mean $\pm$ standard deviation across seeds.
@@ -118,7 +118,7 @@ This occurs because the model learns the true data structure despite noisy super
 Our results support two main conclusions:
 
 \textbf{Depth hurts under noise.}
-At fixed (small) parameter count and without skip connections, deeper networks are both harder to optimize and more sensitive to label noise.
+In this small-model regime and without skip connections, deeper networks are both harder to optimize and more sensitive to label noise.
 The deep-narrow network's failure is primarily an optimization problem: it underfits clean data, and noise exacerbates this.
 This suggests that depth-based scaling is risky in low-data or noisy-label regimes unless paired with residual connections or normalization.
 
@@ -133,7 +133,7 @@ Extension to real datasets (CIFAR-10, NLP benchmarks) and modern architectures (
 
 \section{Reproducibility}
 
-All experiments run from a single command (\texttt{.venv/bin/python run.py}) in under 30 seconds on CPU.
+All experiments run from a single command (\texttt{.venv/bin/python run.py}) in about 84 seconds on the verified Python 3.13.5 / CPU execution in this repository.
 Dependencies are pinned: PyTorch 2.6.0, NumPy 2.2.4, SciPy 1.15.2, Matplotlib 3.10.1.
 Random seeds are fixed throughout.
 The companion \texttt{SKILL.md} provides step-by-step instructions for full reproduction.

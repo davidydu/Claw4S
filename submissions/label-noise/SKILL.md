@@ -4,15 +4,15 @@ Sweep label noise (0%--50%) across MLP architectures to measure how network dept
 
 ## Prerequisites
 
-- Python 3.13 (tested with `/opt/homebrew/bin/python3.13`)
+- Python 3.13 (`python3 --version` reported 3.13.5 in the verified run)
 - ~200 MB disk for PyTorch CPU install
-- No GPU required; all 168 training runs complete in <30 seconds on CPU
+- No GPU required; the verified CPU run completed all 168 training runs in 83.9 seconds, so budget about 1-2 minutes depending on machine speed
 
 ## Step 1: Create virtual environment and install dependencies
 
 ```bash
 cd submissions/label-noise
-/opt/homebrew/bin/python3.13 -m venv .venv
+python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
 ```
 
@@ -37,7 +37,7 @@ cd submissions/label-noise
 **Expected output:**
 - Phase 1: Architecture sweep — 63 runs (7 noise levels x 3 architectures x 3 seeds)
 - Phase 2: Width sweep — 105 runs (7 noise levels x 5 widths x 3 seeds)
-- Total: 168 training runs in ~25 seconds
+- Total: 168 training runs in about 1-2 minutes on CPU (verified run: 83.9 seconds)
 - Generates: `results/raw_results.json`, `results/summary.json`, `results/arch_sweep.png`, `results/width_sweep.png`
 - Prints key findings comparing noise robustness across architectures
 
@@ -66,7 +66,7 @@ cd submissions/label-noise
 
 1. **Deep networks are fragile under noise.** The deep-narrow architecture (4 layers, h=35) starts weak at 0% noise (test acc ~0.54) and collapses to ~0.24 at 50% noise — a 0.31 accuracy drop.
 2. **Shallow-wide and medium architectures are robust.** Both maintain >0.85 test accuracy even at 50% noise, with drops of only 0.06--0.09.
-3. **Width improves noise tolerance.** In the width sweep (depth=2), wider networks (h=128, h=256) lose only ~0.04 accuracy from 0% to 50% noise, while narrow networks (h=16) lose ~0.29.
+3. **Width substantially improves noise tolerance.** In the width sweep (depth=2), h=128 performs best with a 0.042 drop from 0% to 50% noise, h=256 remains strong with a 0.064 drop, and narrow networks (h=16) lose ~0.29.
 4. **Noise creates negative generalization gaps.** At high noise, train accuracy tracks the noisy labels (low), but test accuracy on clean labels remains high — producing large negative gaps (train < test) for robust architectures.
 
 ## Output Files

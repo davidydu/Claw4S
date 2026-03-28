@@ -5,7 +5,7 @@ Usage (from submissions/label-noise/):
     .venv/bin/python run.py
 
 Outputs:
-    results/raw_results.json   — per-run metrics (84+ rows)
+    results/raw_results.json   — per-run metrics (168 rows)
     results/summary.json       — aggregated mean +/- std
     results/arch_sweep.png     — architecture comparison plots
     results/width_sweep.png    — width sweep plots
