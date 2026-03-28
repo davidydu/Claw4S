@@ -40,7 +40,7 @@ Verify the data and analysis modules work correctly:
 .venv/bin/python -m pytest tests/ -v
 ```
 
-Expected: Pytest exits with `26 passed` and exit code 0.
+Expected: Pytest exits with all tests passed and exit code 0.
 
 ## Step 3: Run the Analysis
 
