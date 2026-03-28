@@ -59,7 +59,13 @@ This will:
 2. For each hyperparameter combination: train a tiny MLP, log accuracy curves, classify the outcome
 3. Generate phase diagram heatmaps showing grokking/memorization/confusion/comprehension regions
 4. Generate example training curves illustrating the grokking phenomenon
-5. Save results to `results/sweep_results.json`, `results/phase_diagram.json`, and `results/report.md`
+5. Save results to `results/sweep_results.json`, `results/phase_diagram.json`, `results/metadata.json`, and `results/report.md`
+
+Optional: run custom sweeps without editing source code:
+
+```bash
+.venv/bin/python run.py --weight-decays 0,0.001,0.01 --dataset-fractions 0.5,0.7,0.9 --hidden-dims 32,64 --p 97 --max-epochs 2500 --seed 42
+```
 
 ## Step 4: Validate Results
 
@@ -69,7 +75,7 @@ Check that results were produced correctly:
 .venv/bin/python validate.py
 ```
 
-Expected: Prints validation checks (60 runs, all files present, correct grid coverage) and `Validation passed.`
+Expected: Prints validation checks (artifacts present, full Cartesian grid coverage, no duplicate/missing hyperparameter points, phase/gap consistency, metadata consistency) and `Validation passed.`
 
 ## Step 5: Review the Report
 
@@ -88,11 +94,13 @@ The report contains:
 - Detailed per-run results table
 - Phase diagram heatmaps (one per hidden dimension)
 - Example training curves showing the grokking phenomenon
+- Run metadata (`results/metadata.json`) including sweep config, seed, package versions, and runtime
 
 ## How to Extend
 
 - **Change the arithmetic operation:** Modify `generate_modular_addition_data()` in `src/data.py` to compute `(a * b) % p` instead of `(a + b) % p`.
-- **Change the prime modulus:** Pass a different `p` to `run_sweep()` in `run.py`. Smaller p (e.g., 23) runs faster; larger p may require more epochs.
-- **Add sweep dimensions:** Add new hyperparameter lists in `src/sweep.py` (e.g., learning rate, embedding dimension).
+- **Change the prime modulus:** Use `run.py --p <prime>`. Smaller p (e.g., 23) runs faster; larger p may require more epochs.
+- **Change sweep grids:** Use `run.py --weight-decays ... --dataset-fractions ... --hidden-dims ...` to run alternative grids without code edits.
+- **Add new sweep dimensions in code:** Extend `run_single()` / `run_sweep()` in `src/sweep.py` (e.g., learning rate, embedding dimension).
 - **Change grokking threshold:** Modify `ACC_THRESHOLD` (default 0.95) and `GROKKING_GAP_THRESHOLD` (default 200 epochs) in `src/analysis.py`.
-- **Increase training budget:** Adjust `DEFAULT_MAX_EPOCHS` in `src/sweep.py` (default 2500; will increase runtime).
+- **Increase training budget:** Use `run.py --max-epochs <N>` (default 2500; larger values increase runtime).

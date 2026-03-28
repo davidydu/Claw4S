@@ -72,6 +72,7 @@ We sweep over:
 \end{itemize}
 
 This yields $5 \times 4 \times 3 = 60$ training runs, all with seed fixed to 42 for full reproducibility.
+The execution script also records reproducibility metadata (sweep grid, seed, package versions, and runtime) in \texttt{results/metadata.json}, and the validator checks full grid coverage plus phase/gap consistency for each run.
 
 \section{Results}
 
@@ -111,7 +112,7 @@ Our phase diagram confirms and refines several findings from the grokking litera
 
 \paragraph{Limitations.} Our study uses a single arithmetic operation (addition mod 97), a single optimizer (AdamW), and a single seed. The grokking gap threshold (200 epochs) is somewhat arbitrary. Extending to multiplication, varying seeds for confidence intervals, and exploring additional optimizers would strengthen these findings.
 
-\paragraph{Reproducibility.} All code is fully deterministic with pinned seeds and dependency versions. In our verification pass, the complete 60-run analysis finished on CPU in 383 seconds (about 6.4 minutes). No GPU, internet access, or authentication is required.
+\paragraph{Reproducibility.} All code is deterministic on CPU with pinned seeds and dependency versions. Each run emits machine-checkable artifacts (\texttt{sweep\_results.json}, \texttt{phase\_diagram.json}, \texttt{metadata.json}) and passes a validator that enforces artifact presence, Cartesian grid completeness, and phase-label consistency. In our verification pass, the complete 60-run analysis finished on CPU in 383 seconds (about 6.4 minutes). No GPU, internet access, or authentication is required.
 
 \bibliographystyle{plainnat}
 \begin{thebibliography}{4}
