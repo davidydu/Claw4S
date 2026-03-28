@@ -41,6 +41,13 @@ def test_report_contains_num_questions(results):
     assert str(results["num_questions"]) in report
 
 
+def test_report_contains_baseline_and_significance(results):
+    """Report documents baseline comparison and permutation testing."""
+    report = generate_report(results)
+    assert "Baseline Comparison" in report
+    assert "Permutation test" in report
+
+
 def test_report_flags_low_r_squared_as_insufficient():
     """Low cross-validated R-squared should be framed as insufficient signal."""
     results = {
@@ -53,6 +60,7 @@ def test_report_flags_low_r_squared_as_insufficient():
             "std_mae": 0.0065,
             "mean_spearman": 0.1273,
             "std_spearman": 0.0231,
+            "oof_spearman": 0.1200,
             "fold_scores": [
                 {"r_squared": 0.0012, "mae": 0.2209, "spearman_rho": 0.1107},
             ],
@@ -63,6 +71,31 @@ def test_report_flags_low_r_squared_as_insufficient():
         },
         "ranked_features": [("flesch_kincaid_grade", 0.1564)],
         "feature_importances": {"flesch_kincaid_grade": 1.0},
+        "baseline_metrics": {
+            "mean_r_squared": -0.005,
+            "std_r_squared": 0.002,
+            "mean_mae": 0.230,
+            "std_mae": 0.004,
+            "mean_spearman": 0.0,
+            "std_spearman": 0.0,
+            "oof_spearman": 0.0,
+            "fold_scores": [
+                {"r_squared": -0.005, "mae": 0.230, "spearman_rho": 0.0},
+            ],
+        },
+        "significance": {
+            "oof_spearman": 0.12,
+            "permutation_pvalue": 0.02,
+            "n_permutations": 200,
+        },
+        "data_provenance": {
+            "source": "huggingface",
+            "dataset_name": "furonghuang-lab/Easy2Hard-Bench",
+            "config": "E2H-ARC",
+            "split": "eval",
+            "revision": "55bc0d2fb10954151e669d2026b87fa896f2fa26",
+            "is_fallback": False,
+        },
         "predictions": [0.5],
         "difficulties": [0.5],
         "seed": 42,

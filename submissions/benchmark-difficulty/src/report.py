@@ -32,6 +32,9 @@ def generate_report(results: dict) -> str:
     # Model performance
     mm = results["model_metrics"]
     cv = results["cv_metrics"]
+    baseline = results["baseline_metrics"]
+    significance = results["significance"]
+    provenance = results.get("data_provenance", {})
     lines.append("## Model Performance")
     lines.append("")
     lines.append("| Metric | Train (Full) | Cross-Validated (mean +/- std) |")
@@ -42,6 +45,7 @@ def generate_report(results: dict) -> str:
                  f"{cv['mean_mae']:.4f} +/- {cv['std_mae']:.4f} |")
     lines.append(f"| Spearman rho | - | "
                  f"{cv['mean_spearman']:.4f} +/- {cv['std_spearman']:.4f} |")
+    lines.append(f"| Spearman rho (OOF) | - | {cv['oof_spearman']:.4f} |")
     lines.append("")
 
     # Cross-validation fold details
@@ -52,6 +56,35 @@ def generate_report(results: dict) -> str:
     for i, fold in enumerate(cv["fold_scores"]):
         lines.append(f"| {i+1} | {fold['r_squared']:.4f} | "
                      f"{fold['mae']:.4f} | {fold['spearman_rho']:.4f} |")
+    lines.append("")
+
+    # Baseline comparison
+    lines.append("## Baseline Comparison")
+    lines.append("")
+    lines.append("Random Forest is compared against a mean-prediction dummy regressor "
+                 "on the same CV folds.")
+    lines.append("")
+    lines.append("| Metric | Random Forest (CV) | Dummy Mean Baseline (CV) | Delta (RF - baseline) |")
+    lines.append("|--------|--------------------|---------------------------|-----------------------|")
+    lines.append(f"| R-squared | {cv['mean_r_squared']:.4f} +/- {cv['std_r_squared']:.4f} | "
+                 f"{baseline['mean_r_squared']:.4f} +/- {baseline['std_r_squared']:.4f} | "
+                 f"{(cv['mean_r_squared'] - baseline['mean_r_squared']):+.4f} |")
+    lines.append(f"| MAE | {cv['mean_mae']:.4f} +/- {cv['std_mae']:.4f} | "
+                 f"{baseline['mean_mae']:.4f} +/- {baseline['std_mae']:.4f} | "
+                 f"{(cv['mean_mae'] - baseline['mean_mae']):+.4f} |")
+    lines.append(f"| Spearman rho (fold mean) | {cv['mean_spearman']:.4f} +/- {cv['std_spearman']:.4f} | "
+                 f"{baseline['mean_spearman']:.4f} +/- {baseline['std_spearman']:.4f} | "
+                 f"{(cv['mean_spearman'] - baseline['mean_spearman']):+.4f} |")
+    lines.append(f"| Spearman rho (OOF) | {cv['oof_spearman']:.4f} | "
+                 f"{baseline['oof_spearman']:.4f} | "
+                 f"{(cv['oof_spearman'] - baseline['oof_spearman']):+.4f} |")
+    lines.append("")
+
+    lines.append(
+        f"Permutation test on out-of-fold Spearman (n={significance['n_permutations']}): "
+        f"rho = {significance['oof_spearman']:.4f}, "
+        f"p = {significance['permutation_pvalue']:.4f}."
+    )
     lines.append("")
 
     # Feature correlations
@@ -111,6 +144,10 @@ def generate_report(results: dict) -> str:
                  f"(importance = {top_feature[1]:.3f})")
     lines.append(f"4. **Cross-validated Spearman rho:** "
                  f"{cv['mean_spearman']:.3f} +/- {cv['std_spearman']:.3f}")
+    lines.append(f"5. **Dummy baseline Spearman rho (OOF):** "
+                 f"{baseline['oof_spearman']:.3f}")
+    lines.append(f"6. **Permutation test p-value:** "
+                 f"{significance['permutation_pvalue']:.4f}")
     lines.append("")
 
     # Interpretation
@@ -124,6 +161,17 @@ def generate_report(results: dict) -> str:
             "difficulty prediction, even though the positive Spearman rho "
             "suggests a weak rank-order signal."
         )
+        if significance["permutation_pvalue"] < 0.05:
+            lines.append(
+                "Permutation testing indicates this rank signal is statistically "
+                "non-zero, but the effect size remains too small for practical "
+                "difficulty prediction."
+            )
+        else:
+            lines.append(
+                "Permutation testing does not distinguish this rank signal from "
+                "chance at the chosen threshold."
+            )
     elif cv["mean_spearman"] > 0.3:
         lines.append("The cross-validated Spearman correlation exceeds 0.3, "
                      "indicating that structural features alone can provide "
@@ -154,7 +202,23 @@ def generate_report(results: dict) -> str:
                  "high-cardinality features.")
     lines.append("- Cross-validation on a small dataset may have high "
                  "variance between folds.")
+    lines.append("- Permutation tests assess statistical significance, not "
+                 "practical usefulness.")
     lines.append("")
+
+    # Reproducibility metadata
+    if provenance:
+        lines.append("## Reproducibility Metadata")
+        lines.append("")
+        lines.append(f"- Data source mode: `{provenance.get('source', 'unknown')}`")
+        lines.append(f"- Dataset: `{provenance.get('dataset_name', 'unknown')}`")
+        lines.append(f"- Config/split: `{provenance.get('config', 'unknown')}` / "
+                     f"`{provenance.get('split', 'unknown')}`")
+        lines.append(f"- Dataset revision: `{provenance.get('revision', 'unknown')}`")
+        lines.append(f"- Fallback used: `{provenance.get('is_fallback', False)}`")
+        if provenance.get("fallback_reason"):
+            lines.append(f"- Fallback reason: `{provenance['fallback_reason']}`")
+        lines.append("")
 
     lines.append("---")
     lines.append(f"*Generated with seed={results['seed']}. "

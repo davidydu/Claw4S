@@ -1,7 +1,11 @@
 """Tests for data loading module."""
 
 import pytest
-from src.data import load_arc_with_difficulty, HARDCODED_ARC_SAMPLE
+from src.data import (
+    load_arc_with_difficulty,
+    HARDCODED_ARC_SAMPLE,
+    EASY2HARD_DATASET_REVISION,
+)
 
 
 def test_hardcoded_sample_exists():
@@ -62,3 +66,19 @@ def test_load_arc_answer_valid():
         assert isinstance(q["answer"], int)
         assert 0 <= q["answer"] < len(q["choices"]), \
             f"Answer index {q['answer']} out of range for {q['id']}"
+
+
+def test_load_arc_returns_provenance_metadata():
+    """Optional metadata output includes pinned dataset provenance."""
+    data, metadata = load_arc_with_difficulty(
+        use_hardcoded=True,
+        return_metadata=True,
+    )
+    assert isinstance(data, list)
+    assert isinstance(metadata, dict)
+    assert metadata["dataset_name"] == "furonghuang-lab/Easy2Hard-Bench"
+    assert metadata["config"] == "E2H-ARC"
+    assert metadata["split"] == "eval"
+    assert metadata["revision"] == EASY2HARD_DATASET_REVISION
+    assert metadata["source"] == "hardcoded_forced"
+    assert metadata["is_fallback"] is True

@@ -12,6 +12,11 @@ Citation:
 HuggingFace: furonghuang-lab/Easy2Hard-Bench, config E2H-ARC
 """
 
+EASY2HARD_DATASET_NAME = "furonghuang-lab/Easy2Hard-Bench"
+EASY2HARD_CONFIG = "E2H-ARC"
+EASY2HARD_SPLIT = "eval"
+EASY2HARD_DATASET_REVISION = "55bc0d2fb10954151e669d2026b87fa896f2fa26"
+
 
 # Hardcoded representative sample of 98 ARC-Challenge questions with IRT
 # difficulty scores from Easy2Hard-Bench. Sampled uniformly across the
@@ -120,39 +125,70 @@ HARDCODED_ARC_SAMPLE = [
 ]
 
 
-def load_arc_with_difficulty(use_hardcoded=False):
+def _build_provenance(
+    source: str,
+    is_fallback: bool,
+    fallback_reason: str | None = None,
+) -> dict:
+    """Create standardized dataset provenance metadata."""
+    metadata = {
+        "source": source,
+        "dataset_name": EASY2HARD_DATASET_NAME,
+        "config": EASY2HARD_CONFIG,
+        "split": EASY2HARD_SPLIT,
+        "revision": EASY2HARD_DATASET_REVISION,
+        "is_fallback": is_fallback,
+    }
+    if fallback_reason:
+        metadata["fallback_reason"] = fallback_reason
+    return metadata
+
+
+def load_arc_with_difficulty(
+    use_hardcoded: bool = False,
+    return_metadata: bool = False,
+):
     """Load ARC-Challenge questions with IRT difficulty scores.
 
     Args:
         use_hardcoded: If True, use hardcoded sample (98 questions).
             If False, try downloading full dataset from HuggingFace
             (1172 questions), falling back to hardcoded on failure.
+        return_metadata: If True, return (questions, provenance_metadata).
 
     Returns:
-        List of dicts, each with keys:
-            - id: str, question identifier
-            - question: str, question text
-            - choices: list of str, answer options
-            - answer: int, index of correct answer in choices
-            - difficulty: float in [0, 1], IRT difficulty score
+        If return_metadata=False:
+            List of dicts, each with keys:
+                - id: str, question identifier
+                - question: str, question text
+                - choices: list of str, answer options
+                - answer: int, index of correct answer in choices
+                - difficulty: float in [0, 1], IRT difficulty score
+        If return_metadata=True:
+            Tuple (questions, provenance_metadata).
 
     Source:
         Wang et al. "Easy2Hard-Bench" (NeurIPS 2024).
         furonghuang-lab/Easy2Hard-Bench, config E2H-ARC.
     """
     if use_hardcoded:
-        return list(HARDCODED_ARC_SAMPLE)
+        questions = list(HARDCODED_ARC_SAMPLE)
+        metadata = _build_provenance(
+            source="hardcoded_forced",
+            is_fallback=True,
+        )
+        return (questions, metadata) if return_metadata else questions
 
     try:
         from datasets import load_dataset
 
         ds = load_dataset(
-            "furonghuang-lab/Easy2Hard-Bench",
-            "E2H-ARC",
-            revision="55bc0d2fb10954151e669d2026b87fa896f2fa26",
+            EASY2HARD_DATASET_NAME,
+            EASY2HARD_CONFIG,
+            revision=EASY2HARD_DATASET_REVISION,
         )
         data = []
-        for row in ds["eval"]:
+        for row in ds[EASY2HARD_SPLIT]:
             answer_key = row["answerKey"]
             labels = row["choices"]["label"]
             texts = row["choices"]["text"]
@@ -164,10 +200,15 @@ def load_arc_with_difficulty(use_hardcoded=False):
                 "answer": answer_idx,
                 "difficulty": float(row["rating"]),
             })
-        return data
+        metadata = _build_provenance(source="huggingface", is_fallback=False)
+        return (data, metadata) if return_metadata else data
     except (ConnectionError, OSError, ImportError, ValueError) as e:
-        import traceback
-        print(f"Warning: Could not load from HuggingFace ({e}), "
-              f"using hardcoded sample.")
-        traceback.print_exc()
-        return list(HARDCODED_ARC_SAMPLE)
+        print("Warning: Could not load Easy2Hard-Bench from HuggingFace "
+              f"({e}). Using hardcoded fallback sample.")
+        questions = list(HARDCODED_ARC_SAMPLE)
+        metadata = _build_provenance(
+            source="hardcoded_fallback",
+            is_fallback=True,
+            fallback_reason=str(e),
+        )
+        return (questions, metadata) if return_metadata else questions

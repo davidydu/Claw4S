@@ -8,6 +8,13 @@ if not os.path.exists("src/data.py"):
     print("ERROR: Must run from submissions/benchmark-difficulty/ directory")
     raise SystemExit(1)
 
+from src.data import (
+    EASY2HARD_DATASET_NAME,
+    EASY2HARD_CONFIG,
+    EASY2HARD_SPLIT,
+    EASY2HARD_DATASET_REVISION,
+)
+
 
 errors = []
 
@@ -73,9 +80,99 @@ print(f"\nCross-validation metrics:")
 print(f"  R-squared:   {cv['mean_r_squared']:.4f} +/- {cv['std_r_squared']:.4f}")
 print(f"  MAE:         {cv['mean_mae']:.4f} +/- {cv['std_mae']:.4f}")
 print(f"  Spearman:    {cv['mean_spearman']:.4f} +/- {cv['std_spearman']:.4f}")
+if "oof_spearman" in cv:
+    print(f"  Spearman OOF:{cv['oof_spearman']:.4f}")
+    if not (-1.0 <= cv["oof_spearman"] <= 1.0):
+        errors.append(f"Invalid CV OOF Spearman: {cv['oof_spearman']}")
+else:
+    errors.append("Missing cv_metrics.oof_spearman")
 
 if len(cv["fold_scores"]) < 3:
     errors.append(f"Expected >= 3 CV folds, got {len(cv['fold_scores'])}")
+
+# Validate baseline metrics
+baseline = data.get("baseline_metrics")
+if baseline is None:
+    errors.append("Missing baseline_metrics in results.json")
+else:
+    required_baseline_keys = {
+        "mean_r_squared",
+        "std_r_squared",
+        "mean_mae",
+        "std_mae",
+        "mean_spearman",
+        "std_spearman",
+        "oof_spearman",
+        "fold_scores",
+    }
+    missing = required_baseline_keys - set(baseline.keys())
+    if missing:
+        errors.append(f"Missing baseline metric keys: {sorted(missing)}")
+    else:
+        print("\nBaseline metrics (dummy mean predictor):")
+        print(f"  R-squared:   {baseline['mean_r_squared']:.4f} +/- "
+              f"{baseline['std_r_squared']:.4f}")
+        print(f"  MAE:         {baseline['mean_mae']:.4f} +/- "
+              f"{baseline['std_mae']:.4f}")
+        print(f"  Spearman:    {baseline['mean_spearman']:.4f} +/- "
+              f"{baseline['std_spearman']:.4f}")
+        print(f"  Spearman OOF:{baseline['oof_spearman']:.4f}")
+        if len(baseline["fold_scores"]) != len(cv["fold_scores"]):
+            errors.append("Baseline fold count does not match CV fold count")
+
+# Validate significance testing
+sig = data.get("significance")
+if sig is None:
+    errors.append("Missing significance section in results.json")
+else:
+    required_sig_keys = {"oof_spearman", "permutation_pvalue", "n_permutations"}
+    missing = required_sig_keys - set(sig.keys())
+    if missing:
+        errors.append(f"Missing significance keys: {sorted(missing)}")
+    else:
+        print("\nPermutation significance:")
+        print(f"  OOF Spearman:       {sig['oof_spearman']:.4f}")
+        print(f"  Permutation pvalue: {sig['permutation_pvalue']:.4f}")
+        print(f"  # permutations:     {sig['n_permutations']}")
+        if not (-1.0 <= sig["oof_spearman"] <= 1.0):
+            errors.append(f"Invalid OOF Spearman: {sig['oof_spearman']}")
+        if not (0.0 <= sig["permutation_pvalue"] <= 1.0):
+            errors.append(f"Invalid permutation p-value: {sig['permutation_pvalue']}")
+        if sig["n_permutations"] < 0:
+            errors.append(f"Invalid n_permutations: {sig['n_permutations']}")
+
+# Validate provenance metadata
+prov = data.get("data_provenance")
+if prov is None:
+    errors.append("Missing data_provenance in results.json")
+else:
+    required_prov_keys = {
+        "source",
+        "dataset_name",
+        "config",
+        "split",
+        "revision",
+        "is_fallback",
+    }
+    missing = required_prov_keys - set(prov.keys())
+    if missing:
+        errors.append(f"Missing provenance keys: {sorted(missing)}")
+    else:
+        print("\nData provenance:")
+        print(f"  source:   {prov['source']}")
+        print(f"  dataset:  {prov['dataset_name']}/{prov['config']}")
+        print(f"  split:    {prov['split']}")
+        print(f"  revision: {prov['revision']}")
+        if prov["dataset_name"] != EASY2HARD_DATASET_NAME:
+            errors.append("Unexpected dataset_name in provenance")
+        if prov["config"] != EASY2HARD_CONFIG:
+            errors.append("Unexpected config in provenance")
+        if prov["split"] != EASY2HARD_SPLIT:
+            errors.append("Unexpected split in provenance")
+        if prov["revision"] != EASY2HARD_DATASET_REVISION:
+            errors.append("Dataset revision is not pinned to expected commit")
+        if prov["source"].startswith("hardcoded"):
+            print("WARNING: Hardcoded dataset sample was used.")
 
 # Validate feature importances
 fi = data["feature_importances"]

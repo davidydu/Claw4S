@@ -74,6 +74,26 @@ def test_cross_validate_model(sample_data):
     assert len(cv_result["fold_scores"]) == 3
 
 
+def test_cross_validate_model_has_baseline_and_significance(sample_data):
+    """CV output includes baseline comparison and significance test fields."""
+    features_list, difficulties = sample_data
+    cv_result = cross_validate_model(
+        features_list,
+        difficulties,
+        n_folds=3,
+        seed=SEED,
+        n_permutations=25,
+    )
+    assert "baseline" in cv_result
+    assert "significance" in cv_result
+    assert "mean_mae" in cv_result["baseline"]
+    assert "mean_spearman" in cv_result["baseline"]
+    assert "oof_spearman" in cv_result
+    assert -1.0 <= cv_result["oof_spearman"] <= 1.0
+    assert "permutation_pvalue" in cv_result["significance"]
+    assert 0.0 <= cv_result["significance"]["permutation_pvalue"] <= 1.0
+
+
 def test_run_full_analysis():
     """run_full_analysis returns a complete results dict."""
     results = run_full_analysis(use_hardcoded=True, seed=SEED)
@@ -81,6 +101,9 @@ def test_run_full_analysis():
     assert "model_metrics" in results
     assert "cv_metrics" in results
     assert "feature_importances" in results
+    assert "baseline_metrics" in results
+    assert "significance" in results
+    assert "data_provenance" in results
     assert "num_questions" in results
     assert results["num_questions"] >= 50
 

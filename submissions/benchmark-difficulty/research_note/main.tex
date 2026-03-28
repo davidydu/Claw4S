@@ -26,7 +26,7 @@ Claw\textsuperscript{2}
 \maketitle
 
 \begin{abstract}
-We investigate whether structural and information-theoretic features of multiple-choice benchmark questions can predict which questions are difficult for large language models (LLMs), without running any model. Using 1{,}172 ARC-Challenge questions annotated with Item Response Theory (IRT) difficulty scores from Easy2Hard-Bench, we extract 12 surface-level features---including answer entropy, lexical overlap, negation count, and Flesch-Kincaid grade level---and train a Random Forest regressor. Our cross-validated Spearman correlation of $\rho = 0.127 \pm 0.023$ and near-zero $R^2$ demonstrate that \textbf{structural features alone are insufficient to predict LLM difficulty}. This negative result is itself informative: it provides quantitative evidence that LLM benchmark difficulty is primarily determined by semantic reasoning demands rather than surface-level textual properties. Among structural features, negation count shows the only statistically significant correlation ($\rho = 0.071$, $p < 0.02$), suggesting that negation adds a small but measurable reasoning burden.
+We investigate whether structural and information-theoretic features of multiple-choice benchmark questions can predict which questions are difficult for large language models (LLMs), without running any model. Using 1{,}172 ARC-Challenge questions annotated with Item Response Theory (IRT) difficulty scores from Easy2Hard-Bench, we extract 12 surface-level features---including answer entropy, lexical overlap, negation count, and Flesch-Kincaid grade level---and train a Random Forest regressor. Our cross-validated Spearman correlation of $\rho = 0.127 \pm 0.023$ and near-zero $R^2$ demonstrate that \textbf{structural features alone are insufficient to predict LLM difficulty}. Compared with a dummy mean-prediction baseline (cross-validated Spearman $\rho = 0.000 \pm 0.000$), the random forest shows only modest uplift; an out-of-fold permutation test gives $\rho = 0.129$, $p = 0.005$, indicating statistically non-zero but practically weak signal. This negative result is itself informative: it provides quantitative evidence that LLM benchmark difficulty is primarily determined by semantic reasoning demands rather than surface-level textual properties. Among structural features, negation count shows the only nominally significant correlation ($\rho = 0.071$, $p < 0.02$), but no feature survives multiple-testing correction.
 \end{abstract}
 
 \section{Introduction}
@@ -41,7 +41,7 @@ We focus on the ARC-Challenge benchmark \citep{clark2018think}, a standard scien
 
 \subsection{Data}
 
-We use the E2H-ARC split of Easy2Hard-Bench \citep{wang2024easy2hard}, containing 1{,}172 ARC-Challenge questions with IRT difficulty ratings normalized to $[0, 1]$. Difficulty scores were estimated using IRT and Glicko-2 models from per-question accuracy data across thousands of LLMs.
+We use the E2H-ARC split of Easy2Hard-Bench \citep{wang2024easy2hard}, containing 1{,}172 ARC-Challenge questions with IRT difficulty ratings normalized to $[0, 1]$. Difficulty scores were estimated using IRT and Glicko-2 models from per-question accuracy data across thousands of LLMs. For reproducibility, we pin the HuggingFace dataset revision to commit \texttt{55bc0d2fb10954151e669d2026b87fa896f2fa26}.
 
 \subsection{Feature Extraction}
 
@@ -64,7 +64,7 @@ For each question, we extract 12 structural features without running any LLM:
 
 \subsection{Analysis}
 
-We compute Spearman rank correlations between each feature and IRT difficulty. We train a Random Forest regressor (100 trees, max depth 10, min samples leaf 3, seed 42) and evaluate using 5-fold cross-validation with three metrics: $R^2$, mean absolute error (MAE), and Spearman $\rho$.
+We compute Spearman rank correlations between each feature and IRT difficulty. We train a Random Forest regressor (100 trees, max depth 10, min samples leaf 3, seed 42) and evaluate using 5-fold cross-validation with three metrics: $R^2$, mean absolute error (MAE), and Spearman $\rho$. To calibrate whether any signal is meaningful, we also evaluate a dummy mean-prediction baseline on the same folds. Finally, we compute out-of-fold Spearman correlation and run a label-permutation test (200 permutations) to assess whether observed rank correlation exceeds chance.
 
 \section{Results}
 
@@ -98,19 +98,20 @@ word\_count & $+0.002$ & $0.947$ & No \\
 
 \subsection{Prediction Performance}
 
-The Random Forest model achieves high training $R^2$ (0.510) but near-zero cross-validated performance (Table~\ref{tab:model}), indicating severe overfitting. The cross-validated Spearman $\rho = 0.127$ indicates a weak but non-trivial rank correlation.
+The Random Forest model achieves high training $R^2$ (0.510) but near-zero cross-validated performance (Table~\ref{tab:model}), indicating severe overfitting. Relative to the dummy baseline, the random forest provides only modest gains (MAE improvement: 0.227 to 0.223). The out-of-fold Spearman is $\rho = 0.129$; permutation testing yields $p = 0.005$, indicating the signal is statistically non-zero but still weak in practical terms.
 
 \begin{table}[h]
 \centering
 \caption{Difficulty prediction model performance.}
 \label{tab:model}
-\begin{tabular}{lcc}
+\begin{tabular}{lccc}
 \toprule
-Metric & Training & Cross-Validated (5-fold) \\
+Metric & Training (RF) & Cross-Validated RF (5-fold) & Cross-Validated Dummy (5-fold) \\
 \midrule
-$R^2$ & 0.510 & $0.007 \pm 0.010$ \\
-MAE & 0.155 & $0.223 \pm 0.007$ \\
-Spearman $\rho$ & --- & $0.127 \pm 0.023$ \\
+$R^2$ & 0.510 & $0.007 \pm 0.010$ & $-0.001 \pm 0.001$ \\
+MAE & 0.155 & $0.223 \pm 0.007$ & $0.227 \pm 0.007$ \\
+Spearman $\rho$ (fold mean) & --- & $0.127 \pm 0.023$ & $0.000 \pm 0.000$ \\
+Spearman $\rho$ (out-of-fold) & --- & 0.129 & -0.024 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -121,7 +122,7 @@ The Random Forest feature importances (Mean Decrease in Impurity) rank Flesch-Ki
 
 \section{Discussion}
 
-Our key finding is a \textbf{negative result}: structural features of benchmark questions cannot meaningfully predict which questions are difficult for LLMs. The cross-validated $R^2$ of 0.007 means that structural features explain less than 1\% of the variance in difficulty. This is consistent with the intuition that LLM difficulty arises from \emph{reasoning demands}---the depth of inference, domain knowledge, and logical chains required---rather than from surface properties like question length or vocabulary complexity.
+Our key finding is a \textbf{negative result}: structural features of benchmark questions cannot meaningfully predict which questions are difficult for LLMs. The cross-validated $R^2$ of 0.007 means that structural features explain less than 1\% of the variance in difficulty. Although permutation testing indicates the rank signal is statistically non-zero, the absolute effect size remains small and practically weak. This is consistent with the intuition that LLM difficulty arises from \emph{reasoning demands}---the depth of inference, domain knowledge, and logical chains required---rather than from surface properties like question length or vocabulary complexity.
 
 The one significant finding---negation count's positive correlation with difficulty---aligns with known challenges LLMs face with negation. Questions containing ``NOT,'' ``except,'' or ``never'' require negating a default inference, adding a reasoning step that structural features can detect.
 

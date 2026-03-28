@@ -11,6 +11,7 @@ Key metrics:
 
 import numpy as np
 from scipy import stats
+from sklearn.dummy import DummyRegressor
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import KFold
 
@@ -51,6 +52,65 @@ def _features_to_matrix(features_list: list[dict]) -> np.ndarray:
     return np.array([[f[name] for name in FEATURE_NAMES] for f in features_list])
 
 
+def _safe_spearman(x: np.ndarray, y: np.ndarray) -> float:
+    """Compute Spearman rho and coerce undefined values to 0.0."""
+    if len(x) < 3 or np.std(x) < 1e-10 or np.std(y) < 1e-10:
+        return 0.0
+    rho, _ = stats.spearmanr(x, y)
+    if np.isnan(rho):
+        return 0.0
+    return float(rho)
+
+
+def _regression_scores(y_true: np.ndarray, y_pred: np.ndarray) -> dict[str, float]:
+    """Compute regression quality scores used across model evaluations."""
+    residuals = y_true - y_pred
+    ss_res = np.sum(residuals ** 2)
+    ss_tot = np.sum((y_true - np.mean(y_true)) ** 2)
+    r_squared = 1.0 - (ss_res / ss_tot) if ss_tot > 0 else 0.0
+    mae = float(np.mean(np.abs(residuals)))
+    spearman_rho = _safe_spearman(y_pred, y_true)
+    return {
+        "r_squared": float(r_squared),
+        "mae": mae,
+        "spearman_rho": spearman_rho,
+    }
+
+
+def _permutation_test_spearman(
+    predictions: np.ndarray,
+    targets: np.ndarray,
+    n_permutations: int = 200,
+    seed: int = 42,
+) -> dict[str, float]:
+    """Estimate p-value for Spearman rho via label permutation."""
+    observed = _safe_spearman(predictions, targets)
+
+    if n_permutations <= 0:
+        return {
+            "oof_spearman": observed,
+            "permutation_pvalue": 1.0,
+            "n_permutations": 0,
+        }
+
+    rng = np.random.default_rng(seed)
+    abs_observed = abs(observed)
+    extreme_count = 0
+
+    for _ in range(n_permutations):
+        perm_targets = rng.permutation(targets)
+        perm_rho = _safe_spearman(predictions, perm_targets)
+        if abs(perm_rho) >= abs_observed:
+            extreme_count += 1
+
+    pvalue = (extreme_count + 1) / (n_permutations + 1)
+    return {
+        "oof_spearman": observed,
+        "permutation_pvalue": float(pvalue),
+        "n_permutations": int(n_permutations),
+    }
+
+
 def train_difficulty_model(
     features_list: list[dict],
     difficulties: list[float],
@@ -75,22 +135,19 @@ def train_difficulty_model(
         max_depth=10,
         min_samples_leaf=3,
         random_state=seed,
+        n_jobs=1,
     )
     model.fit(X, y)
 
     predictions = model.predict(X)
-    residuals = y - predictions
-    ss_res = np.sum(residuals ** 2)
-    ss_tot = np.sum((y - np.mean(y)) ** 2)
-    r_squared = 1.0 - (ss_res / ss_tot) if ss_tot > 0 else 0.0
-    mae = np.mean(np.abs(residuals))
+    scores = _regression_scores(y, predictions)
 
     importances = dict(zip(FEATURE_NAMES, model.feature_importances_))
 
     return {
         "model": model,
-        "r_squared": float(r_squared),
-        "mae": float(mae),
+        "r_squared": scores["r_squared"],
+        "mae": scores["mae"],
         "feature_importances": importances,
         "predictions": predictions.tolist(),
     }
@@ -101,6 +158,7 @@ def cross_validate_model(
     difficulties: list[float],
     n_folds: int = 5,
     seed: int = 42,
+    n_permutations: int = 200,
 ) -> dict:
     """Cross-validate the difficulty prediction model.
 
@@ -109,10 +167,12 @@ def cross_validate_model(
         difficulties: List of difficulty scores.
         n_folds: Number of CV folds.
         seed: Random seed.
+        n_permutations: Number of label permutations for significance testing.
 
     Returns:
         Dict with keys: mean_r_squared, std_r_squared, mean_mae,
-        mean_spearman, std_spearman, fold_scores.
+        mean_spearman, std_spearman, fold_scores, oof_spearman, baseline,
+        significance.
     """
     X = _features_to_matrix(features_list)
     y = np.array(difficulties)
@@ -120,6 +180,10 @@ def cross_validate_model(
     kf = KFold(n_splits=n_folds, shuffle=True, random_state=seed)
 
     fold_scores = []
+    baseline_fold_scores = []
+    oof_predictions = np.zeros(len(y), dtype=float)
+    baseline_oof_predictions = np.zeros(len(y), dtype=float)
+
     for train_idx, test_idx in kf.split(X):
         X_train, X_test = X[train_idx], X[test_idx]
         y_train, y_test = y[train_idx], y[test_idx]
@@ -129,59 +193,80 @@ def cross_validate_model(
             max_depth=10,
             min_samples_leaf=3,
             random_state=seed,
+            n_jobs=1,
         )
         model.fit(X_train, y_train)
 
         predictions = model.predict(X_test)
-        residuals = y_test - predictions
-        ss_res = np.sum(residuals ** 2)
-        ss_tot = np.sum((y_test - np.mean(y_test)) ** 2)
-        r_squared = 1.0 - (ss_res / ss_tot) if ss_tot > 0 else 0.0
-        mae = float(np.mean(np.abs(residuals)))
+        fold_metric = _regression_scores(y_test, predictions)
+        fold_scores.append(fold_metric)
+        oof_predictions[test_idx] = predictions
 
-        # Spearman correlation on test set
-        if len(y_test) > 2 and np.std(predictions) > 1e-10:
-            rho, _ = stats.spearmanr(predictions, y_test)
-        else:
-            rho = 0.0
+        baseline = DummyRegressor(strategy="mean")
+        baseline.fit(X_train, y_train)
+        baseline_predictions = baseline.predict(X_test)
+        baseline_metric = _regression_scores(y_test, baseline_predictions)
+        baseline_fold_scores.append(baseline_metric)
+        baseline_oof_predictions[test_idx] = baseline_predictions
 
-        fold_scores.append({
-            "r_squared": float(r_squared),
-            "mae": mae,
-            "spearman_rho": float(rho),
-        })
+    def _aggregate_scores(per_fold: list[dict[str, float]]) -> dict[str, float]:
+        r2_vals = [fs["r_squared"] for fs in per_fold]
+        mae_vals = [fs["mae"] for fs in per_fold]
+        rho_vals = [fs["spearman_rho"] for fs in per_fold]
+        return {
+            "mean_r_squared": float(np.mean(r2_vals)),
+            "std_r_squared": float(np.std(r2_vals)),
+            "mean_mae": float(np.mean(mae_vals)),
+            "std_mae": float(np.std(mae_vals)),
+            "mean_spearman": float(np.mean(rho_vals)),
+            "std_spearman": float(np.std(rho_vals)),
+            "fold_scores": per_fold,
+        }
 
-    r2_vals = [fs["r_squared"] for fs in fold_scores]
-    mae_vals = [fs["mae"] for fs in fold_scores]
-    rho_vals = [fs["spearman_rho"] for fs in fold_scores]
+    model_metrics = _aggregate_scores(fold_scores)
+    baseline_metrics = _aggregate_scores(baseline_fold_scores)
+    model_oof_spearman = _safe_spearman(oof_predictions, y)
+    baseline_oof_spearman = _safe_spearman(baseline_oof_predictions, y)
+    significance = _permutation_test_spearman(
+        predictions=oof_predictions,
+        targets=y,
+        n_permutations=n_permutations,
+        seed=seed,
+    )
 
     return {
-        "mean_r_squared": float(np.mean(r2_vals)),
-        "std_r_squared": float(np.std(r2_vals)),
-        "mean_mae": float(np.mean(mae_vals)),
-        "std_mae": float(np.std(mae_vals)),
-        "mean_spearman": float(np.mean(rho_vals)),
-        "std_spearman": float(np.std(rho_vals)),
-        "fold_scores": fold_scores,
+        **model_metrics,
+        "oof_spearman": model_oof_spearman,
+        "baseline": {
+            **baseline_metrics,
+            "oof_spearman": baseline_oof_spearman,
+        },
+        "significance": significance,
     }
 
 
 def run_full_analysis(
     use_hardcoded: bool = False,
     seed: int = 42,
+    n_permutations: int = 200,
 ) -> dict:
     """Run the complete analysis pipeline.
 
     Args:
         use_hardcoded: Whether to use hardcoded data only.
         seed: Random seed.
+        n_permutations: Number of label permutations for significance testing.
 
     Returns:
         Complete results dict with correlations, model metrics, CV metrics,
-        feature importances, predictions, and difficulties.
+        baseline and significance metrics, feature importances, predictions,
+        and difficulties.
     """
     # Load data
-    questions = load_arc_with_difficulty(use_hardcoded=use_hardcoded)
+    questions, provenance = load_arc_with_difficulty(
+        use_hardcoded=use_hardcoded,
+        return_metadata=True,
+    )
 
     # Extract features
     features_list = extract_all_features(questions)
@@ -194,7 +279,12 @@ def run_full_analysis(
     model_result = train_difficulty_model(features_list, difficulties, seed=seed)
 
     # Cross-validate
-    cv_result = cross_validate_model(features_list, difficulties, seed=seed)
+    cv_result = cross_validate_model(
+        features_list,
+        difficulties,
+        seed=seed,
+        n_permutations=n_permutations,
+    )
 
     # Rank features by importance
     importances = model_result["feature_importances"]
@@ -220,12 +310,16 @@ def run_full_analysis(
             "mean_spearman": cv_result["mean_spearman"],
             "std_spearman": cv_result["std_spearman"],
             "fold_scores": cv_result["fold_scores"],
+            "oof_spearman": cv_result["oof_spearman"],
         },
+        "baseline_metrics": cv_result["baseline"],
+        "significance": cv_result["significance"],
         "feature_importances": importances,
         "ranked_features": ranked_features,
         "predictions": model_result["predictions"],
         "difficulties": difficulties,
         "features_list": features_list,
         "question_ids": [q["id"] for q in questions],
+        "data_provenance": provenance,
         "seed": seed,
     }
