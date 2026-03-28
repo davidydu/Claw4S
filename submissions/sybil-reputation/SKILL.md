@@ -40,7 +40,7 @@ Verify the simulation modules work correctly:
 .venv/bin/python -m pytest tests/ -v
 ```
 
-Expected: `29 passed` and exit code 0.
+Expected: `31 passed` and exit code 0.
 
 ## Step 3: Run Diagnostic
 
