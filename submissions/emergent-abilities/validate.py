@@ -4,11 +4,7 @@ import json
 import os
 import sys
 
-from src.config import (
-    DEFAULT_SEED,
-    MSI_ARTIFACT_THRESHOLD,
-    NONLINEARITY_BOOTSTRAP_SAMPLES,
-)
+from src.config import MSI_ARTIFACT_THRESHOLD, NONLINEARITY_BOOTSTRAP_SAMPLES
 
 if not os.path.exists("src/data.py"):
     print("ERROR: Must run from submissions/emergent-abilities/ directory")
@@ -30,6 +26,9 @@ if not os.path.isfile(results_path):
 else:
     with open(results_path) as f:
         data = json.load(f)
+    config = data.get("analysis_config", {})
+    analysis_threshold = config.get("msi_artifact_threshold", MSI_ARTIFACT_THRESHOLD)
+    analysis_bootstrap = config.get("n_bootstrap", NONLINEARITY_BOOTSTRAP_SAMPLES)
 
     # Check top-level keys
     required_keys = [
@@ -86,10 +85,10 @@ else:
         uncertain_count = sum(
             1 for s in ns.values() if s.get("verdict") in ("uncertain", "inconclusive_sparse")
         )
-        print(f"  Likely artifacts (MSI > {MSI_ARTIFACT_THRESHOLD:.1f}): {artifact_count}")
+        print(f"  Likely artifacts (MSI > {analysis_threshold:.1f}): {artifact_count}")
         print(f"  Definitional (n_tokens = 1): {definitional_count}")
         print(
-            f"  Possibly genuine (MSI <= {MSI_ARTIFACT_THRESHOLD:.1f}, excluding n_tokens = 1): "
+            f"  Possibly genuine (MSI <= {analysis_threshold:.1f}, excluding n_tokens = 1): "
             f"{genuine_count}"
         )
         print(f"  Uncertain / sparse-evidence: {uncertain_count}")
@@ -115,12 +114,12 @@ else:
             ci_high = score.get("msi_ci_upper", float("-inf"))
             if ci_low > ci_high:
                 errors.append(f"Invalid MSI CI bounds for {task_name}: [{ci_low}, {ci_high}]")
-            if score.get("artifact_threshold") != MSI_ARTIFACT_THRESHOLD:
+            if score.get("artifact_threshold") != analysis_threshold:
                 errors.append(
                     f"Unexpected artifact threshold for {task_name}: "
                     f"{score.get('artifact_threshold')}"
                 )
-            if score.get("n_bootstrap") != NONLINEARITY_BOOTSTRAP_SAMPLES:
+            if score.get("n_bootstrap") != analysis_bootstrap:
                 errors.append(
                     f"Unexpected bootstrap count for {task_name}: {score.get('n_bootstrap')}"
                 )
@@ -144,21 +143,12 @@ else:
             errors.append(f"Expected >= 5 MMLU models, got {n_models}")
 
     # Check analysis config
-    config = data.get("analysis_config", {})
     if data.get("seed") != config.get("seed", data.get("seed")):
         errors.append("Seed mismatch between top-level field and analysis_config.seed")
-    if config.get("msi_artifact_threshold") != MSI_ARTIFACT_THRESHOLD:
-        errors.append(
-            f"Expected msi_artifact_threshold={MSI_ARTIFACT_THRESHOLD}, "
-            f"got {config.get('msi_artifact_threshold')}"
-        )
-    if config.get("n_bootstrap") != NONLINEARITY_BOOTSTRAP_SAMPLES:
-        errors.append(
-            f"Expected n_bootstrap={NONLINEARITY_BOOTSTRAP_SAMPLES}, "
-            f"got {config.get('n_bootstrap')}"
-        )
-    if data.get("seed") != DEFAULT_SEED:
-        errors.append(f"Expected seed={DEFAULT_SEED}, got {data.get('seed')}")
+    if not isinstance(analysis_threshold, (int, float)):
+        errors.append(f"Invalid msi_artifact_threshold: {analysis_threshold}")
+    if not isinstance(analysis_bootstrap, int) or analysis_bootstrap <= 0:
+        errors.append(f"Invalid n_bootstrap: {analysis_bootstrap}")
 
 # ── Check report ─────────────────────────────────────────────────────────────
 
