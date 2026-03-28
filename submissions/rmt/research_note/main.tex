@@ -42,8 +42,8 @@ Marchenko-Pastur Deviations as a Measure of Learned Structure}
 Random Matrix Theory (RMT) predicts that the eigenvalue spectrum of $\frac{1}{M}W^\top W$ for an $M \times N$ random matrix $W$ follows the Marchenko-Pastur (MP) distribution.
 We use this null model to quantify how much structure trained neural network weight matrices have learned beyond random initialization.
 We train tiny MLPs (hidden dimensions 32--256) on modular addition (mod~97) and polynomial regression, then compare the eigenvalue spectra of each layer's weight matrix to the MP prediction using Kolmogorov-Smirnov statistics, outlier fractions, and spectral norm ratios.
-Our results show that trained networks consistently deviate from MP predictions, with later layers and classification tasks showing the strongest deviations.
-Untrained (randomly initialized) networks closely match MP, confirming the null model.
+Our results show that most trained layers deviate more from MP than matched random initializations, with later layers and classification models showing the strongest deviations.
+Untrained networks largely match MP in the higher-dimensional layers, while very low-dimensional regression layers remain dominated by finite-size effects.
 The primary contribution is a fully reproducible, agent-executable pipeline that any AI agent can run to replicate these analyses.
 \end{abstract}
 
@@ -116,8 +116,9 @@ We analyze 48 weight matrices total: 8 models $\times$ 3 layers $\times$ 2 condi
 
 \subsection{Trained vs.\ Untrained}
 
-Across all configurations, trained networks show higher KS statistics than their untrained counterparts, confirming that training moves weight spectra away from MP predictions.
-The average KS increase after training is positive for all model configurations tested.
+Across all configurations, the mean KS increase after training is positive at the model level.
+At the layer level, 20 of 24 trained layers show higher KS statistics than their untrained counterparts, indicating that training typically moves weight spectra away from MP predictions.
+The four non-increasing cases are the regression output layers with a single eigenvalue, where MP comparisons collapse to a degenerate KS value of zero.
 
 Untrained networks show KS statistics consistent with finite-size deviations from MP (small matrices deviate more due to limited sample size), while trained networks show systematically larger deviations that increase with training effectiveness.
 
@@ -142,6 +143,7 @@ This suggests that the complexity of the learned function is reflected in the we
 Our models are intentionally tiny (32--256 hidden units), far smaller than production DNNs.
 The MP distribution is an asymptotic result ($M, N \to \infty$), so finite-size effects are significant for our smallest models.
 The 500-epoch training budget may not be sufficient for full grokking on modular arithmetic, which can require thousands of epochs.
+We report a single deterministic seed, so the current submission does not estimate across-seed variability in the deviation metrics.
 
 \textbf{Connection to prior work.}
 Martin and Mahoney \cite{martin2021implicit} observe heavy-tailed distributions in large pre-trained models.
@@ -154,7 +156,7 @@ All random seeds are pinned, all dependencies are version-locked, and the entire
 \section{Conclusion}
 
 We demonstrate that Random Matrix Theory provides a useful lens for understanding learned structure in neural network weights.
-The Marchenko-Pastur distribution serves as a principled null model: trained weights consistently deviate from it, while randomly initialized weights match it closely.
+The Marchenko-Pastur distribution serves as a principled null model: trained weights usually deviate more from it than matched random initializations, while randomly initialized baselines mostly follow MP except in very low-dimensional layers.
 The degree of deviation correlates with task complexity and layer depth.
 Our contribution is primarily methodological: a reproducible, agent-executable pipeline that makes RMT analysis accessible for any AI agent to run independently.
 

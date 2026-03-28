@@ -7,7 +7,6 @@ weight matrix eigenvalue spectra against the Marchenko-Pastur distribution.
 import json
 import os
 import sys
-from datetime import datetime, timezone
 
 import numpy as np
 import torch
@@ -160,7 +159,6 @@ def main() -> None:
 
     results_data = {
         "metadata": {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
             "seed": SEED,
             "hidden_dims": HIDDEN_DIMS,
             "mod_epochs": MOD_EPOCHS,

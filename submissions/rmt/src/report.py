@@ -1,7 +1,6 @@
 """Generate markdown report from RMT analysis results."""
 
 import os
-from datetime import datetime, timezone
 
 
 def generate_report(results_data: dict) -> str:
@@ -22,7 +21,6 @@ def generate_report(results_data: dict) -> str:
     lines = []
     lines.append("# Random Matrix Theory Analysis of Neural Network Weights")
     lines.append("")
-    lines.append(f"Generated: {metadata['timestamp']}")
     lines.append(f"Seed: {metadata['seed']}")
     lines.append("")
 
@@ -107,19 +105,20 @@ def generate_report(results_data: dict) -> str:
     # Key findings
     lines.append("## Key Findings")
     lines.append("")
+    findings = []
 
     # Find layer with max KS in trained models
     if trained:
         max_ks_trained = max(trained, key=lambda r: r["ks_statistic"])
-        lines.append(
-            f"1. **Largest MP deviation (trained):** {max_ks_trained['model_label']} / "
+        findings.append(
+            f"**Largest MP deviation (trained):** {max_ks_trained['model_label']} / "
             f"{max_ks_trained['layer_name']} with KS={max_ks_trained['ks_statistic']:.4f}"
         )
 
     if untrained:
         max_ks_untrained = max(untrained, key=lambda r: r["ks_statistic"])
-        lines.append(
-            f"2. **Largest MP deviation (untrained):** {max_ks_untrained['model_label']} / "
+        findings.append(
+            f"**Largest MP deviation (untrained):** {max_ks_untrained['model_label']} / "
             f"{max_ks_untrained['layer_name']} with KS={max_ks_untrained['ks_statistic']:.4f}"
         )
 
@@ -129,14 +128,41 @@ def generate_report(results_data: dict) -> str:
             sum((d - avg_delta) ** 2 for d in delta_ks_values)
             / max(1, len(delta_ks_values) - 1)
         ) ** 0.5
-        lines.append(
-            f"3. **Average KS increase after training:** "
+        findings.append(
+            f"**Average KS increase after training:** "
             f"{avg_delta:+.4f} (std={std_delta:.4f})"
         )
         positive_deltas = sum(1 for d in delta_ks_values if d > 0)
-        lines.append(
-            f"4. **Layers with increased deviation:** {positive_deltas}/{len(delta_ks_values)}"
+        findings.append(
+            f"**Layers with increased deviation:** {positive_deltas}/{len(delta_ks_values)}"
         )
+        nonpositive_keys = [
+            key for key in sorted(trained_by_key.keys())
+            if trained_by_key[key]["ks_statistic"] <=
+            untrained_by_key[key]["ks_statistic"]
+        ]
+        if nonpositive_keys:
+            all_degenerate = all(
+                trained_by_key[key].get("n_eigenvalues", 0) <= 1
+                for key in nonpositive_keys
+            )
+            if all_degenerate:
+                findings.append(
+                    f"**Layers without increased deviation:** "
+                    f"{len(nonpositive_keys)}/{len(delta_ks_values)}, "
+                    "all single-eigenvalue layers where MP comparisons "
+                    "are degenerate."
+                )
+            else:
+                nonpositive_labels = ", ".join(
+                    f"{model} / {layer}"
+                    for model, layer in nonpositive_keys
+                )
+                findings.append(
+                    f"**Layers without increased deviation:** "
+                    f"{len(nonpositive_keys)}/{len(delta_ks_values)} "
+                    f"({nonpositive_labels})"
+                )
 
     # Spectral norm analysis
     trained_snr = [r["spectral_norm_ratio"] for r in trained]
@@ -144,8 +170,8 @@ def generate_report(results_data: dict) -> str:
     if trained_snr and untrained_snr:
         avg_trained_snr = sum(trained_snr) / len(trained_snr)
         avg_untrained_snr = sum(untrained_snr) / len(untrained_snr)
-        lines.append(
-            f"5. **Avg spectral norm ratio:** trained={avg_trained_snr:.3f}, "
+        findings.append(
+            f"**Avg spectral norm ratio:** trained={avg_trained_snr:.3f}, "
             f"untrained={avg_untrained_snr:.3f}"
         )
 
@@ -155,10 +181,13 @@ def generate_report(results_data: dict) -> str:
     if mod_trained and reg_trained:
         avg_mod_ks = sum(r["ks_statistic"] for r in mod_trained) / len(mod_trained)
         avg_reg_ks = sum(r["ks_statistic"] for r in reg_trained) / len(reg_trained)
-        lines.append(
-            f"6. **Avg KS by task:** modular arithmetic={avg_mod_ks:.4f}, "
+        findings.append(
+            f"**Avg KS by task:** modular arithmetic={avg_mod_ks:.4f}, "
             f"regression={avg_reg_ks:.4f}"
         )
+
+    for index, finding in enumerate(findings, start=1):
+        lines.append(f"{index}. {finding}")
 
     lines.append("")
     lines.append("## Methodology Notes")
