@@ -11,6 +11,7 @@ from src.analysis import (
     analyze_model_families,
     run_full_analysis,
 )
+from src.report import generate_report
 
 
 def test_correlation_matrices_symmetric():
@@ -77,6 +78,13 @@ def test_clustering_distance_matrix():
     np.testing.assert_allclose(np.diag(dist), 0.0, atol=1e-10)
 
 
+def test_clustering_records_average_linkage_method():
+    """Clustering should record the valid linkage used for correlation distances."""
+    result = run_clustering(SCORES, seed=42)
+    assert result["linkage_method"] == "average"
+    assert result["distance_metric"] == "1 - abs(correlation)"
+
+
 def test_redundancy_greedy_order():
     """Greedy selection should return all benchmarks in some order."""
     result = analyze_redundancy(SCORES, seed=42)
@@ -128,3 +136,9 @@ def test_full_analysis_deterministic():
         np.array(r2["correlation"]["pearson"]),
         atol=1e-10,
     )
+
+
+def test_report_mentions_only_analyzed_benchmarks():
+    """Generated report should not reference benchmarks outside the submission."""
+    report = generate_report(run_full_analysis(seed=42))
+    assert "PIQA" not in report

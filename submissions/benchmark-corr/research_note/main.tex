@@ -46,7 +46,7 @@ All six benchmarks use the same evaluation harness (EleutherAI lm-evaluation-har
 
 \paragraph{PCA.} We standardize scores (zero mean, unit variance) and compute principal components to determine the effective dimensionality of the benchmark space.
 
-\paragraph{Hierarchical Clustering.} We cluster benchmarks using Ward's method on a correlation-distance matrix ($d_{ij} = 1 - |r_{ij}|$).
+\paragraph{Hierarchical Clustering.} We cluster benchmarks using average linkage on a correlation-distance matrix ($d_{ij} = 1 - |r_{ij}|$).
 
 \paragraph{Greedy Forward Selection.} We iteratively select the benchmark that maximizes total variance explained (via OLS regression) to identify the minimal informative subset.
 

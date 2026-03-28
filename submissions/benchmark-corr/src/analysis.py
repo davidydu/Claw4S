@@ -104,7 +104,8 @@ def run_clustering(scores, seed=42):
     dist = np.clip(dist, 0.0, None)
 
     condensed = squareform(dist)
-    Z = linkage(condensed, method="ward")
+    # Average linkage is valid for arbitrary precomputed distances.
+    Z = linkage(condensed, method="average")
 
     # Cut at 2 and 3 clusters for analysis
     clusters_2 = fcluster(Z, t=2, criterion="maxclust").tolist()
@@ -112,8 +113,10 @@ def run_clustering(scores, seed=42):
 
     return {
         "linkage": Z.tolist(),
+        "linkage_method": "average",
         "clusters_2": clusters_2,
         "clusters_3": clusters_3,
+        "distance_metric": "1 - abs(correlation)",
         "distance_matrix": dist.tolist(),
         "benchmarks": list(BENCHMARKS),
     }

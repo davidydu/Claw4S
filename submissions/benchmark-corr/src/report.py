@@ -90,6 +90,9 @@ def generate_report(results):
     # --- Section 3: Clustering ---
     lines.append("## 3. Hierarchical Clustering")
     lines.append("")
+    lines.append(f"**Linkage method:** {clust['linkage_method']}")
+    lines.append(f"**Distance metric:** {clust['distance_metric']}")
+    lines.append("")
     lines.append("### 2-Cluster Assignment")
     for i, bm in enumerate(clust["benchmarks"]):
         lines.append(f"- {bm}: Cluster {clust['clusters_2'][i]}")
@@ -169,7 +172,7 @@ def generate_report(results):
                  "show different correlation patterns.")
     lines.append("- The analysis covers mainly decoder-only autoregressive models; "
                  "encoder-decoder models may behave differently.")
-    lines.append("- Benchmark difficulty saturation (ceiling effects in HellaSwag, PIQA) "
+    lines.append("- Benchmark difficulty saturation (ceiling effects in HellaSwag and WinoGrande) "
                  "can inflate correlations for large models.")
     lines.append("- TruthfulQA and GSM8K may have different measurement properties "
                  "than the reasoning benchmarks (ARC, HellaSwag, WinoGrande).")

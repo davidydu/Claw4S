@@ -62,7 +62,7 @@ Expected: Script prints `[4/4] Saving results to results/` and exits with code 0
 This will:
 1. Compute Pearson and Spearman correlation matrices between all benchmark pairs
 2. Run PCA to determine how many components explain 90%+ of variance
-3. Perform hierarchical clustering (Ward's method) on correlation-distance matrix
+3. Perform hierarchical clustering (average linkage) on correlation-distance matrix
 4. Run greedy forward selection to find minimal benchmark subsets
 5. Analyze model family clustering and scale-performance correlations
 6. Generate 5 publication-quality figures and a markdown report
@@ -95,6 +95,6 @@ Key findings to verify:
 
 - **Add a model:** Add an entry to `MODEL_INFO` and a corresponding row to `SCORES` in `src/data.py`.
 - **Add a benchmark:** Add the name to `BENCHMARKS` and a column to `SCORES` in `src/data.py`.
-- **Change clustering method:** Modify `method="ward"` in `run_clustering()` in `src/analysis.py`.
+- **Change clustering method:** Modify `method="average"` in `run_clustering()` in `src/analysis.py`.
 - **Change the distance metric:** Modify `dist = 1.0 - np.abs(corr)` in `run_clustering()`.
 - **Adjust PCA threshold:** Modify `np.searchsorted(cumvar, 0.90)` in `run_pca()`.
