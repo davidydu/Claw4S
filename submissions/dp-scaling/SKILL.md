@@ -2,11 +2,11 @@
 
 ## Overview
 
-This skill trains small MLPs of varying sizes with both standard SGD and Differentially Private SGD (DP-SGD), then fits power-law scaling curves to test whether the standard relationship L(N) ~ N^(-alpha) holds under privacy constraints. We find that scaling laws do hold under DP-SGD (R^2 > 0.95), and that the privacy cost manifests primarily as a higher scaling coefficient (higher absolute loss) rather than a degraded exponent.
+This skill trains small MLPs of varying sizes with both standard SGD and Differentially Private SGD (DP-SGD), then fits power-law scaling curves to test whether the standard relationship L(N) ~ N^(-alpha) holds under privacy constraints. On this synthetic task, the power-law fit remains strong under DP-SGD (R^2 > 0.95). DP raises loss at a fixed model size, while the fitted exponent is slightly larger under DP than in the non-private baseline. Because every run reaches 100% test accuracy, interpret the result as a loss-scaling/calibration observation on an easy task rather than evidence that DP improves classification performance.
 
 ## Prerequisites
 
-- Python 3.13 (tested with `/opt/homebrew/bin/python3.13`)
+- Python 3.13.x (`python3 --version` should report 3.13)
 - CPU-only (no GPU required)
 - No API keys, no network access, no authentication
 - ~2-3 minutes runtime
@@ -15,7 +15,7 @@ This skill trains small MLPs of varying sizes with both standard SGD and Differe
 
 ```bash
 cd submissions/dp-scaling
-/opt/homebrew/bin/python3.13 -m venv .venv
+python3 -m venv .venv
 .venv/bin/pip install --upgrade pip
 .venv/bin/pip install -r requirements.txt
 ```
@@ -54,7 +54,7 @@ SUMMARY: Scaling Law Exponents
   strong_dp      : alpha = X.XXXX  (R^2 = X.XXXX)  ratio vs non-private = X.XXXX
 ```
 
-The non-private alpha should be the largest. The ratio values show how much DP reduces the scaling exponent.
+The ratio values compare each private fit against the non-private baseline. On the verified run for this submission, both DP settings produce ratios above 1, meaning the fitted exponent is larger under DP on this dataset.
 
 ## Step 3: Validate Results
 
@@ -77,7 +77,7 @@ cd submissions/dp-scaling
 
 **Data:** Synthetic Gaussian cluster classification (500 samples, 10 features, 5 classes). Deterministic generation with seed=42.
 
-**Models:** 2-layer MLP (Linear -> ReLU -> Linear) with hidden widths [16, 32, 64, 128, 256], yielding parameter counts from ~261 to ~3,841.
+**Models:** 2-layer MLP (Linear -> ReLU -> Linear) with hidden widths [16, 32, 64, 128, 256], yielding parameter counts from 261 to 4,101.
 
 **Training:**
 - **Non-private:** Standard SGD, lr=0.01, 100 epochs
@@ -86,9 +86,9 @@ cd submissions/dp-scaling
 
 **DP-SGD implementation:** From scratch (no external DP libraries). Per-sample gradients computed via sample-wise forward/backward passes, clipped to L2 norm <= C, summed, Gaussian noise N(0, sigma^2 * C^2 * I) added, then averaged.
 
-**Scaling law fit:** L(N) = a * N^(-alpha) + L_inf via scipy.optimize.curve_fit with Levenberg-Marquardt, bounded (a > 0, 0 < alpha < 5, L_inf >= 0).
+**Scaling law fit:** L(N) = a * N^(-alpha) + L_inf via `scipy.optimize.curve_fit` with explicit trust-region reflective bounded least squares (`method="trf"`; a > 0, 0 < alpha < 5, L_inf >= 0).
 
-**Key findings:** (1) Power-law scaling holds under DP-SGD with R^2 > 0.95. (2) On well-separated synthetic data, DP raises absolute loss (coefficient a increases ~4x) but does not degrade the scaling exponent alpha. In fact, alpha_DP > alpha_NP, meaning private models benefit more from scaling up. (3) Moderate (sigma=1.0) and strong (sigma=3.0) DP yield nearly identical exponents, suggesting gradient clipping dominates over noise magnitude.
+**Key findings:** (1) Power-law scaling holds under DP-SGD with R^2 > 0.95 on this toy problem. (2) DP raises absolute loss (coefficient a increases from about 0.10 to about 0.42), while the fitted exponent is larger under DP than in the non-private baseline on this dataset. (3) All 45 runs reach 100% test accuracy, so the observed differences are about cross-entropy loss and confidence calibration rather than classification accuracy. (4) Moderate (sigma=1.0) and strong (sigma=3.0) DP yield nearly identical exponents, which is consistent with a clipping-dominated regime on this setup but should not be treated as a general claim.
 
 ## How to Extend
 

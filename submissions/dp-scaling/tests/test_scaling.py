@@ -56,3 +56,21 @@ class TestFitScalingLaw:
         losses = power_law(n, 5.0, 0.3, 1.0)
         fit = fit_scaling_law(n, losses)
         assert set(fit.keys()) == {"a", "alpha", "l_inf", "r_squared", "residuals"}
+
+    def test_explicitly_uses_bounded_trf_solver(self, monkeypatch):
+        """Bounded fits should explicitly request scipy's trust-region solver."""
+        recorded = {}
+
+        def fake_curve_fit(*args, **kwargs):
+            recorded["method"] = kwargs.get("method")
+            return np.array([5.0, 0.3, 1.0]), np.eye(3)
+
+        monkeypatch.setattr("src.scaling.curve_fit", fake_curve_fit)
+
+        n = np.array([100, 200, 500], dtype=float)
+        losses = power_law(n, 5.0, 0.3, 1.0)
+
+        fit = fit_scaling_law(n, losses)
+
+        assert recorded["method"] == "trf"
+        assert fit["alpha"] == pytest.approx(0.3)

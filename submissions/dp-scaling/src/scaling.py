@@ -29,8 +29,8 @@ def fit_scaling_law(
 ) -> dict:
     """Fit a power law L(N) = a * N^(-alpha) + L_inf to data.
 
-    Uses scipy's Levenberg-Marquardt curve fitting with carefully chosen
-    initial guesses and bounds to ensure convergence.
+    Uses scipy's trust-region reflective solver with explicit bounds and
+    carefully chosen initial guesses to ensure convergence.
 
     Args:
         param_counts: Array of model sizes (parameter counts).
@@ -61,6 +61,7 @@ def fit_scaling_law(
             losses,
             p0=p0,
             bounds=bounds,
+            method="trf",
             maxfev=10000,
         )
     except RuntimeError as e:
