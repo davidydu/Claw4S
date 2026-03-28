@@ -126,23 +126,39 @@ def run_cross_depth_experiment(results_dir: Path) -> list[dict]:
         X_all = dataset.tensors[0]
         y_all = dataset.tensors[1]
 
+        source_models: dict[int, MLP] = {}
         for src_w in WIDTHS:
-            # Source: 2-layer
             torch.manual_seed(seed)
             source = MLP(N_FEATURES, N_CLASSES, src_w, n_hidden_layers=2)
-            train_model(source, dataset, lr=TRAIN_LR, epochs=TRAIN_EPOCHS,
-                        batch_size=TRAIN_BATCH_SIZE, seed=seed)
+            train_model(
+                source,
+                dataset,
+                lr=TRAIN_LR,
+                epochs=TRAIN_EPOCHS,
+                batch_size=TRAIN_BATCH_SIZE,
+                seed=seed,
+            )
+            source_models[src_w] = source
 
+        target_models: dict[int, MLP] = {}
+        for tgt_w in WIDTHS:
+            torch.manual_seed(seed)
+            target = MLP(N_FEATURES, N_CLASSES, tgt_w, n_hidden_layers=4)
+            train_model(
+                target,
+                dataset,
+                lr=TRAIN_LR,
+                epochs=TRAIN_EPOCHS,
+                batch_size=TRAIN_BATCH_SIZE,
+                seed=seed,
+            )
+            target_models[tgt_w] = target
+
+        for src_w in WIDTHS:
             for tgt_w in WIDTHS:
-                # Target: 4-layer
-                torch.manual_seed(seed)
-                target = MLP(N_FEATURES, N_CLASSES, tgt_w, n_hidden_layers=4)
-                train_model(target, dataset, lr=TRAIN_LR, epochs=TRAIN_EPOCHS,
-                            batch_size=TRAIN_BATCH_SIZE, seed=seed)
-
                 result = compute_transfer_rate(
-                    source_model=source,
-                    target_model=target,
+                    source_model=source_models[src_w],
+                    target_model=target_models[tgt_w],
                     X=X_all,
                     y=y_all,
                     epsilon=EPSILON,
@@ -153,8 +169,8 @@ def run_cross_depth_experiment(results_dir: Path) -> list[dict]:
                     "target_width": tgt_w,
                     "source_depth": 2,
                     "target_depth": 4,
-                    "source_params": source.param_count(),
-                    "target_params": target.param_count(),
+                    "source_params": source_models[src_w].param_count(),
+                    "target_params": target_models[tgt_w].param_count(),
                     "capacity_ratio": tgt_w / src_w,
                     "seed": seed,
                     "epsilon": EPSILON,

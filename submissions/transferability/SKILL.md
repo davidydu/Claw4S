@@ -6,16 +6,16 @@ Map how adversarial example transferability between neural networks depends on t
 
 ## Prerequisites
 
-- Python 3.13 at `/opt/homebrew/bin/python3.13`
+- Python 3.13 available as `python3`
 - ~200 MB disk space for venv
 - CPU only; no GPU required
-- Runtime: ~15 seconds total
+- Runtime: ~20-25 seconds total on verified CPU runs
 
 ## Step 1: Create virtual environment
 
 ```bash
 cd submissions/transferability
-/opt/homebrew/bin/python3.13 -m venv .venv
+python3 -m venv .venv
 ```
 
 **Expected output:** `.venv/` directory created (no console output).
@@ -43,11 +43,11 @@ cd submissions/transferability
 .venv/bin/python -m pytest tests/ -v
 ```
 
-**Expected output:** 18 tests pass:
+**Expected output:** 19 tests pass:
 - `tests/test_data.py` — 5 tests (dataset shape, types, classes, reproducibility, seed variation)
 - `tests/test_models.py` — 5 tests (forward shape, 4-layer forward, param count, width/depth effects)
 - `tests/test_adversarial.py` — 6 tests (FGSM perturbation, magnitude bounds, clean accuracy, transfer rate bounds/keys, self-transfer)
-- `tests/test_experiment.py` — 2 tests (summary structure, summary values)
+- `tests/test_experiment.py` — 3 tests (summary structure, summary values, cross-depth model reuse)
 
 ## Step 4: Run full experiment
 
@@ -65,7 +65,7 @@ cd submissions/transferability
 ```
 Same-arch runs: 48
 Cross-depth runs: 48
-Runtime: ~14s
+Runtime: ~20-25s
 Diagonal (same-width) mean transfer: 1.0
 Off-diagonal mean transfer: ~0.86
 ```
@@ -96,7 +96,7 @@ Off-diagonal mean transfer: ~0.86
 1. **Self-transfer is perfect:** Transfer rate = 1.0 when source = target (diagonal of heatmap).
 2. **Capacity ratio governs transferability:** Transfer rate decreases monotonically as the capacity ratio diverges from 1.0. At ratio 1.0: 100%; at ratio 8.0: ~75%.
 3. **Asymmetry:** Small-to-large transfer (ratio > 1) degrades faster than large-to-small (ratio < 1).
-4. **Depth mismatch reduces transfer:** Same-width cross-depth transfer (~78%) is lower than same-width same-depth transfer (100%), showing architecture matters beyond parameter count.
+4. **Depth mismatch reduces transfer:** Same-width cross-depth transfer (~76.5%) is lower than same-width same-depth transfer (100%), a drop of about 23.5 percentage points.
 
 ## How to Extend
 
