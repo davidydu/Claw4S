@@ -101,7 +101,7 @@ def _plot_tightness_heatmap(data: dict, output_dir: str) -> str:
     sigma_values = data["grid"]["sigma_values"]
     delta = 1e-6  # fixed delta
 
-    fig, axes = plt.subplots(1, 4, figsize=(18, 5))
+    fig, axes = plt.subplots(1, 4, figsize=(18, 5), constrained_layout=True)
     fig.suptitle("Tightness Ratio (method_eps / best_eps) at delta=1e-6",
                  fontsize=14, fontweight="bold")
 
@@ -139,7 +139,6 @@ def _plot_tightness_heatmap(data: dict, output_dir: str) -> str:
                             fontsize=7, color=color)
 
     fig.colorbar(im, ax=axes, label="Tightness Ratio", shrink=0.8)
-    plt.tight_layout()
     path = os.path.join(output_dir, "tightness_heatmap.png")
     fig.savefig(path, dpi=150, bbox_inches="tight")
     plt.close(fig)

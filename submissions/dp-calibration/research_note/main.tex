@@ -16,7 +16,7 @@
 \maketitle
 
 \begin{abstract}
-We present a systematic comparison of four differential privacy (DP) accounting methods for calibrating noise in the Gaussian mechanism: naive composition, advanced composition, R\'enyi DP (RDP), and Gaussian DP (GDP/f-DP). Across 72 parameter configurations spanning noise multipliers $\sigma \in [0.1, 10]$, composition steps $T \in [10, 10{,}000]$, and failure probabilities $\delta \in [10^{-7}, 10^{-5}]$, we find that GDP accounting yields the tightest $\varepsilon$-bounds in 90.3\% of configurations, with RDP as a consistent runner-up (average tightness ratio 1.45$\times$). Naive and advanced composition are 10$\times$ and 9.9$\times$ looser on average, respectively. Advanced composition only improves over naive when the per-step $\varepsilon < 1$ (requiring $\sigma \gtrsim 10$), a limitation underappreciated in practice.
+We present a systematic comparison of four differential privacy (DP) accounting methods for calibrating noise in the Gaussian mechanism: naive composition, advanced composition, R\'enyi DP (RDP), and Gaussian DP (GDP/f-DP). Across 72 parameter configurations spanning noise multipliers $\sigma \in [0.1, 10]$, composition steps $T \in [10, 10{,}000]$, and failure probabilities $\delta \in [10^{-7}, 10^{-5}]$, we find that GDP accounting yields the tightest $\varepsilon$-bounds in 90.3\% of configurations, with RDP as a consistent runner-up (average tightness ratio 1.45$\times$). Naive and advanced composition are 10$\times$ and 9.9$\times$ looser on average, respectively. Advanced composition improves over naive only in the highest-noise, largest-$T$ corner of our grid ($\sigma=10$, $T \ge 1000$), a limitation underappreciated in practice.
 \end{abstract}
 
 \section{Introduction}
@@ -81,7 +81,7 @@ Naive composition wins only when $\sigma = 0.1$ (7 out of 72 configs). At very l
 
 \subsection{Advanced Composition Limitations}
 
-A key finding is that advanced composition \emph{never} improves over naive in our grid when $\sigma \leq 10$. The theorem requires $\varepsilon_{\text{step}} \ll 1$ for the $\sqrt{T}$ improvement to manifest; with $\sigma = 1.0$, the per-step $\varepsilon \approx 4.84$, and the $T \cdot \varepsilon(e^{\varepsilon} - 1)$ term dominates. Only at $\sigma \geq 10$ (where $\varepsilon_{\text{step}} \approx 0.48$) does advanced composition provide meaningful improvement over naive.
+A key finding is that advanced composition improves over naive in only 6 of 72 configurations, all at $\sigma = 10$ and $T \ge 1000$. The theorem requires $\varepsilon_{\text{step}} \ll 1$ for the $\sqrt{T}$ improvement to manifest; with $\sigma = 1.0$, the per-step $\varepsilon \approx 4.84$, and the $T \cdot \varepsilon(e^{\varepsilon} - 1)$ term dominates. At the top of our tested noise range, where $\sigma = 10$ gives $\varepsilon_{\text{step}} \approx 0.48$, advanced composition finally becomes meaningfully better than naive.
 
 \subsection{RDP vs GDP Tightness}
 
@@ -89,7 +89,7 @@ GDP uniformly outperforms RDP across all configurations, with the gap widening a
 
 \section{Discussion}
 
-\textbf{Practical implications.} For practitioners choosing an accounting method: (1) GDP should be the default for Gaussian mechanisms, especially at large $T$; (2) RDP remains competitive and is easier to extend to non-Gaussian mechanisms; (3) advanced composition is only useful for very high noise ($\sigma > 10$) regimes; (4) the choice of accounting method can affect the required noise by 2--10$\times$.
+\textbf{Practical implications.} For practitioners choosing an accounting method: (1) GDP should be the default for Gaussian mechanisms, especially at large $T$; (2) RDP remains competitive and is easier to extend to non-Gaussian mechanisms; (3) advanced composition only becomes meaningfully better than naive at the top of the tested noise range ($\sigma=10$, $T \ge 1000$); (4) the choice of accounting method can affect the required noise by 2--10$\times$.
 
 \textbf{Limitations.} Our analysis assumes (a) the Gaussian mechanism with unit sensitivity, (b) full-batch composition without subsampling, and (c) homogeneous steps. With Poisson subsampling, privacy amplification would tighten all bounds, and the relative ranking might shift. The GDP CLT guarantee is also asymptotic and may be loose for very small $T$.
 

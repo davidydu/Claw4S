@@ -60,7 +60,10 @@ Expected output includes:
 - 288 total computations (72 configs x 4 methods)
 - Runtime < 10 seconds
 - Method win counts showing which method gives tightest bound
+  (`gdp=65`, `naive=7`, `rdp=0`, `advanced=0` on the pinned grid)
 - Average tightness ratios per method
+  (approximately `naive=10.607`, `advanced=9.929`, `rdp=1.449`,
+  `gdp=1.013` on the pinned grid)
 - Wins broken down by composition steps (T)
 
 Expected files created in `results/`:
@@ -90,11 +93,11 @@ Validation checks:
 
 ## Key Scientific Findings
 
-1. **GDP dominates at large T**: For T >= 1000, Gaussian DP (f-DP) gives the tightest epsilon bounds due to its CLT-based composition.
-2. **RDP excels at moderate T**: For T in [10, 1000], Renyi DP with optimized order selection is competitive or best.
-3. **Naive composition is 5-50x loose**: Linear composition overestimates privacy loss dramatically, especially at large T.
-4. **Advanced composition helps but not enough**: Sublinear scaling is better than naive but still 2-10x looser than RDP/GDP.
-5. **Method choice matters more at large T**: The gap between methods grows with composition steps.
+1. **GDP dominates this grid**: Gaussian DP (f-DP) gives the tightest epsilon bound in 65 of 72 configurations and wins every T slice of the pinned sweep.
+2. **RDP is a stable runner-up, not a winner here**: Renyi DP never wins outright on this grid, but stays within roughly 1.09-1.98x of GDP and remains much tighter than naive or advanced composition.
+3. **Naive only wins in the near-nonprivate corner**: Naive composition is best only in 7 configurations, all at `sigma=0.1`, where every method yields extremely large epsilon.
+4. **Advanced composition rarely helps**: It beats naive in only 6 of 72 configurations, all at `sigma=10` and `T>=1000`, and is otherwise close to naive.
+5. **Method choice matters more at large T**: The average RDP/GDP gap grows from about 1.24x at `T=10` to about 1.67x at `T=10000`.
 
 ## How to Extend
 
