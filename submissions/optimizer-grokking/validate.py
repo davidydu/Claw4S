@@ -70,8 +70,18 @@ if data is not None:
         errors.append(f"Expected {expected_runs} runs, got {len(runs)}")
 
     # Validate each run
-    valid_outcomes = {"grokking", "memorization", "failure"}
-    outcome_counts = {"grokking": 0, "memorization": 0, "failure": 0}
+    valid_outcomes = {
+        "grokking",
+        "direct_generalization",
+        "memorization",
+        "failure",
+    }
+    outcome_counts = {
+        "grokking": 0,
+        "direct_generalization": 0,
+        "memorization": 0,
+        "failure": 0,
+    }
 
     for i, run in enumerate(runs):
         outcome = run.get("outcome", "")
@@ -90,12 +100,43 @@ if data is not None:
         if not (0.0 <= test_acc <= 1.0):
             errors.append(f"Run {i}: test_acc={test_acc} out of [0,1]")
 
-        # Consistency check: grokking must have both memorization and grokking epochs
+        generalization_epoch = run.get("generalization_epoch")
+        memorization_epoch = run.get("memorization_epoch")
+        grokking_epoch = run.get("grokking_epoch")
+
+        # Consistency check: grokking must be delayed relative to memorization
         if outcome == "grokking":
-            if run.get("memorization_epoch") is None:
+            if memorization_epoch is None:
                 errors.append(f"Run {i}: grokking outcome but no memorization_epoch")
-            if run.get("grokking_epoch") is None:
+            if generalization_epoch is None:
+                errors.append(f"Run {i}: grokking outcome but no generalization_epoch")
+            if grokking_epoch is None:
                 errors.append(f"Run {i}: grokking outcome but no grokking_epoch")
+            if (memorization_epoch is not None and generalization_epoch is not None
+                    and generalization_epoch <= memorization_epoch):
+                errors.append(
+                    f"Run {i}: grokking must have generalization after memorization "
+                    f"(got mem={memorization_epoch}, gen={generalization_epoch})"
+                )
+
+        if outcome == "direct_generalization":
+            if memorization_epoch is None:
+                errors.append(f"Run {i}: direct_generalization outcome but no memorization_epoch")
+            if generalization_epoch is None:
+                errors.append(
+                    f"Run {i}: direct_generalization outcome but no generalization_epoch"
+                )
+            if grokking_epoch is not None:
+                errors.append(
+                    f"Run {i}: direct_generalization should not have grokking_epoch "
+                    f"(got {grokking_epoch})"
+                )
+            if (memorization_epoch is not None and generalization_epoch is not None
+                    and generalization_epoch > memorization_epoch):
+                errors.append(
+                    f"Run {i}: direct_generalization should not lag memorization "
+                    f"(got mem={memorization_epoch}, gen={generalization_epoch})"
+                )
 
     print(f"\nOutcome distribution:")
     for outcome, count in outcome_counts.items():

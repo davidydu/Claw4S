@@ -19,7 +19,7 @@
 \maketitle
 
 \begin{abstract}
-Grokking---the phenomenon where neural networks generalize long after memorizing training data---has been primarily studied under weight decay variation with a single optimizer. We systematically map the \emph{optimizer grokking landscape} by sweeping four optimizers (SGD, SGD+momentum, Adam, AdamW) across learning rates and weight decay values on modular addition mod 97. Across 36 configurations (4 optimizers $\times$ 3 learning rates $\times$ 3 weight decays, 750 epochs each), we find that AdamW produces the most reliable grokking (5/9 configs), Adam groks only without explicit weight decay (1/9), SGD+momentum memorizes but never groks, and vanilla SGD fails entirely. A striking asymmetry emerges: Adam with weight decay \emph{collapses} while AdamW with decoupled weight decay \emph{groks}---highlighting that the mechanism of regularization, not just its presence, determines generalization. Our fully reproducible experiment runs in under 10 minutes on CPU.
+Grokking---the phenomenon where neural networks generalize long after memorizing training data---has been primarily studied under weight decay variation with a single optimizer. We systematically map the \emph{optimizer grokking landscape} by sweeping four optimizers (SGD, SGD+momentum, Adam, AdamW) across learning rates and weight decay values on modular addition mod 97. Across 36 configurations (4 optimizers $\times$ 3 learning rates $\times$ 3 weight decays, 750 epochs each), we find that AdamW produces the most reliable delayed grokking (4/9 configs), with one additional direct-generalization config where train and test first exceed the 95\% threshold in the same logged checkpoint. Adam groks only without explicit weight decay (1/9), SGD+momentum memorizes but never groks, and vanilla SGD fails entirely. A striking asymmetry emerges: Adam with weight decay \emph{collapses} while AdamW with decoupled weight decay \emph{supports delayed or immediate generalization}---highlighting that the mechanism of regularization, not just its presence, determines generalization. Our fully reproducible experiment runs in minutes on CPU, with observed wall-clock runtime between 248\,s and 695\,s across verification runs.
 \end{abstract}
 
 \section{Introduction}
@@ -59,14 +59,15 @@ Each optimizer is paired with 3 learning rates $\in \{0.1, 0.03, 0.01\}$ and 3 w
 
 \subsection{Grokking Detection}
 
-We classify each run's outcome:
+We classify each run's outcome from logged checkpoints (every 75 epochs):
 \begin{itemize}
     \item \textbf{Grokking}: train accuracy exceeds 95\% first, then test accuracy exceeds 95\% at a later epoch.
+    \item \textbf{Direct generalization}: train and test accuracy first exceed 95\% in the same logged checkpoint.
     \item \textbf{Memorization}: train accuracy exceeds 95\% but test accuracy never reaches 95\%.
     \item \textbf{Failure}: train accuracy never exceeds 95\%.
 \end{itemize}
 
-The \emph{grokking delay} is defined as the epoch gap between memorization and generalization.
+The \emph{grokking delay} is defined as the logged epoch gap between memorization and delayed generalization.
 
 \section{Results}
 
@@ -75,7 +76,7 @@ The \emph{grokking delay} is defined as the epoch gap between memorization and g
 Figure~\ref{fig:heatmap} shows the outcome heatmap across all 36 configurations. The key patterns are:
 
 \begin{itemize}
-    \item \textbf{AdamW} is the most reliable grokker (5/9 configs grok), succeeding at both tested learning rates ($0.03$ and $0.01$) when weight decay is present.
+    \item \textbf{AdamW} is the most reliable delayed grokker (4/9 configs grok), and one additional AdamW configuration reaches \emph{direct generalization} at the first logged threshold crossing.
     \item \textbf{Adam} groks in only 1/9 configs (lr=$0.03$, wd=$0$). Paradoxically, adding weight decay to Adam \emph{destroys} its ability to learn entirely.
     \item \textbf{SGD+momentum} memorizes at high learning rates (wd=$0$) but never groks. Any nonzero weight decay causes complete failure.
     \item \textbf{Vanilla SGD} fails across all 9 configurations---it cannot even memorize the training set within 750 epochs.
@@ -84,24 +85,24 @@ Figure~\ref{fig:heatmap} shows the outcome heatmap across all 36 configurations.
 \begin{figure}[h]
     \centering
     \includegraphics[width=0.95\textwidth]{../results/grokking_heatmap.png}
-    \caption{Grokking landscape: outcome (green=grokking, red=memorization, gray=failure) across optimizer $\times$ (learning rate, weight decay) configurations. Numbers show final test accuracy.}
+    \caption{Grokking landscape: outcome (green=delayed grokking, gold=direct generalization, red=memorization, gray=failure) across optimizer $\times$ (learning rate, weight decay) configurations. Numbers show final test accuracy.}
     \label{fig:heatmap}
 \end{figure}
 
 \subsection{Training Dynamics}
 
-Figure~\ref{fig:curves} shows representative training curves for each outcome type. The grokking example exhibits the characteristic pattern: train accuracy reaches near-100\% within the first few hundred epochs, while test accuracy remains at chance level before suddenly rising to high accuracy.
+Figure~\ref{fig:curves} shows representative training curves for each outcome type. The grokking example exhibits the characteristic pattern: train accuracy reaches near-100\% within the first few hundred epochs, while test accuracy remains at chance level before suddenly rising to high accuracy. The direct-generalization example, by contrast, has train and test accuracy cross the 95\% threshold in the same logged checkpoint.
 
 \begin{figure}[h]
     \centering
     \includegraphics[width=0.95\textwidth]{../results/training_curves.png}
-    \caption{Representative training curves showing grokking (left), memorization (center), and failure (right) dynamics.}
+    \caption{Representative training curves showing grokking, direct generalization, memorization, and failure dynamics.}
     \label{fig:curves}
 \end{figure}
 
 \subsection{The Adam vs.\ AdamW Paradox}
 
-The most striking finding is the opposite effect of weight decay on Adam and AdamW. For Adam, adding weight decay (implemented as L2 regularization) causes training to collapse entirely---the model cannot even memorize. For AdamW, adding decoupled weight decay \emph{enables} grokking and accelerates generalization.
+The most striking finding is the opposite effect of weight decay on Adam and AdamW. For Adam, adding weight decay (implemented as L2 regularization) causes training to collapse entirely---the model cannot even memorize. For AdamW, adding decoupled weight decay \emph{enables} delayed grokking in multiple settings and yields one additional direct-generalization configuration.
 
 This asymmetry arises because Adam's L2 regularization scales the effective weight decay by the inverse of the second moment estimate, creating inconsistent regularization across parameters. AdamW's decoupled implementation applies uniform weight decay regardless of gradient history, providing a consistent bias toward smaller weights that facilitates the transition from memorized to generalizing solutions.
 
@@ -116,14 +117,14 @@ Our results reveal that the optimizer's interaction with regularization---not ju
 The complete failure of SGD variants suggests that adaptive learning rates are necessary for navigating the loss landscape of modular arithmetic tasks. The modular structure creates a complex, non-convex landscape where per-parameter adaptivity is essential for finding the generalizing solution.
 
 \paragraph{Limitations.}
-This study is limited to a single task (addition mod 97), a single architecture (2-layer MLP), and a fixed train/test split. The grokking landscape may differ for other modular operations, larger models, or different data fractions. Our 750-epoch budget may miss very late grokking events, though we verified that key grokking transitions occur within the first 600 epochs. The learning rate grid ($0.1$, $0.03$, $0.01$) may not be optimal for SGD variants, which might benefit from very different scales.
+This study is limited to a single task (addition mod 97), a single architecture (2-layer MLP), and a fixed train/test split. The grokking landscape may differ for other modular operations, larger models, or different data fractions. Our 750-epoch budget may miss very late grokking events, though we verified that all delayed-grokking transitions in this sweep appear by the 600-epoch checkpoint. Because outcomes are classified from metrics logged every 75 epochs, the direct-generalization label means train and test crossed the 95\% threshold within the same logged window, not necessarily the exact same optimization step. The learning rate grid ($0.1$, $0.03$, $0.01$) may not be optimal for SGD variants, which might benefit from very different scales.
 
 \paragraph{Reproducibility.}
-All code, data generation, and analysis are fully deterministic (seed=42) and run in under 10 minutes on a single CPU. The accompanying SKILL.md provides step-by-step instructions for an AI agent to reproduce all results.
+All code, data generation, and analysis are fully deterministic (seed=42) and run in minutes on a single CPU, with observed wall-clock runtime between 248\,s and 695\,s in our execution environment. The accompanying SKILL.md provides step-by-step instructions for an AI agent to reproduce all results.
 
 \section{Conclusion}
 
-We present a systematic mapping of the optimizer grokking landscape on modular arithmetic. AdamW emerges as the most reliable optimizer for inducing grokking (5/9 configs), while vanilla SGD fails entirely and SGD+momentum only memorizes. The most surprising finding is the Adam/AdamW paradox: weight decay helps AdamW grok but causes Adam to collapse, highlighting that decoupled weight decay and L2 regularization are fundamentally different mechanisms in the grokking regime. These findings establish optimizer selection as a first-order consideration in studying and inducing grokking.
+We present a systematic mapping of the optimizer grokking landscape on modular arithmetic. AdamW emerges as the most reliable optimizer for inducing delayed grokking (4/9 configs), with one additional direct-generalization setting, while vanilla SGD fails entirely and SGD+momentum only memorizes. The most surprising finding is the Adam/AdamW paradox: weight decay helps AdamW generalize but causes Adam to collapse, highlighting that decoupled weight decay and L2 regularization are fundamentally different mechanisms in the grokking regime. These findings establish optimizer selection as a first-order consideration in studying and inducing grokking.
 
 \bibliographystyle{plainnat}
 \begin{thebibliography}{9}

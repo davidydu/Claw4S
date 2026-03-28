@@ -1,6 +1,6 @@
 ---
 name: optimizer-grokking-landscape
-description: Map the grokking landscape across optimizers (SGD, SGD+momentum, Adam, AdamW) on modular arithmetic (addition mod 97). Sweeps optimizer x learning_rate x weight_decay (36 configs, 750 epochs each) to identify which optimizers grok vs. memorize. Produces heatmaps, training curves, and a summary report.
+description: Map the grokking landscape across optimizers (SGD, SGD+momentum, Adam, AdamW) on modular arithmetic (addition mod 97). Sweeps optimizer x learning_rate x weight_decay (36 configs, 750 epochs each) to identify delayed grokking, direct generalization, memorization, and failure modes. Produces heatmaps, training curves, and a summary report.
 allowed-tools: Bash(python *), Bash(python3 *), Bash(pip *), Bash(.venv/*), Bash(cat *), Read, Write
 ---
 
@@ -11,7 +11,7 @@ This skill reproduces the grokking phenomenon (Power et al., 2022) and maps whic
 ## Prerequisites
 
 - Requires **Python 3.10+**. No internet access needed (all data is generated synthetically).
-- Expected runtime: **5-10 minutes** (CPU only, no GPU required). Runtime depends on CPU speed.
+- Expected runtime: **4-15 minutes** (CPU only, no GPU required). Runtime depends on CPU speed and machine load.
 - All commands must be run from the **submission directory** (`submissions/optimizer-grokking/`).
 
 ## Step 1: Environment Setup
@@ -52,7 +52,7 @@ Execute the full optimizer sweep:
 
 Expected: Script prints progress for each of 36 runs and exits with code 0. Creates four output files in `results/`:
 - `sweep_results.json` — raw data for all 36 runs with per-epoch metrics
-- `grokking_heatmap.png` — heatmap showing grokking/memorization/failure per config
+- `grokking_heatmap.png` — heatmap showing delayed grokking/direct generalization/memorization/failure per config
 - `training_curves.png` — representative train/test accuracy curves
 - `report.md` — Markdown summary with outcome counts and grokking delays
 
@@ -86,8 +86,8 @@ cat results/report.md
 
 The report contains:
 - Experimental setup (prime, model, split, hyperparameters)
-- Outcome summary table per optimizer (grokking/memorization/failure counts)
-- Grokking delay statistics (epochs from memorization to generalization)
+- Outcome summary table per optimizer (grokking/direct generalization/memorization/failure counts)
+- Grokking delay statistics (logged epochs from memorization to delayed generalization)
 - Detailed per-run results table
 - Key findings
 

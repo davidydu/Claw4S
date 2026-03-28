@@ -7,7 +7,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 import pytest
 import torch
-from train import make_optimizer, train_run
+from train import classify_training_history, make_optimizer, train_run
 from model import ModularMLP
 from data import split_data
 
@@ -72,7 +72,12 @@ def test_train_run_short():
     assert result["optimizer"] == "adam"
     assert result["lr"] == 0.01
     assert result["weight_decay"] == 0.0
-    assert result["outcome"] in {"grokking", "memorization", "failure"}
+    assert result["outcome"] in {
+        "grokking",
+        "direct_generalization",
+        "memorization",
+        "failure",
+    }
     assert 0.0 <= result["final_train_acc"] <= 1.0
     assert 0.0 <= result["final_test_acc"] <= 1.0
     assert len(result["history"]) > 0
@@ -107,6 +112,23 @@ def test_train_run_history_structure():
     assert "test_loss" in entry
 
 
+def test_classify_training_history_same_logged_epoch_is_not_grokking():
+    """Same-checkpoint threshold crossings should not count as delayed grokking."""
+    history = [
+        {"epoch": 1, "train_acc": 0.10, "test_acc": 0.10,
+         "train_loss": 1.0, "test_loss": 1.0},
+        {"epoch": 75, "train_acc": 0.96, "test_acc": 0.97,
+         "train_loss": 0.1, "test_loss": 0.1},
+    ]
+
+    result = classify_training_history(history, acc_threshold=0.95)
+
+    assert result["memorization_epoch"] == 75
+    assert result["generalization_epoch"] == 75
+    assert result["grokking_epoch"] is None
+    assert result["outcome"] == "direct_generalization"
+
+
 def test_train_run_all_optimizers():
     """All four optimizers should work without errors."""
     train_ds, test_ds = split_data(p=5, seed=42)
@@ -130,4 +152,9 @@ def test_train_run_all_optimizers():
             log_interval=5,
         )
         assert result["optimizer"] == opt_name
-        assert result["outcome"] in {"grokking", "memorization", "failure"}
+        assert result["outcome"] in {
+            "grokking",
+            "direct_generalization",
+            "memorization",
+            "failure",
+        }

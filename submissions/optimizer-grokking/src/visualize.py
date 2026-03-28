@@ -1,7 +1,8 @@
 """Visualization: heatmaps of grokking landscape and training curves.
 
 Generates:
-1. Heatmap: optimizer x (lr, wd) showing outcome (grokking/memorization/failure)
+1. Heatmap: optimizer x (lr, wd) showing outcome
+   (grokking/direct_generalization/memorization/failure)
 2. Selected training curves showing grokking dynamics
 3. Summary report in Markdown
 """
@@ -18,12 +19,14 @@ import numpy as np
 
 OUTCOME_COLORS = {
     "grokking": "#2ecc71",      # green
+    "direct_generalization": "#f1c40f",  # gold
     "memorization": "#e74c3c",  # red
     "failure": "#95a5a6",       # gray
 }
 
 OUTCOME_VALUES = {
-    "grokking": 2,
+    "grokking": 3,
+    "direct_generalization": 2,
     "memorization": 1,
     "failure": 0,
 }
@@ -80,11 +83,11 @@ def plot_heatmap(data: dict, results_dir: str = "results") -> str:
 
     fig, ax = plt.subplots(figsize=(14, 5))
 
-    # Custom colormap: gray=0, red=1, green=2
+    # Custom colormap: gray=0, red=1, gold=2, green=3
     from matplotlib.colors import ListedColormap
-    cmap = ListedColormap(["#95a5a6", "#e74c3c", "#2ecc71"])
+    cmap = ListedColormap(["#95a5a6", "#e74c3c", "#f1c40f", "#2ecc71"])
 
-    im = ax.imshow(grid, cmap=cmap, vmin=-0.5, vmax=2.5, aspect="auto")
+    ax.imshow(grid, cmap=cmap, vmin=-0.5, vmax=3.5, aspect="auto")
 
     ax.set_xticks(range(n_cols))
     ax.set_xticklabels(col_labels, fontsize=7, rotation=45, ha="right")
@@ -109,6 +112,10 @@ def plot_heatmap(data: dict, results_dir: str = "results") -> str:
     # Legend
     patches = [
         mpatches.Patch(color=OUTCOME_COLORS["grokking"], label="Grokking"),
+        mpatches.Patch(
+            color=OUTCOME_COLORS["direct_generalization"],
+            label="Direct Generalization",
+        ),
         mpatches.Patch(color=OUTCOME_COLORS["memorization"], label="Memorization"),
         mpatches.Patch(color=OUTCOME_COLORS["failure"], label="Failure"),
     ]
@@ -139,7 +146,7 @@ def plot_training_curves(data: dict, results_dir: str = "results") -> str:
 
     # Select representative runs
     examples = {}
-    for outcome in ["grokking", "memorization", "failure"]:
+    for outcome in ["grokking", "direct_generalization", "memorization", "failure"]:
         candidates = [r for r in runs if r["outcome"] == outcome]
         if candidates:
             # Pick the one with most interesting dynamics
@@ -203,7 +210,12 @@ def generate_report(data: dict, results_dir: str = "results") -> str:
     outcome_counts = {}
     for opt in meta["optimizers"]:
         opt_runs = [r for r in runs if r["optimizer"] == opt]
-        counts = {"grokking": 0, "memorization": 0, "failure": 0}
+        counts = {
+            "grokking": 0,
+            "direct_generalization": 0,
+            "memorization": 0,
+            "failure": 0,
+        }
         for r in opt_runs:
             counts[r["outcome"]] += 1
         outcome_counts[opt] = counts
@@ -214,7 +226,7 @@ def generate_report(data: dict, results_dir: str = "results") -> str:
         delays = []
         for r in runs:
             if r["optimizer"] == opt and r["outcome"] == "grokking":
-                delay = (r["grokking_epoch"] or 0) - (r["memorization_epoch"] or 0)
+                delay = (r["generalization_epoch"] or 0) - (r["memorization_epoch"] or 0)
                 delays.append(delay)
         grok_delays[opt] = delays
 
@@ -232,17 +244,20 @@ def generate_report(data: dict, results_dir: str = "results") -> str:
         "",
         "## Outcome Summary",
         "",
-        "| Optimizer | Grokking | Memorization | Failure |",
-        "|-----------|----------|--------------|---------|",
+        "| Optimizer | Grokking | Direct Gen. | Memorization | Failure |",
+        "|-----------|----------|-------------|--------------|---------|",
     ]
 
     for opt in meta["optimizers"]:
         c = outcome_counts[opt]
-        lines.append(f"| {opt} | {c['grokking']} | {c['memorization']} | {c['failure']} |")
+        lines.append(
+            f"| {opt} | {c['grokking']} | {c['direct_generalization']} | "
+            f"{c['memorization']} | {c['failure']} |"
+        )
 
     lines.extend([
         "",
-        "## Grokking Delay (epochs from memorization to generalization)",
+        "## Grokking Delay (logged epochs from memorization to delayed generalization)",
         "",
         "| Optimizer | Min Delay | Max Delay | Mean Delay | Runs |",
         "|-----------|-----------|-----------|------------|------|",
@@ -262,21 +277,23 @@ def generate_report(data: dict, results_dir: str = "results") -> str:
         "",
         "## Detailed Results",
         "",
-        "| Optimizer | LR | WD | Outcome | Train Acc | Test Acc | Mem Epoch | Grok Epoch |",
-        "|-----------|------|------|---------|-----------|----------|-----------|------------|",
+        "| Optimizer | LR | WD | Outcome | Train Acc | Test Acc | Mem Epoch | Gen Epoch | Grok Epoch |",
+        "|-----------|------|------|---------|-----------|----------|-----------|-----------|------------|",
     ])
 
     for r in runs:
         mem = r["memorization_epoch"] if r["memorization_epoch"] is not None else "--"
+        gen = r["generalization_epoch"] if r["generalization_epoch"] is not None else "--"
         grok = r["grokking_epoch"] if r["grokking_epoch"] is not None else "--"
         lines.append(
             f"| {r['optimizer']} | {r['lr']} | {r['weight_decay']} | "
             f"{r['outcome']} | {r['final_train_acc']:.3f} | {r['final_test_acc']:.3f} | "
-            f"{mem} | {grok} |"
+            f"{mem} | {gen} | {grok} |"
         )
 
     # Key findings
     grok_count = sum(1 for r in runs if r["outcome"] == "grokking")
+    direct_count = sum(1 for r in runs if r["outcome"] == "direct_generalization")
     mem_count = sum(1 for r in runs if r["outcome"] == "memorization")
     fail_count = sum(1 for r in runs if r["outcome"] == "failure")
 
@@ -284,8 +301,9 @@ def generate_report(data: dict, results_dir: str = "results") -> str:
         "",
         "## Key Findings",
         "",
-        f"1. **Overall:** {grok_count}/{meta['num_runs']} runs grokked, "
-        f"{mem_count} memorized, {fail_count} failed to converge.",
+        f"1. **Overall:** {grok_count}/{meta['num_runs']} runs showed delayed grokking, "
+        f"{direct_count} reached direct generalization, {mem_count} memorized, "
+        f"and {fail_count} failed to converge.",
     ])
 
     # Find best optimizer for grokking
@@ -298,9 +316,15 @@ def generate_report(data: dict, results_dir: str = "results") -> str:
     # Weight decay effect
     wd_zero_grok = sum(1 for r in runs if r["weight_decay"] == 0.0 and r["outcome"] == "grokking")
     wd_nonzero_grok = sum(1 for r in runs if r["weight_decay"] > 0.0 and r["outcome"] == "grokking")
+    wd_nonzero_direct = sum(
+        1
+        for r in runs
+        if r["weight_decay"] > 0.0 and r["outcome"] == "direct_generalization"
+    )
     lines.append(
-        f"3. **Weight decay effect:** {wd_zero_grok} grokking runs with wd=0 vs "
-        f"{wd_nonzero_grok} with wd>0."
+        f"3. **Weight decay effect:** {wd_zero_grok} delayed-grokking runs with wd=0 vs "
+        f"{wd_nonzero_grok} delayed-grokking and {wd_nonzero_direct} direct-generalization "
+        f"runs with wd>0."
     )
 
     lines.append("")

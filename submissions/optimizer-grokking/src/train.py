@@ -1,7 +1,7 @@
 """Training loop with grokking detection.
 
 Trains a ModularMLP and records per-epoch train/test accuracy and loss.
-Detects grokking: train_acc > 95% first, then test_acc > 95% later.
+Detects delayed grokking, direct generalization, memorization, and failure.
 Uses pre-shuffled mini-batches (no DataLoader overhead) for speed.
 """
 
@@ -11,6 +11,45 @@ import torch.nn as nn
 from model import ModularMLP
 
 SEED = 42
+
+
+def classify_training_history(
+    history: list[dict],
+    acc_threshold: float = 0.95,
+) -> dict:
+    """Classify a run from logged checkpoints.
+
+    Grokking requires delayed generalization at the logging cadence: the first
+    logged test-accuracy threshold crossing must occur after the first logged
+    train-accuracy threshold crossing. When both appear in the same logged
+    checkpoint, we label the run as direct generalization instead of grokking.
+    """
+    memorization_epoch = next(
+        (entry["epoch"] for entry in history if entry["train_acc"] > acc_threshold),
+        None,
+    )
+    generalization_epoch = next(
+        (entry["epoch"] for entry in history if entry["test_acc"] > acc_threshold),
+        None,
+    )
+    grokking_epoch = None
+
+    if memorization_epoch is None:
+        outcome = "failure"
+    elif generalization_epoch is None:
+        outcome = "memorization"
+    elif generalization_epoch > memorization_epoch:
+        grokking_epoch = generalization_epoch
+        outcome = "grokking"
+    else:
+        outcome = "direct_generalization"
+
+    return {
+        "memorization_epoch": memorization_epoch,
+        "generalization_epoch": generalization_epoch,
+        "grokking_epoch": grokking_epoch,
+        "outcome": outcome,
+    }
 
 
 def make_optimizer(
@@ -88,7 +127,8 @@ def train_run(
         Dictionary with keys:
             optimizer, lr, weight_decay, history (list of dicts),
             final_train_acc, final_test_acc, memorization_epoch,
-            grokking_epoch, outcome ("grokking", "memorization", "failure").
+            generalization_epoch, grokking_epoch, outcome
+            ("grokking", "direct_generalization", "memorization", "failure").
     """
     torch.manual_seed(seed)
 
@@ -98,8 +138,6 @@ def train_run(
 
     n_train = train_a.size(0)
     history = []
-    memorization_epoch = None
-    grokking_epoch = None
     acc_threshold = 0.95
 
     # Pre-generate shuffle indices for reproducibility
@@ -147,24 +185,9 @@ def train_run(
                 "test_loss": test_loss,
             })
 
-            if memorization_epoch is None and train_acc > acc_threshold:
-                memorization_epoch = epoch
-
-            if (memorization_epoch is not None
-                    and grokking_epoch is None
-                    and test_acc > acc_threshold):
-                grokking_epoch = epoch
-
     final_train_acc = history[-1]["train_acc"] if history else 0.0
     final_test_acc = history[-1]["test_acc"] if history else 0.0
-
-    # Classify outcome
-    if grokking_epoch is not None:
-        outcome = "grokking"
-    elif memorization_epoch is not None:
-        outcome = "memorization"
-    else:
-        outcome = "failure"
+    classification = classify_training_history(history, acc_threshold=acc_threshold)
 
     return {
         "optimizer": optimizer_name,
@@ -173,7 +196,5 @@ def train_run(
         "history": history,
         "final_train_acc": final_train_acc,
         "final_test_acc": final_test_acc,
-        "memorization_epoch": memorization_epoch,
-        "grokking_epoch": grokking_epoch,
-        "outcome": outcome,
+        **classification,
     }
