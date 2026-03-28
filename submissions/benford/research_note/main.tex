@@ -37,7 +37,7 @@
 \begin{abstract}
 Benford's Law predicts that leading significant digits in naturally occurring datasets follow a logarithmic distribution, with digit 1 appearing approximately 30\% of the time.
 We investigate whether this law emerges in the weights of trained neural networks by training tiny MLPs on modular arithmetic and sine regression tasks, saving weight snapshots across 5{,}000 training epochs.
-Using chi-squared and Mean Absolute Deviation (MAD) tests, we find that \emph{training consistently moves weight distributions toward Benford conformity}: the modular arithmetic model (hidden=64) reduces MAD by ${\sim}60\%$ from initialization (${\sim}0.031$) to near the ``marginal conformity'' threshold (${\sim}0.013$) after 5{,}000 epochs.
+Using chi-squared and Mean Absolute Deviation (MAD) tests, we find that \emph{training moves weight distributions toward Benford conformity overall}: the modular arithmetic model (hidden=64) reduces MAD by ${\sim}60\%$ from initialization (${\sim}0.031$) to near the ``marginal conformity'' threshold (${\sim}0.013$) after 5{,}000 epochs.
 Output-adjacent layers show stronger conformity than input-adjacent layers.
 All results are fully reproducible via an agent-executable \texttt{SKILL.md} requiring only CPU and no internet access.
 \end{abstract}
@@ -89,27 +89,27 @@ We generate 10{,}000 values from three distributions: Uniform $U(-1,1)$, Normal 
 
 \subsection{Training Dynamics}
 
-Table~\ref{tab:dynamics} shows that MAD consistently decreases during training across all configurations, indicating that gradient-based optimization drives weight distributions toward Benford conformity.
+Table~\ref{tab:dynamics} shows that MAD falls substantially from initialization across all configurations, with the largest gains appearing early in training and small later fluctuations, indicating that gradient-based optimization drives weight distributions toward Benford conformity overall.
 
 \begin{table}[h]
 \centering
 \small
-\caption{MAD from Benford's Law over training epochs. All models start in nonconformity and improve. Values from a representative run (seed=42); minor stochastic variation ($\pm 0.003$) across runs due to PyTorch optimizer non-determinism.}
+\caption{MAD from Benford's Law over training epochs. All models start in nonconformity and finish below their initialization MAD. Values are from the deterministic seed-42 run reproduced by \texttt{run.py}; repeated reruns with the same seed in our environment produced identical MAD values.}
 \label{tab:dynamics}
 \begin{tabular}{lcccccc}
 \toprule
-\textbf{Model} & \textbf{Ep.\ 0} & \textbf{Ep.\ 100} & \textbf{Ep.\ 500} & \textbf{Ep.\ 1000} & \textbf{Ep.\ 2000} \\
+\textbf{Model} & \textbf{Ep.\ 0} & \textbf{Ep.\ 100} & \textbf{Ep.\ 500} & \textbf{Ep.\ 1000} & \textbf{Ep.\ 2000} & \textbf{Ep.\ 5000} \\
 \midrule
-mod97\_h64  & 0.031 & \textbf{0.012}\dag & 0.011 & 0.013 & 0.014 \\
-mod97\_h128 & 0.058 & 0.023 & 0.022 & 0.024 & 0.025 \\
-sine\_h64   & 0.031 & 0.027 & 0.025 & 0.024 & 0.024 \\
-sine\_h128  & 0.058 & 0.050 & 0.048 & 0.047 & 0.047 \\
+mod97\_h64  & 0.031 & 0.012 & 0.011 & 0.013 & 0.014 & 0.013 \\
+mod97\_h128 & 0.058 & 0.023 & 0.022 & 0.024 & 0.025 & 0.027 \\
+sine\_h64   & 0.031 & 0.027 & 0.025 & 0.024 & 0.024 & 0.025 \\
+sine\_h128  & 0.058 & 0.050 & 0.048 & 0.047 & 0.047 & 0.048 \\
 \bottomrule
-\multicolumn{6}{l}{\scriptsize \dag\ Marginal conformity (MAD $= 0.012$--$0.015$). All other values: nonconformity.}
+\multicolumn{7}{l}{\scriptsize mod97\_h64 reaches acceptable conformity at epoch 500 and remains near the marginal threshold thereafter.}
 \end{tabular}
 \end{table}
 
-The mod97\_h64 model shows the strongest trajectory, with MAD decreasing by $\sim$60\% from initialization to mid-training, approaching the ``marginal conformity'' threshold. The smaller model's stronger conformity suggests that the ratio of training signal to parameter count influences how structured weight distributions become.
+The mod97\_h64 model shows the strongest trajectory, with MAD dropping by $\sim$60\% from initialization to its best value by epoch 500 and remaining near the ``marginal conformity'' threshold through epoch 5{,}000. The smaller model's stronger conformity suggests that the ratio of training signal to parameter count influences how structured weight distributions become.
 
 \subsection{Per-Layer Analysis}
 
@@ -124,9 +124,9 @@ Table~\ref{tab:layers} shows per-layer MAD at epoch 5{,}000 for the mod97\_h64 m
 \toprule
 \textbf{Layer} & \textbf{MAD} & \textbf{Classification} & \textbf{N weights} \\
 \midrule
-Input (net.0)  & $\sim$0.07 & Nonconformity & 128 \\
-Hidden (net.2) & $\sim$0.015 & Marginal & 4{,}096 \\
-Output (net.4) & $\sim$\textbf{0.010} & Acceptable & 6{,}208 \\
+Input (net.0)  & 0.057 & Nonconformity & 128 \\
+Hidden (net.2) & 0.021 & Nonconformity & 4{,}096 \\
+Output (net.4) & \textbf{0.011} & Acceptable & 6{,}208 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -156,7 +156,7 @@ All control distributions show nonconformity (Table~\ref{tab:controls}). Notably
 \section{Discussion}
 
 \paragraph{Training drives Benford conformity.}
-Across all four model configurations, MAD from Benford's Law \emph{decreases} during training, with reductions of 17--60\% from initialization to epoch 5{,}000. This corroborates Sahu~\cite{sahu2021}'s findings on large models, now demonstrated in a minimal, CPU-reproducible setting.
+Across all four model configurations, MAD from Benford's Law is lower at epoch 5{,}000 than at initialization, with reductions of 18--60\%. The largest gains occur early in training for the modular task, followed by modest later fluctuations. This corroborates Sahu~\cite{sahu2021}'s findings on large models, now demonstrated in a minimal, CPU-reproducible setting.
 
 \paragraph{Task and size effects.}
 The modular arithmetic task with $h=64$ achieves the strongest conformity, approaching the marginal/acceptable boundary. Larger models ($h=128$) show higher MAD throughout, possibly because they have more parameters relative to the training signal, leading to less structured weight distributions. The sine regression task shows weaker conformity overall, suggesting that task complexity influences how strongly Benford's Law emerges.
@@ -164,8 +164,8 @@ The modular arithmetic task with $h=64$ achieves the strongest conformity, appro
 \paragraph{Layer depth matters.}
 Output-adjacent layers consistently show better Benford conformity than input-adjacent layers. This may reflect the gradient structure: output layers receive more direct error signal, potentially imposing more structure on their weight distributions.
 
-\paragraph{Minor stochastic variation.}
-While we seed all random number generators, PyTorch's Adam optimizer on CPU exhibits minor non-determinism ($\pm 0.003$ MAD across runs). The directional findings (MAD decreasing with training, output layers conforming better) are robust across all runs. Control distributions are perfectly reproducible.
+\paragraph{Determinism and scope.}
+Repeated reruns with the fixed seed produced identical MAD trajectories and control statistics in our environment; only wall-clock runtime varied. We did not run a multi-seed sweep in this submission, so our claims are limited to the seed-42 configuration documented in \texttt{run.py}.
 
 \paragraph{Limitations.}
 Our models are deliberately tiny (4K--29K parameters) for reproducibility. Larger models may show stronger effects. We analyze only weight matrices, not biases. The MAD thresholds (Nigrini) were developed for financial forensics and may not directly apply to neural network weights. The chi-squared test is known to be overly sensitive for large sample sizes~\cite{nigrini2012}, which is why we emphasize MAD.
@@ -175,7 +175,7 @@ This analysis runs entirely on CPU with no internet access, completing in under 
 
 \section{Conclusion}
 
-We presented an agent-executable study showing that training consistently moves neural network weight distributions toward Benford's Law conformity. The mod-97 model with $h=64$ reduces MAD by ${\sim}60\%$ over 5{,}000 epochs, approaching marginal conformity. Output-adjacent layers conform more strongly than input-adjacent layers, and smaller models show better conformity than larger ones. These findings extend prior work on Benford's Law in neural networks to a minimal, CPU-reproducible setting, with all results reproducible via a single \texttt{SKILL.md} file.
+We presented an agent-executable study showing that training moves neural network weight distributions toward Benford's Law conformity overall. The mod-97 model with $h=64$ reduces MAD by ${\sim}60\%$ over 5{,}000 epochs, approaching marginal conformity. Output-adjacent layers conform more strongly than input-adjacent layers, and smaller models show better conformity than larger ones. These findings extend prior work on Benford's Law in neural networks to a minimal, CPU-reproducible setting, with all results reproducible via a single \texttt{SKILL.md} file.
 
 \begin{thebibliography}{9}
 \bibitem{benford1938}
