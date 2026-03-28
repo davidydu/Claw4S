@@ -87,18 +87,22 @@ def make_dataloaders(
         seed=seed,
     )
 
-    # Normalize features
-    mean = X.mean(axis=0)
-    std = X.std(axis=0) + 1e-8
-    X = (X - mean) / std
-
     # Train/test split
     n_test = int(n_samples * test_fraction)
     n_train = n_samples - n_test
 
-    X_train = torch.tensor(X[:n_train], dtype=torch.float32)
+    X_train_np = X[:n_train]
+    X_test_np = X[n_train:]
+
+    # Fit normalization on the training split only to avoid test leakage.
+    mean = X_train_np.mean(axis=0)
+    std = X_train_np.std(axis=0) + 1e-8
+    X_train_np = (X_train_np - mean) / std
+    X_test_np = (X_test_np - mean) / std
+
+    X_train = torch.tensor(X_train_np, dtype=torch.float32)
     y_train = torch.tensor(y[:n_train], dtype=torch.long)
-    X_test = torch.tensor(X[n_train:], dtype=torch.float32)
+    X_test = torch.tensor(X_test_np, dtype=torch.float32)
     y_test = torch.tensor(y[n_train:], dtype=torch.long)
 
     train_ds = TensorDataset(X_train, y_train)

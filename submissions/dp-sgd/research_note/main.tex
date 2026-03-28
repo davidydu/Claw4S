@@ -8,8 +8,8 @@
 \usepackage[margin=1in]{geometry}
 \usepackage{caption}
 
-\title{The Privacy Cliff Is a Clipping Cliff: \\
-Disentangling Noise and Clipping in DP-SGD}
+\title{No Collapse-Level Privacy Cliff on a Simple DP-SGD Benchmark: \\
+Clipping Drives Most Utility Loss}
 
 \author{
 Yun Du\textsuperscript{1} \and
@@ -29,16 +29,16 @@ We implement differentially private SGD (DP-SGD) from scratch and sweep
 noise multiplier $\sigma \in [0.01, 10]$ and clipping norm
 $C \in \{0.1, 1.0, 10.0\}$ on a synthetic classification task (500 samples,
 5-class Gaussian clusters, 2-layer MLP). Across 63 private and 3 non-private
-training runs, we find that the commonly described ``privacy cliff'' ---
-where utility collapses below a critical $\varepsilon$ --- is better
-understood as a \textbf{clipping cliff}. With well-tuned clipping ($C=1.0$),
-accuracy remains within 5\% of the non-private baseline ($99.3\%$) even at
-$\varepsilon < 1$. With aggressive clipping ($C=0.1$), accuracy drops to
-$\sim$81\% regardless of noise level, while with loose clipping ($C=10.0$),
-the noise-driven degradation becomes pronounced at high $\sigma$. These
-results demonstrate that gradient clipping --- not privacy noise --- is the
-primary bottleneck in DP-SGD and that the privacy-utility tradeoff is
-largely a clipping-utility tradeoff.
+training runs, we do \emph{not} observe a collapse-level privacy cliff under
+a 50\%-of-baseline threshold: no configuration falls below that criterion.
+Instead, most degradation on this task is explained by clipping choice. With
+well-tuned clipping ($C=1.0$), accuracy remains within 5\% of the
+non-private baseline ($99.3\%$) even at $\varepsilon = 0.87$. With
+aggressive clipping ($C=0.1$), accuracy stays near $80\%$ regardless of
+noise level, while with loose clipping ($C=10.0$), accuracy drops to
+$62.7\%$ at $\varepsilon = 0.87$. These results suggest that, on this simple
+benchmark, clipping selection explains more utility loss than privacy noise
+alone.
 \end{abstract}
 
 \section{Introduction}
@@ -97,7 +97,7 @@ tightest $(\varepsilon, \delta)$-DP guarantee.
     batch size 64, $\delta = 10^{-5}$.
     \item \textbf{Sweep:} $\sigma \in \{0.01, 0.1, 0.5, 1.0, 2.0, 5.0, 10.0\}$,
     $C \in \{0.1, 1.0, 10.0\}$, 3 seeds each = 63 DP runs + 3 baselines.
-    \item \textbf{Runtime:} 44.6 seconds on CPU (Apple Silicon).
+    \item \textbf{Runtime:} 51.1 seconds on CPU (Apple Silicon).
 \end{itemize}
 
 \section{Results}
@@ -107,7 +107,7 @@ tightest $(\varepsilon, \delta)$-DP guarantee.
 The non-private MLP achieves $99.3\% \pm 0.5\%$ test accuracy, confirming
 the synthetic task is well-separable.
 
-\subsection{The Clipping Cliff}
+\subsection{No Collapse-Level Privacy Cliff}
 
 Figure~\ref{fig:privacy_utility} shows test accuracy versus computed
 $\varepsilon$ for each clipping norm. The three curves reveal strikingly
@@ -116,25 +116,27 @@ different behaviors:
 \begin{figure}[h]
     \centering
     \includegraphics[width=0.85\textwidth]{../results/privacy_utility_curve.png}
-    \caption{Privacy-utility tradeoff across clipping norms. The ``cliff''
-    at low $\varepsilon$ is dominated by the choice of $C$, not $\sigma$.}
+    \caption{Privacy-utility tradeoff across clipping norms. On this task,
+    no configuration falls below 50\% of the non-private baseline, and most
+    degradation is explained by the choice of $C$.}
     \label{fig:privacy_utility}
 \end{figure}
 
 \begin{itemize}
     \item \textbf{$C = 0.1$ (aggressive clipping):} Accuracy is flat at
-    $\sim$81\% across all $\varepsilon$ values. Clipping is so severe that
+    $\sim$80\% across all $\varepsilon$ values. Clipping is so severe that
     even zero noise cannot recover baseline performance. The gradient
     signal is destroyed before noise is added.
 
     \item \textbf{$C = 1.0$ (well-tuned clipping):} Accuracy stays at
-    $94$--$99\%$ across the full $\varepsilon$ range, including
+    $95$--$99\%$ across the full $\varepsilon$ range, including
     $\varepsilon < 1$. At $\varepsilon = 0.87$ ($\sigma = 10$), accuracy
-    is still $94.3\%$ --- only 5 points below the baseline.
+    is still $94.7\%$ --- about 4.7 points below the baseline.
 
     \item \textbf{$C = 10.0$ (loose clipping):} Shows the classic
-    noise-driven cliff. Accuracy is $99\%$ at $\varepsilon = 22{,}446$ but
-    drops to $63\%$ at $\varepsilon = 0.87$. Because clipping preserves
+    high-noise failure mode. Accuracy is $99.3\%$ at
+    $\varepsilon = 22{,}446$ but drops to $62.7\%$ at $\varepsilon = 0.87$.
+    Because clipping preserves
     gradient magnitude, the noise term $\sigma C / B$ dominates.
 \end{itemize}
 
@@ -152,12 +154,12 @@ configurations. Baseline: $99.3\% \pm 0.5\%$.}
 \toprule
 $\sigma$ & $\varepsilon$ & $C = 0.1$ & $C = 1.0$ & $C = 10.0$ \\
 \midrule
-0.01  & 22{,}446 & $81.3 \pm 7.8$ & $99.3 \pm 0.5$ & $99.3 \pm 0.5$ \\
-0.10  & 23.0     & $81.3 \pm 7.8$ & $99.3 \pm 0.5$ & $99.0 \pm 0.8$ \\
-1.00  & 4.80     & $82.0 \pm 8.0$ & $98.7 \pm 1.2$ & $97.7 \pm 1.9$ \\
-2.00  & 1.33     & $81.0 \pm 6.5$ & $98.3 \pm 1.7$ & $92.3 \pm 1.7$ \\
-5.00  & 1.06     & $80.7 \pm 7.6$ & $98.3 \pm 2.4$ & $80.0 \pm 2.2$ \\
-10.0  & 0.87     & $80.3 \pm 7.4$ & $94.3 \pm 1.2$ & $63.0 \pm 6.4$ \\
+0.01  & 22{,}446 & $80.7 \pm 7.1$ & $99.0 \pm 0.8$ & $99.3 \pm 0.5$ \\
+0.10  & 23.0     & $80.7 \pm 7.1$ & $99.3 \pm 0.5$ & $99.0 \pm 0.8$ \\
+1.00  & 4.80     & $81.3 \pm 6.6$ & $98.7 \pm 1.2$ & $97.7 \pm 1.9$ \\
+2.00  & 1.33     & $81.3 \pm 6.8$ & $98.3 \pm 1.7$ & $92.7 \pm 1.2$ \\
+5.00  & 1.06     & $80.7 \pm 7.6$ & $98.3 \pm 2.4$ & $80.3 \pm 1.9$ \\
+10.0  & 0.87     & $80.0 \pm 7.1$ & $94.7 \pm 1.7$ & $62.7 \pm 6.6$ \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -173,11 +175,13 @@ The sweet spot ($C = 1.0$) balances gradient preservation with noise tolerance.
 
 \section{Discussion}
 
-\textbf{The privacy cliff is a clipping cliff.} Our results show that the
-dramatic accuracy collapse commonly attributed to ``strong privacy'' is
-largely an artifact of poor clipping norm selection. With appropriate $C$,
-DP-SGD achieves near-baseline accuracy even at $\varepsilon < 1$ on our
-synthetic task.
+\textbf{On this task, clipping dominates the observed utility loss.} Our
+results do not show a collapse-level privacy cliff under the 50\%-of-baseline
+criterion. Instead, the largest accuracy drops arise either from overly
+aggressive clipping ($C=0.1$) or from the interaction of loose clipping and
+large noise ($C=10.0$, $\sigma \geq 5$). With appropriate $C$, DP-SGD
+achieves near-baseline accuracy even at $\varepsilon < 1$ on our synthetic
+task.
 
 \textbf{Practical implication:} Practitioners should tune $C$ before
 reducing $\sigma$. A grid search over $C$ at fixed moderate $\sigma$ is
@@ -197,7 +201,7 @@ more productive than sweeping $\sigma$ at a fixed $C$.
 \section{Reproducibility}
 
 All code is implemented from scratch in PyTorch (no opacus or DP libraries).
-The complete experiment (63 DP runs + 3 baselines) runs in under 1 minute
+The complete experiment (63 DP runs + 3 baselines) runs in about 1 minute
 on CPU. See \texttt{SKILL.md} for step-by-step execution instructions.
 Source code: \texttt{src/dpsgd.py} (DP-SGD), \texttt{src/data.py} (data),
 \texttt{src/model.py} (model), \texttt{src/analysis.py} (plotting).

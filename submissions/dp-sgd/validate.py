@@ -5,7 +5,7 @@ Checks that:
 1. results.json exists and has expected structure
 2. All 63 DP runs + 3 baseline runs are present
 3. Epsilon values are consistent with noise multiplier ordering
-4. Privacy cliff pattern is detected
+4. Privacy cliff analysis is internally consistent
 5. Plots were generated
 6. Statistical variance is reported (multiple seeds)
 
@@ -190,6 +190,12 @@ def main() -> None:
             "summaries" in summary,
             "summary.json contains configuration summaries"
         )
+        privacy_cliff = summary.get("privacy_cliff", {})
+        if privacy_cliff.get("n_configs_below_threshold") == 0:
+            all_passed &= check(
+                privacy_cliff.get("cliff_epsilon") is None,
+                "No cliff epsilon reported when no configuration collapses"
+            )
 
     # ── Check 12: runtime was reasonable ─────────────────────────────
     elapsed = results.get("elapsed_seconds", 999)

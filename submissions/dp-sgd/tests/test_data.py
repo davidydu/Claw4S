@@ -68,3 +68,32 @@ class TestMakeDataloaders:
         # Mean should be close to 0, std close to 1 (approximately)
         assert abs(X.mean()) < 0.5
         assert abs(X.std() - 1.0) < 0.5
+
+    def test_normalization_uses_training_split_statistics(self, monkeypatch):
+        """Normalization should be fit on the training split only."""
+        X = np.array([
+            [0.0, 0.0],
+            [0.0, 0.0],
+            [10.0, 10.0],
+            [10.0, 10.0],
+        ])
+        y = np.array([0, 0, 1, 1], dtype=np.int64)
+
+        def fake_generate_gaussian_clusters(**kwargs):
+            return X.copy(), y.copy()
+
+        monkeypatch.setattr("src.data.generate_gaussian_clusters", fake_generate_gaussian_clusters)
+
+        train_loader, test_loader, _, _ = make_dataloaders(
+            n_samples=4,
+            n_features=2,
+            n_classes=2,
+            test_fraction=0.5,
+            batch_size=2,
+        )
+
+        X_train, _ = next(iter(train_loader))
+        X_test, _ = next(iter(test_loader))
+
+        assert abs(X_train.numpy().mean()) < 1e-6
+        assert X_test.numpy().mean() > 1.0

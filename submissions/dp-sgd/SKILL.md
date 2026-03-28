@@ -8,11 +8,12 @@
 Implements differentially private stochastic gradient descent (DP-SGD) from
 scratch — no opacus or external DP libraries — and sweeps noise multiplier
 and clipping norm to map the privacy-utility tradeoff. Tests whether there is
-a sharp "privacy cliff" below which model utility collapses.
+a collapse-level "privacy cliff" below which model utility collapses, or
+whether clipping dominates the observed degradation on this synthetic task.
 
 ## Prerequisites
 
-- Python 3.13 (`/opt/homebrew/bin/python3.13`)
+- Python 3.13 available as `python3.13`
 - ~500 MB disk for PyTorch (CPU-only)
 - No GPU required
 - No API keys or authentication needed
@@ -23,8 +24,8 @@ a sharp "privacy cliff" below which model utility collapses.
 
 ```bash
 cd submissions/dp-sgd
-/opt/homebrew/bin/python3.13 -m venv .venv
-.venv/bin/pip install -r requirements.txt
+python3.13 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
 ```
 
 **Expected output:** `Successfully installed torch-2.6.0 numpy-2.2.4 scipy-1.15.2 matplotlib-3.10.1 pytest-8.3.5` (and dependencies).
@@ -36,7 +37,9 @@ cd submissions/dp-sgd
 .venv/bin/python -m pytest tests/ -v
 ```
 
-**Expected output:** All tests pass (28+ tests). Key tests verify:
+**Expected output:** All tests pass (43 tests at the time of writing). A few
+transitive `matplotlib`/`pyparsing` deprecation warnings may appear under
+Python 3.13, but the suite should finish with zero failures. Key tests verify:
 - Synthetic data generation (shapes, reproducibility, normalization)
 - MLP architecture (output shapes, parameter count, seed control)
 - Per-sample gradient computation (correct count, shapes, independence)
@@ -54,17 +57,17 @@ cd submissions/dp-sgd
 ```
 
 **Expected output:**
-- 3 non-private baseline runs (accuracy ~0.85-0.95)
+- 3 non-private baseline runs (accuracy ~0.99)
 - 63 DP-SGD runs (7 noise levels x 3 clipping norms x 3 seeds)
-- Runtime: ~1-2 minutes on CPU
+- Runtime: ~45-60 seconds on CPU
 - Saves `results/results.json`, `results/summary.json`
 - Generates plots: `results/privacy_utility_curve.png`, `results/utility_gap.png`, `results/clipping_effect.png`
 
 Key output lines:
 ```
-Baseline mean accuracy: ~0.90
-Privacy cliff at: epsilon ~ X.XX
-Safe region starts: epsilon >= X.XX
+Baseline mean accuracy: 0.9933
+Privacy cliff: not detected (no config falls below 50% of baseline)
+Safe region starts: epsilon >= 0.87
 ```
 
 ### Step 4: Validate results
@@ -74,13 +77,14 @@ cd submissions/dp-sgd
 .venv/bin/python validate.py
 ```
 
-**Expected output:** All 12+ validation checks pass:
+**Expected output:** All validation checks pass:
 - results.json exists with correct structure
 - 63 DP runs + 3 baseline runs present
 - All accuracies in [0, 1]
 - Epsilon monotonically decreases as noise increases
 - Baseline accuracy reasonable (>= 0.50)
 - Privacy-utility tradeoff confirmed (low-noise > high-noise accuracy)
+- No cliff epsilon reported when no configuration collapses below 50% of baseline
 - Multiple seeds used (>= 3)
 - All plots generated
 - Runtime <= 180 seconds

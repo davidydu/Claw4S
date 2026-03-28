@@ -84,6 +84,19 @@ class TestIdentifyPrivacyCliff:
         if cliff["cliff_epsilon"] is not None:
             assert cliff["cliff_epsilon"] > 0
 
+    def test_no_cliff_when_no_configuration_collapses(self):
+        results = _make_mock_results()
+        for run in results["dp_runs"]:
+            run["accuracy"] = max(run["accuracy"], 0.60)
+
+        summary = compute_summary_statistics(results)
+        cliff = identify_privacy_cliff(summary)
+
+        assert cliff["n_configs_below_threshold"] == 0
+        assert cliff["cliff_epsilon"] is None
+        assert cliff["cliff_accuracy"] is None
+        assert cliff["safe_epsilon"] is not None
+
 
 class TestPlotting:
     """Tests for plot generation."""

@@ -99,19 +99,16 @@ def identify_privacy_cliff(summaries: dict, threshold_fraction: float = 0.5) -> 
     # Sort by epsilon (ascending)
     sorted_configs = sorted(configs, key=lambda c: c["epsilon_mean"])
 
+    collapsed_configs = [c for c in sorted_configs if c["accuracy_mean"] < threshold]
+    retained_configs = [c for c in sorted_configs if c["accuracy_mean"] >= threshold]
+
     cliff_epsilon = None
     cliff_accuracy = None
-
-    # Find the first config above threshold (going from low to high epsilon)
-    for i, cfg in enumerate(sorted_configs):
-        if cfg["accuracy_mean"] >= threshold:
-            cliff_epsilon = cfg["epsilon_mean"]
-            cliff_accuracy = cfg["accuracy_mean"]
-            # The cliff is between this config and the previous one
-            if i > 0:
-                below = sorted_configs[i - 1]
-                cliff_epsilon = (below["epsilon_mean"] + cfg["epsilon_mean"]) / 2
-            break
+    if collapsed_configs and retained_configs:
+        highest_collapsed = max(collapsed_configs, key=lambda c: c["epsilon_mean"])
+        lowest_retained = min(retained_configs, key=lambda c: c["epsilon_mean"])
+        cliff_epsilon = (highest_collapsed["epsilon_mean"] + lowest_retained["epsilon_mean"]) / 2
+        cliff_accuracy = lowest_retained["accuracy_mean"]
 
     # Identify "safe" region: where accuracy is >= 90% of baseline
     safe_threshold = baseline_acc * 0.9
@@ -125,9 +122,7 @@ def identify_privacy_cliff(summaries: dict, threshold_fraction: float = 0.5) -> 
         "baseline_accuracy": baseline_acc,
         "safe_epsilon": safe_epsilon,
         "safe_threshold_fraction": 0.9,
-        "n_configs_below_threshold": sum(
-            1 for c in sorted_configs if c["accuracy_mean"] < threshold
-        ),
+        "n_configs_below_threshold": len(collapsed_configs),
         "n_configs_total": len(sorted_configs),
     }
 

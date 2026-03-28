@@ -8,7 +8,7 @@ records accuracy and epsilon for each configuration.
 Total: 7 sigma levels x 3 clipping norms x 3 seeds = 63 DP runs
        + 3 non-private baseline runs = 66 total runs.
 
-Expected runtime: ~2 minutes on CPU.
+Expected runtime: about 1 minute on CPU.
 
 Usage:
     .venv/bin/python run.py
@@ -174,7 +174,7 @@ def main() -> None:
     if cliff["cliff_epsilon"] is not None:
         print(f"  Privacy cliff at:    epsilon ~ {cliff['cliff_epsilon']:.2f}")
     else:
-        print("  Privacy cliff:       not detected (all configs above threshold)")
+        print("  Privacy cliff:       not detected (no config falls below 50% of baseline)")
 
     if cliff["safe_epsilon"] is not None:
         print(f"  Safe region starts:  epsilon >= {cliff['safe_epsilon']:.2f} "
