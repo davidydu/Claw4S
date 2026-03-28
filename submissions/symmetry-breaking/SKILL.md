@@ -40,7 +40,7 @@ Verify all modules work correctly:
 .venv/bin/python -m pytest tests/ -v
 ```
 
-Expected: `24 passed` with exit code 0.
+Expected: All tests passed with exit code 0.
 
 ## Step 3: Run the Experiments
 

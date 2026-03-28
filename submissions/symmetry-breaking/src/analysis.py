@@ -179,8 +179,7 @@ def generate_report(
         "Larger epsilon values lead to faster and more complete symmetry",
         "breaking from the outset, and networks with stronger early asymmetry",
         "learn more effectively on the modular addition task, which requires",
-        "diverse feature",
-        "representations across neurons.",
+        "diverse feature representations across neurons.",
     ])
 
     return "\n".join(lines) + "\n"
