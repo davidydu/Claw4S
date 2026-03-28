@@ -42,7 +42,7 @@ Verify the analysis modules work correctly:
 .venv/bin/python -m pytest tests/ -v
 ```
 
-Expected: All tests pass (currently 25 tests), pytest exits with code 0.
+Expected: All tests passed, pytest exits with code 0.
 
 ## Step 3: Run the Experiment
 
