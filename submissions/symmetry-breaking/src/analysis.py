@@ -137,14 +137,14 @@ def generate_report(
 
     if "zero_eps_final_symmetry_mean" in summary:
         lines.append(
-            f"- **Epsilon=0 (pure symmetric init):** mean final symmetry = "
+            f"- **Epsilon=0 (symmetric `W1` rows):** mean final symmetry = "
             f"{summary['zero_eps_final_symmetry_mean']:.4f}, "
             f"mean test accuracy = {summary['zero_eps_test_acc_mean']:.4f}"
         )
 
     if "nonzero_eps_final_symmetry_mean" in summary:
         lines.append(
-            f"- **Epsilon>0 (perturbed init):** mean final symmetry = "
+            f"- **Epsilon>0 (perturbed `W1` rows):** mean final symmetry = "
             f"{summary['nonzero_eps_final_symmetry_mean']:.4f}, "
             f"mean test accuracy = {summary['nonzero_eps_test_acc_mean']:.4f}"
         )
@@ -159,18 +159,27 @@ def generate_report(
 
     lines.extend([
         "",
+        "## Methodological Note",
+        "",
+        "These runs symmetrize only the incoming hidden-layer weights `W1`.",
+        "The readout matrix `W2` is still initialized with seeded Kaiming",
+        "uniform weights, so the observed symmetry decay reflects the combined",
+        "effect of readout asymmetry and mini-batch stochasticity rather than",
+        "batch noise in isolation.",
+        "",
         "## Interpretation",
         "",
         "Symmetry breaking is essential for neural networks to learn diverse",
-        "representations. With perfectly symmetric initialization (epsilon=0),",
-        "SGD batch noise alone may or may not suffice to break the symmetry,",
-        "depending on the interaction of gradients with the symmetric weight",
-        "structure. Even a tiny perturbation (epsilon=1e-6) can seed the",
-        "divergence of neuron weight vectors, which SGD then amplifies.",
+        "representations. In this setup, mini-batch SGD rapidly amplifies the",
+        "gradient differences induced by the asymmetric readout, driving the",
+        "incoming neuron weight vectors apart even when `W1` starts exactly",
+        "symmetric (epsilon=0). Even a tiny perturbation (epsilon=1e-6) still",
+        "produces nearly the same final symmetry profile as epsilon=0.",
         "",
         "Larger epsilon values lead to faster and more complete symmetry",
-        "breaking, and networks with broken symmetry learn more effectively",
-        "on the modular addition task, which requires diverse feature",
+        "breaking from the outset, and networks with stronger early asymmetry",
+        "learn more effectively on the modular addition task, which requires",
+        "diverse feature",
         "representations across neurons.",
     ])
 

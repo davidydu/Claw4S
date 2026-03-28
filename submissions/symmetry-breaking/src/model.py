@@ -1,4 +1,4 @@
-"""Two-layer ReLU MLP for modular addition with symmetric initialization."""
+"""Two-layer ReLU MLP for modular addition with partially symmetric init."""
 
 import torch
 import torch.nn as nn
@@ -6,12 +6,14 @@ from typing import Optional
 
 
 class SymmetricMLP(nn.Module):
-    """Two-layer ReLU MLP with configurable symmetric initialization.
+    """Two-layer ReLU MLP with configurable hidden-layer symmetry.
 
     Architecture: input -> Linear(input_dim, hidden_dim) -> ReLU -> Linear(hidden_dim, output_dim)
 
     Symmetric init sets all rows of the first hidden layer to the same value,
-    then adds a small perturbation epsilon * N(0,1).
+    then adds a small perturbation epsilon * N(0,1). The readout layer keeps
+    a seeded Kaiming initialization, so only the incoming hidden weights start
+    symmetric.
     """
 
     def __init__(

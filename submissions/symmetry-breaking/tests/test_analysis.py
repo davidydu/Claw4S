@@ -1,6 +1,6 @@
 """Tests for analysis and summary functions."""
 
-from src.analysis import compute_breaking_epoch, summarize_results
+from src.analysis import compute_breaking_epoch, generate_report, summarize_results
 
 
 def test_breaking_epoch_found():
@@ -60,3 +60,33 @@ def test_summarize_results():
     assert "zero_eps_final_symmetry_mean" in summary
     assert "nonzero_eps_final_symmetry_mean" in summary
     assert len(summary["runs"]) == 2
+
+
+def test_generate_report_includes_methodological_note():
+    """Report should clarify that only the incoming layer is symmetrized."""
+    fake_results = [
+        {
+            "hidden_dim": 16,
+            "epsilon": 0.0,
+            "seed": 42,
+            "epochs_logged": [0, 50],
+            "symmetry_values": [1.0, 0.95],
+            "loss_values": [2.0],
+            "train_acc_values": [0.5],
+            "final_test_acc": 0.1,
+            "final_train_acc": 0.15,
+            "initial_symmetry": 1.0,
+            "final_symmetry": 0.95,
+            "num_epochs": 50,
+            "batch_size": 256,
+            "lr": 0.1,
+            "modulus": 97,
+        }
+    ]
+    summary = summarize_results(fake_results)
+
+    report = generate_report(fake_results, summary)
+
+    assert "## Methodological Note" in report
+    assert "`W1`" in report
+    assert "`W2`" in report
