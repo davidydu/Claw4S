@@ -17,6 +17,7 @@ def generate_report(results_data: dict) -> str:
     training = results_data["training_results"]
     trained = results_data["trained_analysis"]
     untrained = results_data["untrained_analysis"]
+    delta_ks_summary = results_data.get("delta_ks_summary", {})
 
     lines = []
     lines.append("# Random Matrix Theory Analysis of Neural Network Weights")
@@ -189,6 +190,30 @@ def generate_report(results_data: dict) -> str:
     for index, finding in enumerate(findings, start=1):
         lines.append(f"{index}. {finding}")
 
+    lines.append("")
+    lines.append("### Statistical Confidence")
+    lines.append("")
+    if delta_ks_summary:
+        lines.append(
+            "- Sign test p-value (trained KS > untrained KS): "
+            f"{delta_ks_summary.get('sign_test_pvalue', 1.0):.6g}"
+        )
+        lines.append(
+            "- 95% bootstrap CI for mean delta KS: "
+            f"[{delta_ks_summary.get('bootstrap_ci_low', 0.0):+.4f}, "
+            f"{delta_ks_summary.get('bootstrap_ci_high', 0.0):+.4f}]"
+        )
+        lines.append(
+            "- Positive delta fraction: "
+            f"{delta_ks_summary.get('n_positive', 0)}/"
+            f"{delta_ks_summary.get('n_pairs', 0)} "
+            f"({delta_ks_summary.get('positive_fraction', 0.0):.2%})"
+        )
+    else:
+        lines.append(
+            "- Delta-KS significance summary unavailable "
+            "(missing `delta_ks_summary` in results)."
+        )
     lines.append("")
     lines.append("## Methodology Notes")
     lines.append("")

@@ -20,8 +20,8 @@ Create a virtual environment and install dependencies:
 
 ```bash
 python3 -m venv .venv
-.venv/bin/pip install --upgrade pip
-.venv/bin/pip install -r requirements.txt
+.venv/bin/python -m pip install --upgrade pip
+.venv/bin/python -m pip install -r requirements.txt
 ```
 
 Verify installation by running the test suite (Step 2), which will catch any missing dependencies.
@@ -44,12 +44,19 @@ Execute the full RMT analysis pipeline:
 .venv/bin/python run.py
 ```
 
+Optional flags for extensions without code edits:
+
+```bash
+.venv/bin/python run.py --hidden-dims 64,128 --mod-epochs 300 --reg-epochs 300 --output-dir results_alt
+```
+
 Expected: Script prints progress through 5 stages and exits with code 0. Files created in `results/`:
 - `results.json` — raw metrics for all models and layers
 - `report.md` — human-readable summary with tables
 - `eigenvalue_spectra.png` — eigenvalue histograms vs MP overlay (trained)
 - `eigenvalue_spectra_untrained.png` — eigenvalue histograms vs MP overlay (untrained)
 - `ks_summary.png` — KS statistics, outlier fractions, and spectral norm ratios
+- `checksums.sha256` — SHA256 manifest for deterministic artifact verification
 
 This will:
 1. Generate modular addition (mod 97) and polynomial regression datasets
@@ -73,6 +80,8 @@ Expected: Prints metric summaries and `Validation passed.` The validator checks:
 - All 24 layer analyses (8 models x 3 layers) completed
 - Metrics in valid ranges (KS in [0,1], outlier fraction in [0,1])
 - Core hypothesis holds: trained models deviate more from MP than untrained
+- Paired delta-KS summary is internally consistent (recomputed sign test + bootstrap CI)
+- `checksums.sha256` matches all generated artifacts
 
 ## Step 5: Review the Report
 
@@ -87,12 +96,27 @@ The report contains:
 - RMT analysis table for trained models (KS, outlier fraction, spectral norm ratio, KL divergence)
 - RMT analysis table for untrained baselines
 - Trained vs untrained comparison with delta KS
+- Statistical confidence section (one-sided sign test p-value and 95% bootstrap CI for mean delta KS)
 - Key findings
+
+## Step 6: (Optional) Determinism Check
+
+Run the default pipeline twice and compare output hashes:
+
+```bash
+.venv/bin/python run.py --quiet
+shasum -a 256 results/results.json results/report.md results/checksums.sha256 > results/hash_run1.txt
+.venv/bin/python run.py --quiet
+shasum -a 256 results/results.json results/report.md results/checksums.sha256 > results/hash_run2.txt
+diff results/hash_run1.txt results/hash_run2.txt
+```
+
+Expected: no diff output.
 
 ## How to Extend
 
+- **Change experiment config from CLI:** use `run.py` flags like `--seed`, `--hidden-dims`, `--modulus`, `--reg-samples`, `--mod-epochs`, `--reg-epochs`, `--learning-rate`, `--batch-size`, `--output-dir`, `--quiet`.
 - **Add a task:** Create a new data generator in `src/data.py` and add it to the training loop in `run.py`.
 - **Change network architecture:** Modify `TinyMLP` in `src/model.py` (e.g., add layers, change activation).
-- **Change hidden dimensions:** Edit `HIDDEN_DIMS` list in `run.py`.
 - **Add RMT metrics:** Extend `analyze_weight_matrix()` in `src/rmt_analysis.py`.
 - **Test on pre-trained models:** Load weights from a saved checkpoint and pass to `analyze_model_weights()`.

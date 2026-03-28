@@ -110,6 +110,12 @@ For each weight matrix $W$ of shape $(M, N)$:
     \item Compute MP bounds and all deviation metrics
 \end{enumerate}
 
+For trained-vs-untrained comparisons, we compute paired layer-wise deltas
+$\Delta_{\mathrm{KS}} = \mathrm{KS}_{\mathrm{trained}} - \mathrm{KS}_{\mathrm{untrained}}$.
+We summarize these deltas with (i) a one-sided sign test
+($H_0: p(\Delta_{\mathrm{KS}}>0)=0.5$) and (ii) a bootstrap 95\% confidence
+interval for mean $\Delta_{\mathrm{KS}}$ (2000 resamples, seed 42).
+
 \section{Results}
 
 We analyze 48 weight matrices total: 8 models $\times$ 3 layers $\times$ 2 conditions (trained/untrained).
@@ -119,6 +125,7 @@ We analyze 48 weight matrices total: 8 models $\times$ 3 layers $\times$ 2 condi
 Across all configurations, the mean KS increase after training is positive at the model level.
 At the layer level, 20 of 24 trained layers show higher KS statistics than their untrained counterparts, indicating that training typically moves weight spectra away from MP predictions.
 The four non-increasing cases are the regression output layers with a single eigenvalue, where MP comparisons collapse to a degenerate KS value of zero.
+The paired sign test is strongly significant (one-sided $p=9.54\times10^{-7}$ on non-tied pairs), and the 95\% bootstrap CI for mean $\Delta_{\mathrm{KS}}$ is $[0.0887, 0.2250]$.
 
 Untrained networks show KS statistics consistent with finite-size deviations from MP (small matrices deviate more due to limited sample size), while trained networks show systematically larger deviations that increase with training effectiveness.
 
@@ -151,7 +158,8 @@ Our tiny models operate in a different regime where MP deviations are more subtl
 
 \textbf{Reproducibility.}
 This analysis is fully agent-executable via the accompanying \texttt{SKILL.md}.
-All random seeds are pinned, all dependencies are version-locked, and the entire pipeline runs on CPU in under 3 minutes.
+All random seeds are pinned, all dependencies are version-locked, and the pipeline emits a SHA256 manifest (\texttt{checksums.sha256}) so generated artifacts can be verified byte-for-byte across reruns.
+The default CPU workflow completes in under 3 minutes, and alternate experiment settings can be specified via documented CLI flags.
 
 \section{Conclusion}
 
