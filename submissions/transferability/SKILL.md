@@ -43,7 +43,7 @@ python3 -m venv .venv
 .venv/bin/python -m pytest tests/ -v
 ```
 
-**Expected output:** 19 tests pass:
+**Expected output:** All tests passed:
 - `tests/test_data.py` — 5 tests (dataset shape, types, classes, reproducibility, seed variation)
 - `tests/test_models.py` — 5 tests (forward shape, 4-layer forward, param count, width/depth effects)
 - `tests/test_adversarial.py` — 6 tests (FGSM perturbation, magnitude bounds, clean accuracy, transfer rate bounds/keys, self-transfer)
