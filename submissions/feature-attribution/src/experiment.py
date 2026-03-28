@@ -121,7 +121,7 @@ def run_experiment(
             sample_correlations: List[Dict[str, float]] = []
             for i in range(n_test):
                 x_i = X_test_t[i:i+1]
-                target = y_test_t[i].item()
+                target = preds[i].item()
 
                 attrs = compute_all_attributions(
                     model, x_i, target, n_steps=n_steps
@@ -165,8 +165,6 @@ def run_experiment(
     all_results["summary"] = summary
 
     elapsed = time.time() - start_time
-    all_results["metadata"]["elapsed_seconds"] = round(elapsed, 1)
-
     # Save results
     results_path = os.path.join(results_dir, "results.json")
     with open(results_path, "w") as f:
@@ -179,6 +177,10 @@ def run_experiment(
     with open(report_path, "w") as f:
         f.write(report)
     print(f"Report saved to {report_path}")
+    print(
+        "Observed runtime: "
+        f"{round(elapsed, 1)}s (excluded from saved artifacts for deterministic reruns)"
+    )
 
     return all_results
 
@@ -224,6 +226,7 @@ def _generate_report(results: Dict[str, Any]) -> str:
     meta = results["metadata"]
     summary = results["summary"]
     depths = meta["depths"]
+    train_samples = meta["n_samples"] - meta["n_test"]
 
     lines = [
         "# Feature Attribution Consistency Report",
@@ -231,11 +234,10 @@ def _generate_report(results: Dict[str, Any]) -> str:
         "## Experiment Configuration",
         f"- Depths: {depths}",
         f"- Width: {meta['width']}",
-        f"- Samples: {meta['n_samples']} (train) / {meta['n_test']} (test)",
+        f"- Samples: {meta['n_samples']} total ({train_samples} train / {meta['n_test']} test)",
         f"- Features: {meta['n_features']}, Classes: {meta['n_classes']}",
         f"- Seeds: {meta['seeds']}",
         f"- IG steps: {meta['n_steps']}",
-        f"- Runtime: {meta.get('elapsed_seconds', '?')}s",
         "",
         "## Model Accuracy",
         "",
@@ -294,8 +296,24 @@ def _generate_report(results: Dict[str, Any]) -> str:
         "1. Attribution methods show varying degrees of agreement depending on the method pair.",
         "2. Gradient x Input and Integrated Gradients tend to agree most (both incorporate input magnitude).",
         "3. Vanilla Gradient shows lowest agreement with other methods.",
-        f"4. {'Disagreement increases with depth, consistent with gradient signal degradation.' if any(t['depth_trend'] < -0.01 for t in summary['pair_trends'].values()) else 'Depth effects on agreement are modest in this configuration.'}",
+        f"4. {_summarize_depth_effects(summary['pair_trends'])}",
         "",
     ])
 
     return "\n".join(lines)
+
+
+def _summarize_depth_effects(pair_trends: Dict[str, Dict[str, Any]]) -> str:
+    """Summarize cross-depth agreement trends without overstating the direction."""
+    threshold = 0.01
+    trends = [trend["depth_trend"] for trend in pair_trends.values()]
+    has_increase = any(trend > threshold for trend in trends)
+    has_decrease = any(trend < -threshold for trend in trends)
+
+    if has_increase and has_decrease:
+        return "Depth effects are mixed across method pairs in this configuration."
+    if has_increase:
+        return "Agreement increases modestly with depth for the affected method pairs."
+    if has_decrease:
+        return "Agreement decreases modestly with depth for the affected method pairs."
+    return "Depth effects on agreement are modest in this configuration."

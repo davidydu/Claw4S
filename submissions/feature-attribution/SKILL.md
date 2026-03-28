@@ -64,7 +64,7 @@ Substantial disagreement: <True/False>
 This will:
 1. Generate synthetic Gaussian cluster data (500 samples, 10 features, 5 classes)
 2. Train MLPs with 1, 2, and 4 hidden layers (width=64) for each of 3 seeds
-3. Compute vanilla gradient, gradient x input, and integrated gradients on 100 test samples
+3. Compute vanilla gradient, gradient x input, and integrated gradients on 100 test samples with respect to each model's predicted class logit
 4. Measure pairwise Spearman rank correlation between all method pairs
 5. Aggregate statistics across samples and seeds
 6. Save results to `results/results.json` and `results/report.md`
@@ -88,9 +88,9 @@ Validates:
 
 - **Model accuracy**: >90% for all depths (Gaussian clusters are well-separated)
 - **Attribution agreement**: Spearman rho varies by method pair
-  - Gradient x Input vs Integrated Gradients: highest agreement (~0.6-0.9)
-  - Vanilla Gradient vs others: lower agreement (~0.3-0.7)
-- **Depth effect**: agreement may decrease slightly with depth due to gradient signal degradation
+  - Gradient x Input vs Integrated Gradients: highest agreement (typically ~0.93-0.97)
+  - Vanilla Gradient vs others: moderate agreement (typically ~0.68-0.78)
+- **Depth effect**: method-pair-dependent in this configuration; vanilla-gradient agreement tends to rise modestly with depth while GI-IG remains consistently high
 
 ## How to Extend
 

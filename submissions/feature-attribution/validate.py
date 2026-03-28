@@ -38,7 +38,11 @@ print(f"Depths: {depths}")
 print(f"Seeds: {seeds}")
 print(f"Samples: {meta.get('n_samples', '?')}, Test: {meta.get('n_test', '?')}")
 print(f"Features: {meta.get('n_features', '?')}, Classes: {meta.get('n_classes', '?')}")
-print(f"Runtime: {meta.get('elapsed_seconds', '?')}s")
+runtime = meta.get("elapsed_seconds")
+if runtime is None:
+    print("Runtime: excluded from saved artifacts for deterministic reruns")
+else:
+    print(f"Runtime: {runtime}s")
 
 # Check per-depth results
 per_depth = data.get("per_depth", {})
