@@ -104,17 +104,19 @@ def generate_report(analysis_data):
     # Find highest collusion condition
     no_shock = [s for s in stats if not s["shocks"]]
     if no_shock:
-        highest = max(no_shock, key=lambda s: s["avg_auditor_scores"].get("margin", 0))
-        lowest = min(no_shock, key=lambda s: s["avg_auditor_scores"].get("margin", 0))
+        highest = max(no_shock, key=lambda s: s.get("collusion_index", 0))
+        lowest = min(no_shock, key=lambda s: s.get("collusion_index", 0))
+        highest_delta = highest.get("collusion_index", 0)
+        lowest_delta = lowest.get("collusion_index", 0)
         lines.append(
             f"- **Most collusive condition:** {highest['matchup']}/M{highest['memory']}"
             f"/{highest['preset']} "
-            f"(margin score: {highest['avg_auditor_scores'].get('margin', 0):.3f})"
+            f"(Delta: {highest_delta:+.3f})"
         )
         lines.append(
             f"- **Least collusive condition:** {lowest['matchup']}/M{lowest['memory']}"
             f"/{lowest['preset']} "
-            f"(margin score: {lowest['avg_auditor_scores'].get('margin', 0):.3f})"
+            f"(Delta: {lowest_delta:+.3f})"
         )
 
     lines.append("")
@@ -125,9 +127,9 @@ def generate_figures(analysis_data, output_dir="results/figures"):
     """Generate matplotlib figures from analysis results.
 
     Creates:
-    - collusion_heatmap.png: margin auditor score by matchup x memory
+    - collusion_heatmap.png: collusion index Delta by matchup x memory
     - auditor_agreement.png: agreement rates across conditions
-    - memory_effect.png: collusion intensity vs memory length
+    - memory_effect.png: collusion index Delta vs memory length
     """
     import os
     import numpy as np
@@ -149,18 +151,18 @@ def generate_figures(analysis_data, output_dir="results/figures"):
                        if s["matchup"] == m_name and s["memory"] == mem]
             if entries:
                 heatmap[i, j] = np.mean([
-                    s["avg_auditor_scores"].get("margin", 0) for s in entries
+                    s.get("collusion_index", 0) for s in entries
                 ])
 
     fig, ax = plt.subplots(figsize=(8, 5))
-    im = ax.imshow(heatmap, cmap="RdYlGn_r", vmin=0, vmax=1, aspect="auto")
+    im = ax.imshow(heatmap, cmap="RdYlGn_r", vmin=-0.5, vmax=1, aspect="auto")
     ax.set_xticks(range(len(memories)))
     ax.set_xticklabels([f"M={m}" for m in memories])
     ax.set_yticks(range(len(matchups)))
     ax.set_yticklabels(matchups)
     ax.set_xlabel("Memory Length")
     ax.set_ylabel("Agent Matchup")
-    ax.set_title("Collusion Intensity (Margin Auditor Score)")
+    ax.set_title("Collusion Intensity (Delta)")
     for i in range(len(matchups)):
         for j in range(len(memories)):
             ax.text(j, i, f"{heatmap[i, j]:.2f}", ha="center", va="center")
@@ -178,13 +180,13 @@ def generate_figures(analysis_data, output_dir="results/figures"):
                        if s["matchup"] == m_name and s["memory"] == mem]
             if entries:
                 scores.append(np.mean([
-                    s["avg_auditor_scores"].get("margin", 0) for s in entries
+                    s.get("collusion_index", 0) for s in entries
                 ]))
             else:
                 scores.append(0)
         ax.plot(memories, scores, marker="o", label=m_name)
     ax.set_xlabel("Memory Length (M)")
-    ax.set_ylabel("Avg Margin Auditor Score")
+    ax.set_ylabel("Avg Collusion Index Delta")
     ax.set_title("Memory Effect on Collusion")
     ax.legend(fontsize=8)
     ax.set_xticks(memories)
