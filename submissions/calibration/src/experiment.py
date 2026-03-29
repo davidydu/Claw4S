@@ -5,6 +5,7 @@ and calibration evaluation for all (width, shift, seed) configurations.
 """
 
 import time
+import platform
 import torch
 import numpy as np
 from typing import Any
@@ -23,10 +24,35 @@ TRAIN_EPOCHS = 200
 LEARNING_RATE = 0.01
 
 
+def configure_determinism() -> None:
+    """Enable deterministic execution settings across torch backends."""
+    torch.use_deterministic_algorithms(True)
+    if hasattr(torch.backends, "cudnn"):
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
+    torch.set_num_threads(1)
+
+
 def set_seed(seed: int) -> None:
     """Set all random seeds for reproducibility."""
+    configure_determinism()
     torch.manual_seed(seed)
     np.random.seed(seed)
+
+
+def get_reproducibility_metadata() -> dict[str, Any]:
+    """Collect environment details needed for reproducibility audits."""
+    configure_determinism()
+    return {
+        'python_version': platform.python_version(),
+        'python_implementation': platform.python_implementation(),
+        'torch_version': torch.__version__,
+        'numpy_version': np.__version__,
+        'torch_deterministic_algorithms_enabled': (
+            torch.are_deterministic_algorithms_enabled()
+        ),
+        'torch_num_threads': torch.get_num_threads(),
+    }
 
 
 def run_single_experiment(hidden_width: int, seed: int,
@@ -140,6 +166,7 @@ def run_all_experiments() -> dict[str, Any]:
             'n_classes': N_CLASSES,
             'elapsed_seconds': round(elapsed, 2),
             'n_experiments': len(all_results),
+            'reproducibility': get_reproducibility_metadata(),
         },
         'raw_results': all_results,
         'aggregated': aggregated,

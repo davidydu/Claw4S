@@ -1,6 +1,7 @@
 """Tests for experiment runner."""
 
-from src.experiment import run_single_experiment, aggregate_results
+from src.experiment import (run_single_experiment, aggregate_results,
+                            get_reproducibility_metadata)
 
 
 def test_single_experiment_structure():
@@ -52,3 +53,24 @@ def test_reproducibility():
     for shift_key in ['0.0', '1.0']:
         assert abs(r1['shifts'][shift_key]['ece'] -
                    r2['shifts'][shift_key]['ece']) < 1e-10
+
+
+def test_reproducibility_metadata_contract():
+    """Repro metadata includes deterministic config and package versions."""
+    meta = get_reproducibility_metadata()
+
+    expected_keys = {
+        'python_version',
+        'python_implementation',
+        'torch_version',
+        'numpy_version',
+        'torch_deterministic_algorithms_enabled',
+        'torch_num_threads',
+    }
+    assert expected_keys.issubset(set(meta))
+    assert meta['python_version']
+    assert meta['torch_version']
+    assert meta['numpy_version']
+    assert meta['torch_deterministic_algorithms_enabled'] is True
+    assert isinstance(meta['torch_num_threads'], int)
+    assert meta['torch_num_threads'] >= 1

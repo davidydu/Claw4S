@@ -11,7 +11,9 @@ This skill investigates how neural network calibration changes under distributio
 ## Prerequisites
 
 - Requires **Python 3.10+**. No internet access needed (all data is synthetic).
-- Expected runtime: **1-3 minutes** (CPU only, 75 experiments).
+- Expected runtime: **1-3 minutes end-to-end** including environment setup.
+  The core experiment is CPU-only and typically finishes in seconds
+  (15 training runs, 75 width-shift-seed evaluations).
 - All commands must be run from the **submission directory** (`submissions/calibration/`).
 
 ## Step 1: Environment Setup
@@ -20,7 +22,6 @@ Create a virtual environment and install dependencies:
 
 ```bash
 python3 -m venv .venv
-.venv/bin/pip install --upgrade pip
 .venv/bin/pip install -r requirements.txt
 ```
 
@@ -40,7 +41,7 @@ Verify all analysis modules work correctly:
 .venv/bin/python -m pytest tests/ -v
 ```
 
-Expected: All tests pass (exit code 0). You should see approximately 20 tests covering data generation, model training, metrics computation, and experiment reproducibility.
+Expected: All tests pass (exit code 0). You should see 20+ tests covering data generation, model training, metrics computation, and reproducibility metadata.
 
 ## Step 3: Run the Experiment
 
@@ -53,7 +54,7 @@ Execute the full calibration experiment grid (5 widths x 5 shifts x 3 seeds = 75
 Expected: Script prints progress for each of 15 (width, seed) training runs, generates 5 PDF plots and a markdown report, saves all results to `results/results.json`, and prints the full report. Final line: `Done. 15 experiments completed in <X>s.`
 
 Output files created in `results/`:
-- `results.json` — raw and aggregated experiment data
+- `results.json` — raw/aggregated experiment data plus reproducibility metadata (Python, torch, numpy, deterministic settings)
 - `report.md` — markdown summary with ECE/accuracy/Brier tables and key findings
 - `ece_vs_shift.pdf` — main result: ECE vs shift magnitude by model width
 - `accuracy_vs_shift.pdf` — accuracy degradation under shift
@@ -69,7 +70,7 @@ Check that all results were produced correctly:
 .venv/bin/python validate.py
 ```
 
-Expected: Prints experiment metadata, verifies all 15 raw results and 25 aggregated entries exist, checks ECE values are in [0,1], confirms all 5 plots exist, and prints `Validation passed.`
+Expected: Prints experiment metadata, verifies all 15 raw results and 25 aggregated entries exist, validates reproducibility metadata and metric ranges, confirms all 5 plots exist, and prints `Validation passed.`
 
 ## Step 5: Review the Report
 
