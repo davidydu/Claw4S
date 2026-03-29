@@ -42,7 +42,7 @@ Verify the analysis modules work correctly:
 .venv/bin/python -m pytest tests/ -v
 ```
 
-Expected: Pytest exits with `32 passed` and exit code 0.
+Expected: Pytest exits with `34 passed` and exit code 0.
 
 ## Step 3: Run the Experiment Sweep
 
@@ -68,6 +68,8 @@ Expected output: Each experiment prints its config and detection AUC. The script
 - `fig_auc_heatmap.png` — AUC heatmap (poison fraction vs trigger strength)
 - `fig_auc_by_model_size.png` — AUC vs poison fraction by model size
 - `fig_eigenvalue_ratio.png` — spectral gap vs poison fraction
+
+For reproducibility, `results.json` excludes wall-clock timing fields.
 
 ## Step 4: Validate Results
 
@@ -96,7 +98,7 @@ Expected output: `VALIDATION PASSED: All checks OK` with exit code 0. The valida
 
 ## Expected Findings
 
-- **Joint phase transition in detectability**: trigger strength is the dominant factor, but poison fraction matters. With `strength=10.0` and poison fraction >= 10%, all 9 such experiments achieve AUC >= 0.99 across model sizes. At 5% poison, even `strength=10.0` stays near random (AUC 0.166-0.281).
+- **Joint phase transition in detectability**: trigger strength is the dominant factor, but poison fraction matters. With `strength=10.0` and poison fraction >= 10%, all 9 such experiments achieve AUC >= 0.9 across model sizes. At 5% poison, even `strength=10.0` stays near-random in the reference run (AUC 0.166-0.281).
 - Weaker triggers (`strength=3.0` or `5.0`) evade spectral detection in all 24 experiments (all AUC < 0.5).
 - Poison fraction has a secondary effect: higher fractions increase the chance that a strong trigger becomes spectrally separable, but they do not rescue weak-trigger detection.
 - Model size (hidden dim) has modest effect on detectability.

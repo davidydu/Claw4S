@@ -6,6 +6,8 @@ Must be run from the submission directory: submissions/backdoor-detection/
 import json
 import os
 import sys
+from collections import Counter
+from itertools import product
 
 from src.cli import ensure_submission_cwd
 
@@ -28,6 +30,51 @@ def strong_trigger_thesis_check(
     ]
     passed = sum(1 for r in thesis_subset if r["detection_auc"] >= auc_threshold)
     return passed, len(thesis_subset)
+
+
+def thesis_requirement_satisfied(
+    results: list[dict],
+    auc_threshold: float = 0.9,
+    min_poison_fraction: float = 0.10,
+    min_trigger_strength: float = 10.0,
+) -> tuple[bool, int, int]:
+    """Return whether thesis requirement is satisfied with a non-empty subset."""
+    passed, total = strong_trigger_thesis_check(
+        results,
+        auc_threshold=auc_threshold,
+        min_poison_fraction=min_poison_fraction,
+        min_trigger_strength=min_trigger_strength,
+    )
+    return total > 0 and passed == total, passed, total
+
+
+def check_config_grid_coverage(
+    results: list[dict],
+    metadata: dict,
+) -> tuple[set[tuple[float, float, int]], set[tuple[float, float, int]], dict[tuple[float, float, int], int]]:
+    """Check whether results fully and uniquely cover the metadata config grid."""
+    expected = {
+        (float(pf), float(ts), int(hd))
+        for pf, ts, hd in product(
+            metadata["poison_fractions"],
+            metadata["trigger_strengths"],
+            metadata["hidden_dims"],
+        )
+    }
+    observed = [
+        (
+            float(r["config"]["poison_fraction"]),
+            float(r["config"]["trigger_strength"]),
+            int(r["config"]["hidden_dim"]),
+        )
+        for r in results
+    ]
+    counts = Counter(observed)
+    duplicates = {cfg: count for cfg, count in counts.items() if count > 1}
+    observed_set = set(observed)
+    missing = expected - observed_set
+    unexpected = observed_set - expected
+    return missing, unexpected, duplicates
 
 
 def main() -> None:
@@ -62,12 +109,29 @@ def main() -> None:
     required_fields = [
         "detection_auc", "eigenvalue_ratio", "clean_model_accuracy",
         "backdoored_model_accuracy", "backdoor_success_rate",
-        "n_poisoned", "n_total", "elapsed_seconds",
+        "n_poisoned", "n_total",
     ]
     for i, r in enumerate(results):
+        if "config" not in r:
+            errors.append(f"Result {i} missing field: config")
+            continue
+        for config_field in ["poison_fraction", "trigger_strength", "hidden_dim"]:
+            if config_field not in r["config"]:
+                errors.append(f"Result {i} config missing field: {config_field}")
         for field in required_fields:
             if field not in r:
                 errors.append(f"Result {i} missing field: {field}")
+
+    # Check full sweep coverage (no missing/duplicate/unexpected configs)
+    missing_configs, unexpected_configs, duplicate_configs = check_config_grid_coverage(
+        results, metadata
+    )
+    if missing_configs:
+        errors.append(f"Missing config(s): {sorted(missing_configs)}")
+    if unexpected_configs:
+        errors.append(f"Unexpected config(s): {sorted(unexpected_configs)}")
+    if duplicate_configs:
+        errors.append(f"Duplicate config(s): {sorted(duplicate_configs.items())}")
 
     # Check AUC values are valid
     aucs = [r["detection_auc"] for r in results]
@@ -86,7 +150,6 @@ def main() -> None:
         pf_to_aucs.setdefault(pf, []).append(r["detection_auc"])
 
     print("\nDetection AUC by poison fraction:")
-    prev_mean = 0.0
     for pf in sorted(pf_to_aucs.keys()):
         a = pf_to_aucs[pf]
         m = sum(a) / len(a)
@@ -124,10 +187,12 @@ def main() -> None:
             errors.append(f"Missing file: {fpath}")
 
     # Thesis check: strong triggers become detectable once poison fraction reaches 10%.
-    high_auc_count, thesis_total = strong_trigger_thesis_check(results)
+    thesis_ok, high_auc_count, thesis_total = thesis_requirement_satisfied(results)
     print(f"\nThesis check: {high_auc_count}/{thesis_total} strong-trigger experiments "
           f"with poison >= 10% achieved AUC >= 0.9")
-    if high_auc_count != thesis_total:
+    if thesis_total == 0:
+        errors.append("Thesis subset is empty; expected strong-trigger experiments to be present")
+    elif not thesis_ok:
         errors.append(
             "Not all strong-trigger experiments with poison >= 10% achieved AUC >= 0.9"
         )
