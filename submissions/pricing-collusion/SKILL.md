@@ -13,7 +13,7 @@ This skill simulates algorithmic pricing agents competing in repeated Bertrand m
 
 ## Prerequisites
 
-- Requires **Python 3.10+**. No internet access needed (pure simulation).
+- Requires **Python 3.10+**. Initial dependency install requires internet access to PyPI (or a pre-provisioned wheel cache / existing venv).
 - Expected runtime: **8-15 minutes** on first run (324 simulations, 100K-200K rounds per matchup, parallelized across CPU cores). Runtime scales with available cores.
 - All commands must be run from the **submission directory** (`submissions/pricing-collusion/`).
 
@@ -48,6 +48,7 @@ Execute the full pricing collusion simulation experiment:
 ```
 
 Expected: Script prints progress like `[20/324] QQ/M3/e-commerce | 0.4m elapsed | ~6m remaining`, ending with `Done. Results saved to results/` and exit code 0.
+`run.py` clears prior primary artifacts at startup, so a failed run cannot silently reuse stale outputs.
 
 Output files created:
 - `results/results.json` — 324 simulation records with auditor scores
@@ -81,7 +82,7 @@ Conditions with significant supra-Nash pricing (Bonferroni): N/108
 Validation passed.
 ```
 
-If validation fails, the error messages indicate which checks failed.
+If validation fails, the error messages indicate which checks failed (including missing output artifacts from incomplete runs).
 
 ## Step 5: Review the Report
 
