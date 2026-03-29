@@ -72,3 +72,70 @@ def test_actions_in_valid_range():
     result = run_simulation(game, comp, total_rounds=500, seed=42)
     assert np.all(result["action_history"] >= 0)
     assert np.all(result["action_history"] <= 2)
+
+
+def test_fragility_injection_never_reduces_innovators(monkeypatch):
+    """Fragility perturbations should not reduce baseline innovator count."""
+    game = make_symmetric_game()
+    composition = {
+        AgentType.INNOVATOR: 4,
+        AgentType.ADAPTIVE: 3,
+        AgentType.CONFORMIST: 3,
+    }
+
+    seen_compositions: list[dict[AgentType, int]] = []
+
+    def fake_run_simulation(game, composition, total_rounds, seed):
+        seen_compositions.append(dict(composition))
+        return {
+            "action_history": np.zeros(total_rounds, dtype=np.int32),
+            "payoff_history": np.ones(total_rounds, dtype=np.float64),
+            "agents": [],
+        }
+
+    monkeypatch.setattr("src.simulation.run_simulation", fake_run_simulation)
+
+    compute_sim_metrics(game, composition, total_rounds=100, seed=42)
+
+    baseline_innovators = composition[AgentType.INNOVATOR]
+    population_size = sum(composition.values())
+    # First call is baseline, remaining calls are fragility perturbations.
+    frag_compositions = seen_compositions[1:]
+
+    assert frag_compositions
+    assert all(
+        c.get(AgentType.INNOVATOR, 0) >= baseline_innovators for c in frag_compositions
+    )
+    assert all(sum(c.values()) == population_size for c in frag_compositions)
+
+
+def test_fragility_uses_effective_innovator_fractions(monkeypatch):
+    """Fragility should be evaluated using actual injected innovator fractions."""
+    game = make_symmetric_game()
+    composition = {
+        AgentType.INNOVATOR: 4,
+        AgentType.ADAPTIVE: 3,
+        AgentType.CONFORMIST: 3,
+    }
+
+    captured_fractions: list[float] = []
+
+    def fake_run_simulation(game, composition, total_rounds, seed):
+        return {
+            "action_history": np.zeros(total_rounds, dtype=np.int32),
+            "payoff_history": np.ones(total_rounds, dtype=np.float64),
+            "agents": [],
+        }
+
+    def fake_norm_fragility(action_history, innovator_fractions, action_histories_by_fraction):
+        captured_fractions.extend(innovator_fractions)
+        return 1.0
+
+    monkeypatch.setattr("src.simulation.run_simulation", fake_run_simulation)
+    monkeypatch.setattr("src.simulation.norm_fragility", fake_norm_fragility)
+
+    compute_sim_metrics(game, composition, total_rounds=100, seed=42)
+
+    baseline_fraction = composition[AgentType.INNOVATOR] / sum(composition.values())
+    assert captured_fractions
+    assert min(captured_fractions) >= baseline_fraction

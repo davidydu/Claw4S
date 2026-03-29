@@ -32,6 +32,58 @@ def _get_population_counts(agents: list[Agent]) -> np.ndarray:
     return counts
 
 
+def _allocate_non_innovators(
+    composition: dict[AgentType, int],
+    remaining: int,
+) -> dict[AgentType, int]:
+    """Allocate remaining slots across non-innovators proportionally."""
+    non_innov_types = [t for t, n in composition.items() if t != AgentType.INNOVATOR and n > 0]
+    if remaining <= 0 or not non_innov_types:
+        return {}
+
+    total_non_innov = sum(composition[t] for t in non_innov_types)
+    if total_non_innov == 0:
+        return {}
+
+    allocated: dict[AgentType, int] = {}
+    fractional_parts: list[tuple[float, AgentType]] = []
+    assigned = 0
+
+    for t in non_innov_types:
+        exact = remaining * (composition[t] / total_non_innov)
+        count = int(np.floor(exact))
+        allocated[t] = count
+        assigned += count
+        fractional_parts.append((exact - count, t))
+
+    to_assign = remaining - assigned
+    if to_assign > 0:
+        for _, t in sorted(fractional_parts, reverse=True)[:to_assign]:
+            allocated[t] += 1
+
+    return allocated
+
+
+def _build_fragility_composition(
+    composition: dict[AgentType, int],
+    total_agents: int,
+    requested_fraction: float,
+) -> tuple[dict[AgentType, int], float]:
+    """Build a perturbation composition for fragility without reducing innovators.
+
+    requested_fraction is interpreted as target innovator share. If the baseline
+    already has a higher share, we keep the baseline innovator count.
+    """
+    baseline_innovators = composition.get(AgentType.INNOVATOR, 0)
+    requested_innovators = max(1, int(total_agents * requested_fraction))
+    target_innovators = min(total_agents, max(baseline_innovators, requested_innovators))
+
+    remaining = total_agents - target_innovators
+    frag_comp = _allocate_non_innovators(composition, remaining)
+    frag_comp[AgentType.INNOVATOR] = target_innovators
+    return frag_comp, target_innovators / total_agents
+
+
 def run_simulation(
     game: GameConfig,
     composition: dict[AgentType, int],
@@ -107,41 +159,32 @@ def compute_sim_metrics(
 
     optimal = game.optimal_welfare()
 
-    # Fragility: run additional sims with increasing innovator fractions
+    # Fragility: run additional sims with increasing innovator fractions.
+    # For innovator-heavy baselines, do not reduce innovator share.
     total_agents = sum(composition.values())
-    innovator_fractions = [0.1, 0.2, 0.3, 0.4, 0.5]
+    requested_innovator_fractions = [0.1, 0.2, 0.3, 0.4, 0.5]
+    effective_innovator_fractions: list[float] = []
     frag_histories: list[np.ndarray] = []
+    seen_innovator_counts: set[int] = set()
 
-    for frac in innovator_fractions:
-        n_innovators = max(1, int(total_agents * frac))
-        # Replace some agents with innovators
-        frag_comp = dict(composition)
-        # Remove agents proportionally from non-innovator types
-        non_innov_types = [t for t in frag_comp if t != AgentType.INNOVATOR]
-        remaining = total_agents - n_innovators
-        if non_innov_types and remaining > 0:
-            frag_comp_new: dict[AgentType, int] = {}
-            non_innov_total = sum(frag_comp.get(t, 0) for t in non_innov_types)
-            if non_innov_total > 0:
-                for t in non_innov_types:
-                    share = frag_comp.get(t, 0) / non_innov_total
-                    frag_comp_new[t] = max(0, int(remaining * share))
-            # Ensure we hit the target population size
-            assigned = sum(frag_comp_new.values())
-            if assigned < remaining and non_innov_types:
-                frag_comp_new[non_innov_types[0]] += remaining - assigned
-            frag_comp_new[AgentType.INNOVATOR] = n_innovators
-        else:
-            frag_comp_new = {AgentType.INNOVATOR: total_agents}
+    for frac in requested_innovator_fractions:
+        frag_comp, effective_fraction = _build_fragility_composition(
+            composition, total_agents, frac
+        )
+        innovator_count = frag_comp[AgentType.INNOVATOR]
+        if innovator_count in seen_innovator_counts:
+            continue
+        seen_innovator_counts.add(innovator_count)
 
-        frag_result = run_simulation(game, frag_comp_new, total_rounds, seed + 1000)
+        frag_result = run_simulation(game, frag_comp, total_rounds, seed + 1000)
         frag_histories.append(frag_result["action_history"])
+        effective_innovator_fractions.append(effective_fraction)
 
     convergence = norm_convergence_time(action_history, total_rounds)
     efficiency = norm_efficiency(payoff_history, optimal)
     diversity = norm_diversity(action_history)
     fragility = norm_fragility(
-        action_history, innovator_fractions, frag_histories
+        action_history, effective_innovator_fractions, frag_histories
     )
 
     return {

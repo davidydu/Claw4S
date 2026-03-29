@@ -6,6 +6,9 @@ Usage: .venv/bin/python validate.py
 import json
 import sys
 
+from src.experiment import COMPOSITIONS, POPULATION_SIZES, SEEDS
+from src.game import ALL_GAMES
+
 
 def main() -> None:
     with open("results/results.json") as f:
@@ -22,8 +25,21 @@ def main() -> None:
     print(f"Population sizes: {metadata['population_sizes']}")
     print(f"Runtime:          {metadata['elapsed_seconds']}s")
 
-    # Check simulation count: 4 compositions x 3 games x 3 sizes x 3 seeds = 108
-    expected = 108
+    expected_games = set(ALL_GAMES.keys())
+    expected_comps = set(COMPOSITIONS.keys())
+    expected_sizes = set(POPULATION_SIZES)
+    expected_seeds = set(SEEDS)
+
+    expected_grid = {
+        (comp, game, size, seed)
+        for comp in expected_comps
+        for game in expected_games
+        for size in expected_sizes
+        for seed in expected_seeds
+    }
+    expected = len(expected_grid)
+
+    # Check simulation count: expected full grid coverage.
     if n_sims != expected:
         errors.append(f"Expected {expected} simulations, got {n_sims}")
 
@@ -32,21 +48,43 @@ def main() -> None:
 
     # Check all games are present
     games_found = set(r["game"] for r in results)
-    expected_games = {"symmetric", "asymmetric", "dominant"}
     if games_found != expected_games:
         errors.append(f"Expected games {expected_games}, got {games_found}")
 
     # Check all compositions are present
     comps_found = set(r["composition_name"] for r in results)
-    expected_comps = {"all_adaptive", "mixed_conform", "innovator_heavy", "traditionalist_heavy"}
     if comps_found != expected_comps:
         errors.append(f"Expected compositions {expected_comps}, got {comps_found}")
 
     # Check all sizes are present
     sizes_found = set(r["population_size"] for r in results)
-    expected_sizes = {20, 50, 100}
     if sizes_found != expected_sizes:
         errors.append(f"Expected sizes {expected_sizes}, got {sizes_found}")
+
+    # Check all seeds are present
+    seeds_found = set(r["seed"] for r in results)
+    if seeds_found != expected_seeds:
+        errors.append(f"Expected seeds {expected_seeds}, got {seeds_found}")
+
+    # Check every (composition, game, size, seed) appears exactly once.
+    observed_grid = [
+        (r["composition_name"], r["game"], r["population_size"], r["seed"])
+        for r in results
+    ]
+    observed_grid_set = set(observed_grid)
+    duplicates = len(observed_grid) - len(observed_grid_set)
+    if duplicates > 0:
+        errors.append(f"Found {duplicates} duplicate grid cell(s)")
+
+    missing = expected_grid - observed_grid_set
+    if missing:
+        examples = sorted(missing)[:3]
+        errors.append(f"Missing {len(missing)} expected grid cell(s), e.g. {examples}")
+
+    unexpected = observed_grid_set - expected_grid
+    if unexpected:
+        examples = sorted(unexpected)[:3]
+        errors.append(f"Found {len(unexpected)} unexpected grid cell(s), e.g. {examples}")
 
     # Validate metric ranges
     for r in results:

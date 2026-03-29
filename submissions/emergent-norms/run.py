@@ -36,12 +36,24 @@ def main() -> None:
 
 
 def _metadata(results: list[dict], elapsed: float) -> dict:
+    if not results:
+        return {
+            "num_simulations": 0,
+            "total_rounds_per_sim": 0,
+            "population_sizes": [],
+            "games": [],
+            "compositions": [],
+            "seeds": [],
+            "elapsed_seconds": round(elapsed, 1),
+        }
+
     return {
         "num_simulations": len(results),
         "total_rounds_per_sim": results[0]["total_rounds"],
         "population_sizes": sorted(set(r["population_size"] for r in results)),
         "games": sorted(set(r["game"] for r in results)),
         "compositions": sorted(set(r["composition_name"] for r in results)),
+        "seeds": sorted(set(r["seed"] for r in results)),
         "elapsed_seconds": round(elapsed, 1),
     }
 
