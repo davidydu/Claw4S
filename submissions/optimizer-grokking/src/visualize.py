@@ -8,6 +8,7 @@ Generates:
 """
 
 import json
+import math
 import os
 
 import matplotlib
@@ -30,6 +31,19 @@ OUTCOME_VALUES = {
     "memorization": 1,
     "failure": 0,
 }
+
+
+def wilson_interval(successes: int, total: int, z: float = 1.96) -> tuple[float, float]:
+    """Compute a Wilson score confidence interval for a binomial rate."""
+    if total <= 0:
+        return 0.0, 0.0
+
+    phat = successes / total
+    z2 = z * z
+    denom = 1.0 + z2 / total
+    center = (phat + z2 / (2.0 * total)) / denom
+    margin = (z * math.sqrt((phat * (1.0 - phat) + z2 / (4.0 * total)) / total)) / denom
+    return max(0.0, center - margin), min(1.0, center + margin)
 
 
 def load_results(results_dir: str = "results") -> dict:
@@ -242,11 +256,28 @@ def generate_report(data: dict, results_dir: str = "results") -> str:
         f"- **Total runs:** {meta['num_runs']}",
         f"- **Runtime:** {meta['total_seconds']:.0f}s",
         "",
+    ]
+
+    if any(
+        key in meta
+        for key in ["python_version", "torch_version", "numpy_version", "platform", "generated_utc"]
+    ):
+        lines.extend([
+            "## Reproducibility Provenance",
+            f"- **Python:** {meta.get('python_version', 'unknown')}",
+            f"- **PyTorch:** {meta.get('torch_version', 'unknown')}",
+            f"- **NumPy:** {meta.get('numpy_version', 'unknown')}",
+            f"- **Platform:** {meta.get('platform', 'unknown')}",
+            f"- **Generated (UTC):** {meta.get('generated_utc', 'unknown')}",
+            "",
+        ])
+
+    lines.extend([
         "## Outcome Summary",
         "",
         "| Optimizer | Grokking | Direct Gen. | Memorization | Failure |",
         "|-----------|----------|-------------|--------------|---------|",
-    ]
+    ])
 
     for opt in meta["optimizers"]:
         c = outcome_counts[opt]
@@ -271,6 +302,27 @@ def generate_report(data: dict, results_dir: str = "results") -> str:
             )
         else:
             lines.append(f"| {opt} | -- | -- | -- | 0 |")
+
+    lines.extend([
+        "",
+        "## Statistical Uncertainty",
+        "",
+        "Wilson 95% CI for delayed-grokking rate per optimizer:",
+        "",
+        "| Optimizer | Delayed Grokking | Rate | Wilson 95% CI |",
+        "|-----------|------------------|------|---------------|",
+    ])
+
+    for opt in meta["optimizers"]:
+        opt_runs = [r for r in runs if r["optimizer"] == opt]
+        total_opt = len(opt_runs)
+        delayed = sum(1 for r in opt_runs if r["outcome"] == "grokking")
+        rate = delayed / total_opt if total_opt else 0.0
+        lower, upper = wilson_interval(delayed, total_opt)
+        lines.append(
+            f"| {opt} | {delayed}/{total_opt} | {rate * 100:.1f}% | "
+            f"[{lower * 100:.1f}%, {upper * 100:.1f}%] |"
+        )
 
     # Detailed per-run table
     lines.extend([
@@ -332,7 +384,7 @@ def generate_report(data: dict, results_dir: str = "results") -> str:
     report = "\n".join(lines)
 
     save_path = os.path.join(results_dir, "report.md")
-    with open(save_path, "w") as f:
+    with open(save_path, "w", encoding="utf-8") as f:
         f.write(report)
     print(f"Report saved to {save_path}", flush=True)
 

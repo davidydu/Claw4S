@@ -16,9 +16,10 @@ This skill reproduces the grokking phenomenon (Power et al., 2022) and maps whic
 
 ## Step 1: Environment Setup
 
-Create a virtual environment and install dependencies:
+Start from a clean state, create a virtual environment, and install dependencies:
 
 ```bash
+rm -rf results/
 python3 -m venv .venv
 .venv/bin/pip install --upgrade pip
 .venv/bin/pip install -r requirements.txt
@@ -31,6 +32,12 @@ Verify all packages are installed:
 ```
 
 Expected output: `All imports OK`
+
+Optional reproducibility check (records versions in your run metadata):
+
+```bash
+.venv/bin/python -c "import platform, torch, numpy; print(platform.python_version(), torch.__version__, numpy.__version__)"
+```
 
 ## Step 2: Run Unit Tests
 
@@ -54,7 +61,7 @@ Expected: Script prints progress for each of 36 runs and exits with code 0. Crea
 - `sweep_results.json` — raw data for all 36 runs with per-epoch metrics
 - `grokking_heatmap.png` — heatmap showing delayed grokking/direct generalization/memorization/failure per config
 - `training_curves.png` — representative train/test accuracy curves
-- `report.md` — Markdown summary with outcome counts and grokking delays
+- `report.md` — Markdown summary with outcome counts, grokking delays, and Wilson 95% confidence intervals
 
 Progress output looks like:
 ```
@@ -65,6 +72,8 @@ Progress output looks like:
         -> grokking (train=1.000, test=1.000) [240s elapsed]
 Sweep complete: 36 runs in 240s
 ```
+
+If execution is interrupted, rerun the same command (`.venv/bin/python run.py`). Sweep execution is resumable and reuses cached completed configurations.
 
 ## Step 4: Validate Results
 

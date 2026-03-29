@@ -59,6 +59,7 @@ if data is not None:
     print(f"Weight decays:  {num_wds} ({meta.get('weight_decays', [])})")
     print(f"Total runs:     {len(runs)} (expected {expected_runs})")
     print(f"Runtime:        {meta.get('total_seconds', '?')}s")
+    print(f"Completed runs: {meta.get('completed_runs', '?')}")
 
     if num_optimizers < 4:
         errors.append(f"Expected >= 4 optimizers, got {num_optimizers}")
@@ -68,6 +69,27 @@ if data is not None:
         errors.append(f"Expected >= 3 weight decays, got {num_wds}")
     if len(runs) != expected_runs:
         errors.append(f"Expected {expected_runs} runs, got {len(runs)}")
+    if meta.get("completed_runs") not in (None, len(runs)):
+        errors.append(
+            f"Metadata completed_runs={meta.get('completed_runs')} "
+            f"does not match run count {len(runs)}"
+        )
+
+    # Reproducibility metadata should be present.
+    for key in ["python_version", "torch_version", "numpy_version", "platform", "generated_utc"]:
+        value = meta.get(key)
+        if not value:
+            errors.append(f"Missing metadata field: {key}")
+
+    # Validate split metadata if available.
+    train_examples = meta.get("train_examples")
+    test_examples = meta.get("test_examples")
+    if isinstance(train_examples, int) and isinstance(test_examples, int):
+        if train_examples + test_examples != (meta.get("prime", 0) ** 2):
+            errors.append(
+                f"train_examples + test_examples should equal p^2 "
+                f"(got {train_examples}+{test_examples} vs p={meta.get('prime')})"
+            )
 
     # Validate each run
     valid_outcomes = {
@@ -82,8 +104,35 @@ if data is not None:
         "memorization": 0,
         "failure": 0,
     }
+    expected_configs = {
+        (opt, float(lr), float(wd))
+        for opt in meta.get("optimizers", [])
+        for lr in meta.get("learning_rates", [])
+        for wd in meta.get("weight_decays", [])
+    }
+    seen_configs = set()
+    max_epochs = meta.get("max_epochs")
 
     for i, run in enumerate(runs):
+        optimizer = run.get("optimizer")
+        lr = run.get("lr")
+        wd = run.get("weight_decay")
+        try:
+            config = (optimizer, float(lr), float(wd))
+        except (TypeError, ValueError):
+            errors.append(
+                f"Run {i}: invalid optimizer/lr/wd triple "
+                f"({optimizer!r}, {lr!r}, {wd!r})"
+            )
+            config = None
+
+        if config is not None:
+            if config in seen_configs:
+                errors.append(f"Run {i}: duplicate config {config}")
+            seen_configs.add(config)
+            if config not in expected_configs:
+                errors.append(f"Run {i}: unexpected config {config}")
+
         outcome = run.get("outcome", "")
         if outcome not in valid_outcomes:
             errors.append(f"Run {i}: invalid outcome '{outcome}'")
@@ -92,6 +141,26 @@ if data is not None:
 
         if "history" not in run or len(run["history"]) == 0:
             errors.append(f"Run {i}: empty training history")
+            history = []
+        else:
+            history = run["history"]
+
+        # History integrity checks
+        epochs = [entry.get("epoch") for entry in history if "epoch" in entry]
+        if len(epochs) != len(history):
+            errors.append(f"Run {i}: missing epoch in history entries")
+        if epochs:
+            if epochs != sorted(epochs):
+                errors.append(f"Run {i}: history epochs are not sorted")
+            if len(set(epochs)) != len(epochs):
+                errors.append(f"Run {i}: duplicated epochs in history")
+            if epochs[0] != 1:
+                errors.append(f"Run {i}: first logged epoch should be 1 (got {epochs[0]})")
+            if isinstance(max_epochs, int) and epochs[-1] != max_epochs:
+                errors.append(
+                    f"Run {i}: last logged epoch should be max_epochs={max_epochs} "
+                    f"(got {epochs[-1]})"
+                )
 
         train_acc = run.get("final_train_acc", -1)
         test_acc = run.get("final_test_acc", -1)
@@ -99,6 +168,21 @@ if data is not None:
             errors.append(f"Run {i}: train_acc={train_acc} out of [0,1]")
         if not (0.0 <= test_acc <= 1.0):
             errors.append(f"Run {i}: test_acc={test_acc} out of [0,1]")
+
+        if history:
+            last = history[-1]
+            last_train = last.get("train_acc")
+            last_test = last.get("test_acc")
+            if last_train is not None and abs(last_train - train_acc) > 1e-8:
+                errors.append(
+                    f"Run {i}: final_train_acc {train_acc} "
+                    f"!= last history train_acc {last_train}"
+                )
+            if last_test is not None and abs(last_test - test_acc) > 1e-8:
+                errors.append(
+                    f"Run {i}: final_test_acc {test_acc} "
+                    f"!= last history test_acc {last_test}"
+                )
 
         generalization_epoch = run.get("generalization_epoch")
         memorization_epoch = run.get("memorization_epoch")
@@ -138,9 +222,34 @@ if data is not None:
                     f"(got mem={memorization_epoch}, gen={generalization_epoch})"
                 )
 
+        if outcome == "memorization":
+            if memorization_epoch is None:
+                errors.append(f"Run {i}: memorization outcome but no memorization_epoch")
+            if generalization_epoch is not None:
+                errors.append(
+                    f"Run {i}: memorization outcome should not have generalization_epoch "
+                    f"(got {generalization_epoch})"
+                )
+            if grokking_epoch is not None:
+                errors.append(
+                    f"Run {i}: memorization outcome should not have grokking_epoch "
+                    f"(got {grokking_epoch})"
+                )
+
+        if outcome == "failure":
+            if any(v is not None for v in [memorization_epoch, generalization_epoch, grokking_epoch]):
+                errors.append(
+                    f"Run {i}: failure outcome should not have memorization/generalization epochs"
+                )
+
     print(f"\nOutcome distribution:")
     for outcome, count in outcome_counts.items():
         print(f"  {outcome}: {count}")
+    print(f"Unique configs: {len(seen_configs)} (expected {expected_runs})")
+
+    missing_configs = sorted(expected_configs - seen_configs)
+    if missing_configs:
+        errors.append(f"Missing {len(missing_configs)} configuration(s): {missing_configs}")
 
     # At least one grokking run should exist
     if outcome_counts["grokking"] == 0:
