@@ -13,8 +13,9 @@ This skill analyzes whether three independently-evolved Chinese metaphysical sys
 
 ## Prerequisites
 
-- Requires **Python 3.10+**. No internet access needed (pure computation with embedded lookup tables).
-- Expected runtime: **~45–50 minutes** on a single CPU (no GPU required).
+- Requires **Python 3.10+**.
+- The analysis itself is pure computation with embedded lookup tables (no runtime API/data calls), but initial dependency installation requires package-index access unless dependencies are already present.
+- Expected runtime: **~10–20 minutes** on a single CPU (no GPU required).
 - All commands must be run from the **submission directory** (`submissions/chinese-cosmology/`).
 
 ## Step 1: Environment Setup
@@ -84,7 +85,7 @@ Script exits with code 0. The following files are created:
 For quick smoke checks (small sample, optional no-figure mode):
 
 ```bash
-python run.py --start-year 2000 --end-year 2001 --max-charts 120 --skip-figures --output-dir results_smoke
+.venv/bin/python run.py --start-year 2000 --end-year 2001 --max-charts 120 --skip-figures --output-dir results_smoke
 ```
 
 ## Step 4: Validate Results
@@ -96,9 +97,11 @@ Check that results are complete and statistically consistent:
 ```
 
 Expected output includes:
-- `Charts: XXXXXX (expected ~262980)` — confirms full 60-year corpus
-- `BaZi domain scores: mean=X.XX, std=X.XX` — non-trivial variation
-- `Zi Wei domain scores: mean=X.XX, std=X.XX`
+- `Charts expected: 262,980` and `Records found: 262,980`
+- `All 3 systems present in all records: OK`
+- `All domain scores in [0, 1]: OK`
+- `Correlation summary (BaZi–ZiWei career): ...`
+- `95% CI: [...]`, `p-value: ...`, `Bonferroni p: ...`
 - `Validation passed.`
 
 To validate a non-default output directory:
@@ -115,7 +118,7 @@ Read the generated markdown report:
 cat results/report.md
 ```
 
-Review the cross-system correlation table (Pearson r per domain with 95% CI and p-values), domain agreement rates, mutual information in bits, Wu Xing predictiveness (R²), and temporal pattern analysis across 天干 and 地支 cycles.
+Review the cross-system correlation table (Pearson r per domain with 95% CI and p-values), Bonferroni-corrected p-values, domain agreement rates, mutual information in nats, Wu Xing predictiveness (R²), and temporal pattern analysis across 天干 and 地支 cycles.
 
 ## How to Extend
 

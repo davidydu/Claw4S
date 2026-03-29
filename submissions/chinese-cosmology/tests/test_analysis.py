@@ -33,3 +33,37 @@ def test_compute_statistics():
     stats = compute_statistics(records)
     assert "correlation" in stats
     assert "domain_agreement" in stats
+
+
+def test_compute_statistics_includes_correlation_inference():
+    records = []
+    domains = ["career", "wealth", "relationships", "health", "overall"]
+
+    for i in range(240):
+        bazi = i / 239
+        ziwei = np.clip(bazi + (0.02 if i % 2 == 0 else -0.02), 0, 1)
+        wuxing = np.clip(1 - bazi, 0, 1)
+        record = {"datetime": f"2000-01-01T{i % 24:02d}:00:00"}
+        for domain in domains:
+            record[f"bazi_{domain}"] = float(bazi)
+            record[f"ziwei_{domain}"] = float(ziwei)
+            record[f"wuxing_{domain}"] = float(wuxing)
+        records.append(record)
+
+    stats = compute_statistics(records)
+    assert "correlation_inference" in stats
+
+    career = stats["correlation_inference"]["career"]["bazi_ziwei"]
+    assert set(career.keys()) == {
+        "r",
+        "ci_lower",
+        "ci_upper",
+        "p_value",
+        "p_value_bonferroni",
+        "n",
+    }
+    assert career["n"] == len(records)
+    assert career["ci_lower"] <= career["r"] <= career["ci_upper"]
+    assert 0.0 <= career["p_value"] <= 1.0
+    assert 0.0 <= career["p_value_bonferroni"] <= 1.0
+    assert career["p_value_bonferroni"] >= career["p_value"]

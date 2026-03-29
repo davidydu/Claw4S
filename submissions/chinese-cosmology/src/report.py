@@ -55,6 +55,36 @@ def generate_report(analysis_data: dict) -> str:
             )
     lines.append("")
 
+    # ---- Correlation inference ----
+    correlation_inference = stats.get("correlation_inference", {})
+    if correlation_inference:
+        pair_labels = {
+            "bazi_ziwei": "BaZi–ZiWei",
+            "bazi_wuxing": "BaZi–WuXing",
+            "ziwei_wuxing": "ZiWei–WuXing",
+        }
+        lines.append("## Correlation Inference\n")
+        lines.append("Fisher-z 95% CI and two-sided p-values for Pearson correlations:")
+        lines.append("")
+        lines.append("| Domain | Pair | r | 95% CI | p-value | Bonferroni p | n |")
+        lines.append("|--------|------|---|--------|---------|--------------|---|")
+        for domain in DOMAINS:
+            domain_inf = correlation_inference.get(domain, {})
+            for pair in ["bazi_ziwei", "bazi_wuxing", "ziwei_wuxing"]:
+                inf = domain_inf.get(pair)
+                if not inf:
+                    continue
+                lines.append(
+                    f"| {domain} "
+                    f"| {pair_labels.get(pair, pair)} "
+                    f"| {inf.get('r', 0.0):.4f} "
+                    f"| [{inf.get('ci_lower', 0.0):.4f}, {inf.get('ci_upper', 0.0):.4f}] "
+                    f"| {inf.get('p_value', 1.0):.3g} "
+                    f"| {inf.get('p_value_bonferroni', 1.0):.3g} "
+                    f"| {int(inf.get('n', 0)):,} |"
+                )
+        lines.append("")
+
     # ---- Domain agreement ----
     lines.append("## Domain Agreement\n")
     lines.append("Fraction of charts where both systems agree on favorability"

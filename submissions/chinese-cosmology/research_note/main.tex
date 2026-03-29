@@ -42,7 +42,8 @@ Traditional Chinese metaphysical systems encode complex algorithmic knowledge re
 Rather than evaluating predictive validity, this work applies computational cultural analytics to study the \emph{mathematical structure} of three such systems as objects of scientific inquiry.
 We present an agent-executable framework that runs BaZi (八字, Eight Characters), Zi Wei Dou Shu (紫微斗数, Purple Star Astrology), and Wu Xing Dynamics (五行, Five Element dynamics) on 263,000 birth charts spanning a full 60-year 甲子 cycle.
 Each system scores five life domains on a $[0, 1]$ scale; a four-evaluator consistency panel then measures cross-system agreement via Pearson correlation, mutual information, domain agreement rates, and Wu Xing predictiveness.
-Results show near-zero cross-system Pearson $r$ (mean $|r| = 0.0057$ across 5 domains), $\approx 0.0041$ bits of mutual information, and domain agreement rates indistinguishable from chance ($\approx 0.5$), revealing that BaZi and Zi Wei Dou Shu produce statistically independent assessments despite sharing the same 天干地支 calendar input.
+Results show very small cross-system effects (mean $|r| = 0.0047$ across 5 domains), mean mutual information of only $\approx 0.0012$ nats, and domain agreement rates that are near chance for most domains (0.52--0.54) with a notable below-chance health agreement (0.374).
+After Bonferroni correction over 15 comparisons, only career and health correlations remain statistically non-zero, but all effect sizes remain practically tiny ($|r| \le 0.0124$).
 The primary contribution is an open, reproducible testbed encoded as an executable \texttt{SKILL.md} that any AI agent can re-run to study cross-system consistency in Chinese cosmological traditions.
 \end{abstract}
 
@@ -61,7 +62,7 @@ This is the approach of computational cultural analytics~\cite{underwood2019dist
 We make three contributions:
 \begin{enumerate}
   \item A fully deterministic computation engine covering all three systems with embedded lookup tables, requiring no external data and producing bitwise-reproducible results.
-  \item A \emph{multi-agent evaluation panel} with four complementary consistency metrics and bootstrap confidence intervals, calibrated against a null model of randomly shuffled scores.
+  \item A \emph{multi-agent evaluation panel} with four complementary consistency metrics plus Fisher-$z$ confidence intervals and Bonferroni-corrected p-values for correlation estimates.
   \item An \emph{agent-executable skill} (\texttt{SKILL.md}) encoding the full experimental pipeline so that any AI coding agent can reproduce all 263,000 chart analyses and statistical tests from scratch.
 \end{enumerate}
 
@@ -141,21 +142,19 @@ P-values and 95\% confidence intervals via Fisher's $z$-transform.
 Bonferroni correction applied for 15 comparisons (5 domains $\times$ 3 system pairs).
 
 \paragraph{Evaluator 2: Mutual Information.}
-Estimates $I(\text{BaZi};\text{ZiWei})$ in bits via histogram binning.
-Normalized: $\hat{I} = I / \max(H(\text{BaZi}), H(\text{ZiWei}))$.
-Bootstrap 95\% CI from 1,000 resamples on a 10,000-chart subsample for computational tractability.
+Estimates $I(\text{BaZi};\text{ZiWei})$ in nats via 10-bin histogram discretization.
+We report per-domain point estimates from the full chart set.
 
 \paragraph{Evaluator 3: Domain Agreement.}
 Fraction of charts where BaZi and Zi Wei agree on favorability (both $> 0.5$ or both $\leq 0.5$) per domain.
 
 \paragraph{Evaluator 4: Wu Xing Predictiveness.}
-Linear regression $R^2$ of Wu Xing equilibrium score against BaZi and Zi Wei ratings, averaged across domains.
+Linear regression $R^2$ of Wu Xing domain scores predicting Zi Wei domain scores, computed separately per domain.
 
 \subsection{Null Model}
 
-To establish baseline chance agreement, we shuffle one system's scores uniformly at random (1,000 permutations, RANDOM\_SEED=42 via \texttt{numpy.random.default\_rng}) on a 10,000-chart subsample.
-All four evaluator metrics are recomputed on each permutation.
-Effect sizes (Cohen's $d$) measure the gap between observed agreement and null agreement.
+As a lightweight calibration check in \texttt{validate.py}, we shuffle Zi Wei career scores (100 permutations, RANDOM\_SEED=42) on a 500-record sample and compare mean null $|r|$ with observed $|r|$.
+This is used as a sanity check against accidental metric inflation, not as a full multi-domain hypothesis-testing framework.
 
 \section{Results}
 
@@ -170,13 +169,13 @@ Effect sizes (Cohen's $d$) measure the gap between observed agreement and null a
 \toprule
 \textbf{Domain} & \textbf{Pearson $r$} & \textbf{$p$-value} \\
 \midrule
-Career (事业)              & $+0.0123$ & $0.217$ \\
-Wealth (财富)              & $+0.0004$ & $0.970$ \\
-Relationships (感情)       & $-0.0073$ & $0.468$ \\
-Health (健康)              & $+0.0045$ & $0.650$ \\
-Overall (综合)             & $-0.0038$ & $0.707$ \\
+Career (事业)              & $-0.0061$ & $0.0018$ \\
+Wealth (财富)              & $+0.0025$ & $0.202$ \\
+Relationships (感情)       & $-0.0002$ & $0.922$ \\
+Health (健康)              & $-0.0124$ & $1.7\times 10^{-10}$ \\
+Overall (综合)             & $-0.0001$ & $0.942$ \\
 \midrule
-\textbf{Mean $|r|$} & $0.0057$ & --- \\
+\textbf{Mean $|r|$} & $0.0047$ & --- \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -188,34 +187,35 @@ Overall (综合)             & $-0.0038$ & $0.707$ \\
 \small
 \caption{Domain agreement rates (BaZi vs.\ Zi Wei Dou Shu) and mutual information.}
 \label{tab:mi}
-\begin{tabular}{lccc}
+\begin{tabular}{lcc}
 \toprule
-\textbf{Domain} & \textbf{Agreement rate} & \textbf{MI (bits)} & \textbf{Normalized MI} \\
+\textbf{Domain} & \textbf{Agreement rate} & \textbf{MI (nats)} \\
 \midrule
-Career        & $0.5360$ & $0.0026$ & $0.0037$ \\
-Wealth        & $0.5216$ & $0.0025$ & $0.0037$ \\
-Relationships & $0.5404$ & $0.0048$ & $0.0069$ \\
-Health        & $0.3756$ & $0.0022$ & $0.0031$ \\
-Overall       & $0.5339$ & $0.0022$ & $0.0032$ \\
+Career        & $0.5304$ & $0.0004$ \\
+Wealth        & $0.5226$ & $0.0005$ \\
+Relationships & $0.5372$ & $0.0041$ \\
+Health        & $0.3741$ & $0.0003$ \\
+Overall       & $0.5324$ & $0.0008$ \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 \subsection{Wu Xing Predictiveness}
 
-Wu Xing domain scores (derived from the evolved simplex state) explain $R^2 \approx 0.0000$ of the variance in Zi Wei Dou Shu ratings when averaged across domains, with the highest predictiveness for the \textbf{career} domain ($R^2 = 0.0001$). This near-zero $R^2$ confirms that Wu Xing dynamics, despite sharing BaZi element counts as input, produce domain scores that are essentially uncorrelated with Zi Wei Dou Shu ratings. The per-domain $R^2$ values range from $0.0000$ to $0.0001$ across all five domains.
+Wu Xing domain scores (derived from the evolved simplex state) explain essentially none of the variance in Zi Wei Dou Shu ratings ($R^2 \approx 0.0000$ across all five domains). This near-zero $R^2$ confirms that Wu Xing dynamics, despite sharing BaZi element counts as input, produce domain scores that are effectively uncorrelated with Zi Wei Dou Shu ratings in this setup.
 
 \subsection{Temporal Patterns}
 
 Agreement rates vary across the 60-year 甲子 cycle.
-Career agreement rates vary across years from $0.4302$ (2041) to $0.6243$ (2002), with a mean of $0.5357$ across the full 60-year 甲子 cycle. Year-level variation is modest (range $\approx 0.19$) and shows no systematic trend with 天干 year stem cycles (10-year period) or 地支 branch cycles (12-year period), consistent with the near-zero overall correlation.
+Career agreement ranges from $0.5053$ (2015) to $0.5519$ (1988), with mean $0.5304$ across the cycle. Year-level variation is small (range $\approx 0.047$) and shows no clear trend with 天干 year stem cycles (10-year period) or 地支 branch cycles (12-year period), consistent with weak cross-system effect sizes.
 
 \section{Discussion}
 
 \paragraph{What agreement reveals.}
-If BaZi and Zi Wei show statistically significant positive correlation above the null model, it indicates that the two schools' algorithmic choices converge on similar assessments despite independent development.
-This convergence could arise from (a) shared input structure: both systems operate on the same 天干地支 calendar, so correlated outputs may partly reflect shared input variation rather than independent agreement; (b) cultural transmission: practitioners of both arts may have calibrated their outputs against common cultural priors; or (c) mathematical coincidence given the discrete nature of the input space.
-Disentangling these requires regression controlling for calendar input structure, which we flag as future work.
+In our run, statistically detectable BaZi--Zi Wei correlations are very small and mixed-sign.
+This pattern suggests that large sample size can detect tiny effects that are unlikely to carry substantive practical agreement.
+Any residual non-zero correlation could arise from (a) shared input structure: both systems operate on the same 天干地支 calendar, so weak dependencies may reflect shared input variation; (b) limited cultural transmission between schools; or (c) mathematical coincidence in a discrete input space.
+Disentangling these requires explicit regression controls for calendar structure, which we flag as future work.
 
 \paragraph{What disagreement reveals.}
 Domains with low cross-system agreement (low $r$ and agreement rate near 0.5) reveal that the mapping from calendar structure to life domain is underdetermined---different systematic choices produce qualitatively different results for a substantial fraction of charts.

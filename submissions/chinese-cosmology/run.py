@@ -192,6 +192,7 @@ def main(
         "statistics_summary": {
             "n_records": stats.get("n_records", total),
             "correlation": stats.get("correlation", {}),
+            "correlation_inference": stats.get("correlation_inference", {}),
             "domain_agreement": stats.get("domain_agreement", {}),
         },
     }
@@ -210,6 +211,7 @@ def main(
     # Save statistical_tests.json
     stat_tests = {
         "correlation": stats.get("correlation", {}),
+        "correlation_inference": stats.get("correlation_inference", {}),
         "domain_agreement": stats.get("domain_agreement", {}),
         "mutual_information": stats.get("mutual_information", {}),
         "conditional_agreement": stats.get("conditional_agreement", {}),

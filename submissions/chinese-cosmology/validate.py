@@ -161,11 +161,18 @@ def main(results_file: str = "results/results.json") -> int:
     # -----------------------------------------------------------------------
     stats_summary = data.get("statistics_summary", {})
     correlation = stats_summary.get("correlation", {})
+    correlation_inference = stats_summary.get("correlation_inference", {})
     domain_agreement = stats_summary.get("domain_agreement", {})
 
     print(f"\nCorrelation summary (BaZi–ZiWei career):")
     career_corr = correlation.get("career", {}).get("bazi_ziwei", "N/A")
     print(f"  {career_corr}")
+
+    career_inf = correlation_inference.get("career", {}).get("bazi_ziwei")
+    if career_inf:
+        print("  95% CI:", f"[{career_inf.get('ci_lower', 0.0):.4f}, {career_inf.get('ci_upper', 0.0):.4f}]")
+        print("  p-value:", f"{career_inf.get('p_value', 1.0):.3g}")
+        print("  Bonferroni p:", f"{career_inf.get('p_value_bonferroni', 1.0):.3g}")
 
     print(f"\nDomain agreement summary (BaZi–ZiWei career):")
     career_agree = domain_agreement.get("career", {}).get("bazi_ziwei", "N/A")

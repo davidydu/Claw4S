@@ -25,7 +25,6 @@ from src.evaluators import EvaluatorPanel
 
 RANDOM_SEED = 42
 DOMAINS = ["career", "wealth", "relationships", "health", "overall"]
-_SUBSAMPLE_SIZE = 10_000  # bootstrap/null model subsample size
 
 
 # ---------------------------------------------------------------------------
@@ -56,6 +55,38 @@ def _pearson_r(xs: np.ndarray, ys: np.ndarray) -> float:
     if std_x < 1e-15 or std_y < 1e-15:
         return 0.0
     return float(np.corrcoef(xs, ys)[0, 1])
+
+
+def _normal_cdf(x: float) -> float:
+    """Standard normal CDF."""
+    return 0.5 * (1.0 + math.erf(x / math.sqrt(2.0)))
+
+
+def _fisher_inference(
+    r: float,
+    n: int,
+    confidence: float = 0.95,
+) -> Tuple[float, float, float]:
+    """Return Fisher-z CI and two-sided p-value for Pearson r."""
+    if n < 4:
+        return (r, r, 1.0)
+
+    eps = 1e-12
+    r_clipped = max(min(r, 1.0 - eps), -1.0 + eps)
+    z = math.atanh(r_clipped)
+    se = 1.0 / math.sqrt(n - 3)
+
+    z_crit = 1.959963984540054 if abs(confidence - 0.95) < 1e-12 else 1.959963984540054
+    z_lo = z - z_crit * se
+    z_hi = z + z_crit * se
+    ci_lo = math.tanh(z_lo)
+    ci_hi = math.tanh(z_hi)
+
+    z_stat = abs(z) / se
+    p_value = 2.0 * (1.0 - _normal_cdf(z_stat))
+    p_value = max(0.0, min(1.0, p_value))
+
+    return (ci_lo, ci_hi, p_value)
 
 
 # ---------------------------------------------------------------------------
@@ -220,6 +251,7 @@ def compute_statistics(records: list) -> Dict:
     if not records:
         return {
             "correlation": {},
+            "correlation_inference": {},
             "domain_agreement": {},
             "mutual_information": {},
             "temporal_patterns": [],
@@ -227,33 +259,61 @@ def compute_statistics(records: list) -> Dict:
             "n_records": 0,
         }
 
-    # Use up to _SUBSAMPLE_SIZE for expensive computations
-    rng_sub = np.random.default_rng(RANDOM_SEED)
-    if len(records) > _SUBSAMPLE_SIZE:
-        idx = rng_sub.choice(len(records), size=_SUBSAMPLE_SIZE, replace=False)
-        sub = [records[i] for i in idx]
-    else:
-        sub = records
-
-    # Compute correlation and domain agreement per domain
+    # Compute primary statistics on the full record set (no subsampling).
     correlation: Dict[str, Dict[str, float]] = {}
+    correlation_inference: Dict[str, Dict[str, Dict[str, float | int]]] = {}
     domain_agreement: Dict[str, Dict[str, float]] = {}
     mi: Dict[str, float] = {}
+    inference_index: List[Tuple[str, str]] = []
+    inference_p_values: List[float] = []
 
     for domain in DOMAINS:
-        bazi = _extract_domain_scores(sub, "bazi", domain)
-        ziwei = _extract_domain_scores(sub, "ziwei", domain)
-        wuxing = _extract_domain_scores(sub, "wuxing", domain)
+        bazi = _extract_domain_scores(records, "bazi", domain)
+        ziwei = _extract_domain_scores(records, "ziwei", domain)
+        wuxing = _extract_domain_scores(records, "wuxing", domain)
 
         if len(bazi) == 0:
             continue
 
-        # Correlation
-        correlation[domain] = {
-            "bazi_ziwei": round(_pearson_r(bazi, ziwei), 6),
-            "bazi_wuxing": round(_pearson_r(bazi, wuxing), 6),
-            "ziwei_wuxing": round(_pearson_r(ziwei, wuxing), 6),
+        pair_arrays = {
+            "bazi_ziwei": (bazi, ziwei),
+            "bazi_wuxing": (bazi, wuxing),
+            "ziwei_wuxing": (ziwei, wuxing),
         }
+
+        correlation[domain] = {}
+        correlation_inference[domain] = {}
+        for pair_name, xs_ys in pair_arrays.items():
+            xs, ys = xs_ys
+            n_obs = min(len(xs), len(ys))
+            if n_obs < 2:
+                correlation[domain][pair_name] = 0.0
+                correlation_inference[domain][pair_name] = {
+                    "r": 0.0,
+                    "ci_lower": 0.0,
+                    "ci_upper": 0.0,
+                    "p_value": 1.0,
+                    "p_value_bonferroni": 1.0,
+                    "n": n_obs,
+                }
+                continue
+
+            xs_n = xs[:n_obs]
+            ys_n = ys[:n_obs]
+            r_val = _pearson_r(xs_n, ys_n)
+            ci_lo, ci_hi, p_raw = _fisher_inference(r_val, n=n_obs, confidence=0.95)
+
+            correlation[domain][pair_name] = round(r_val, 6)
+            correlation_inference[domain][pair_name] = {
+                "r": round(r_val, 6),
+                "ci_lower": round(ci_lo, 6),
+                "ci_upper": round(ci_hi, 6),
+                "p_value": p_raw,
+                "p_value_bonferroni": 1.0,
+                "n": n_obs,
+            }
+            inference_index.append((domain, pair_name))
+            inference_p_values.append(p_raw)
 
         # Domain agreement (both > 0.5 or both ≤ 0.5)
         def _agree_rate(a, b):
@@ -286,10 +346,15 @@ def compute_statistics(records: list) -> Dict:
                 mi_val += p_ab * math.log(p_ab / (p_a * p_b))
         mi[domain] = round(max(0.0, mi_val), 6)
 
+    if inference_p_values:
+        corrected = apply_bonferroni(inference_p_values, n_tests=len(inference_p_values))
+        for (domain, pair_name), p_corr in zip(inference_index, corrected):
+            correlation_inference[domain][pair_name]["p_value_bonferroni"] = p_corr
+
     # Temporal patterns: group by year, compute mean agreement
     temporal: List[Dict] = []
     year_groups: Dict[int, List] = {}
-    for r in sub:
+    for r in records:
         dt_str = r.get("datetime", "")
         if dt_str:
             try:
@@ -308,10 +373,11 @@ def compute_statistics(records: list) -> Dict:
             ))
             temporal.append({"year": year, "career_agreement": round(agree, 6)})
 
-    conditional = compute_conditional_agreement(sub)
+    conditional = compute_conditional_agreement(records)
 
     return {
         "correlation": correlation,
+        "correlation_inference": correlation_inference,
         "domain_agreement": domain_agreement,
         "mutual_information": mi,
         "temporal_patterns": temporal,
@@ -356,18 +422,7 @@ def analyze_results(chart_results: list) -> Dict:
         ziwei_scores = [r.get(f"ziwei_{domain}", 0.5) for r in flat_records]
         wuxing_scores = [r.get(f"wuxing_{domain}", 0.5) for r in flat_records]
 
-        # Subsample for panel evaluation
-        rng_sub = np.random.default_rng(RANDOM_SEED)
-        n = len(bazi_scores)
-        if n > _SUBSAMPLE_SIZE:
-            idx = rng_sub.choice(n, size=_SUBSAMPLE_SIZE, replace=False)
-            b_sub = [bazi_scores[i] for i in idx]
-            z_sub = [ziwei_scores[i] for i in idx]
-            w_sub = [wuxing_scores[i] for i in idx]
-        else:
-            b_sub, z_sub, w_sub = bazi_scores, ziwei_scores, wuxing_scores
-
-        panel_out = panel.evaluate_all(b_sub, z_sub, w_sub)
+        panel_out = panel.evaluate_all(bazi_scores, ziwei_scores, wuxing_scores)
         evaluator_results_by_domain[domain] = [
             {
                 "evaluator_name": r.evaluator_name,
