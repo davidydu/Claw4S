@@ -80,4 +80,7 @@ def resilience_score(
     the maximum possible area (accuracy=1.0 across all fractions).
     Higher is better — a perfectly resilient system scores 1.0.
     """
-    return float(np.trapezoid(accuracies, fractions) / max(np.trapezoid(np.ones_like(accuracies), fractions), 1e-9))
+    trapz = np.trapezoid if hasattr(np, "trapezoid") else np.trapz
+    numerator = trapz(accuracies, fractions)
+    denominator = max(trapz(np.ones_like(accuracies), fractions), 1e-9)
+    return float(numerator / denominator)
