@@ -7,19 +7,32 @@ Must be executed from the submission directory:
 import os
 import sys
 
-# Working-directory guard
-expected_marker = os.path.join(os.path.dirname(os.path.abspath(__file__)), "SKILL.md")
-if not os.path.exists(expected_marker):
-    print("ERROR: run.py must be executed from submissions/feature-attribution/")
-    sys.exit(1)
+def _ensure_submission_dir(script_file: str) -> str:
+    """Ensure commands run from the submission directory.
 
-# Ensure src/ is importable
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    This keeps relative paths (e.g., results/) stable even when users launch
+    run.py from another working directory.
+    """
+    script_dir = os.path.dirname(os.path.abspath(script_file))
+    if os.path.abspath(os.getcwd()) != script_dir:
+        print(f"Changing working directory to {script_dir}")
+        os.chdir(script_dir)
+    if script_dir not in sys.path:
+        sys.path.insert(0, script_dir)
+    return script_dir
 
-from src.experiment import run_experiment
 
-if __name__ == "__main__":
+def main() -> int:
+    """Run the experiment and print headline summary metrics."""
+    _ensure_submission_dir(__file__)
+    from src.experiment import run_experiment
+
     results = run_experiment()
     print("\nExperiment complete.")
     print(f"Overall mean Spearman rho: {results['summary']['overall_mean_rho']:.4f}")
     print(f"Substantial disagreement: {results['summary']['substantial_disagreement']}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -1,5 +1,7 @@
 """Tests for agreement measurement."""
 
+import warnings
+
 import numpy as np
 from src.agreement import pairwise_spearman, aggregate_agreement
 
@@ -32,6 +34,20 @@ def test_pairwise_spearman_handles_constant():
     }
     result = pairwise_spearman(attrs, [("method_a", "method_b")])
     assert result["method_a_vs_method_b"] == 0.0
+
+
+def test_pairwise_spearman_constant_emits_no_warning():
+    """Constant attribution vectors should be handled without scipy warnings."""
+    attrs = {
+        "method_a": np.zeros(5),
+        "method_b": np.array([1.0, 2.0, 3.0, 4.0, 5.0]),
+    }
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        result = pairwise_spearman(attrs, [("method_a", "method_b")])
+
+    assert result["method_a_vs_method_b"] == 0.0
+    assert len(caught) == 0
 
 
 def test_aggregate_agreement():

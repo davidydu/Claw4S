@@ -22,10 +22,15 @@ def pairwise_spearman(
     for m_a, m_b in method_pairs:
         attr_a = attributions[m_a]
         attr_b = attributions[m_b]
-        rho, _ = spearmanr(attr_a, attr_b)
-        # Handle NaN from constant arrays (all-zero attributions)
-        if np.isnan(rho):
+
+        # Avoid scipy ConstantInputWarning by short-circuiting constants.
+        if np.ptp(attr_a) == 0 or np.ptp(attr_b) == 0:
             rho = 0.0
+        else:
+            rho, _ = spearmanr(attr_a, attr_b)
+            # Guard unexpected NaNs.
+            if np.isnan(rho):
+                rho = 0.0
         pair_key = f"{m_a}_vs_{m_b}"
         results[pair_key] = float(rho)
     return results
