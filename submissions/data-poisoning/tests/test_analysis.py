@@ -91,6 +91,20 @@ class TestSigmoidFit:
         fit = fit_sigmoid_curve(agg, hidden_width=128)
         assert 0 < fit.threshold_midpoint < 0.6
 
+    def test_fit_threshold_supports_higher_poison_ranges(self):
+        """Threshold search should work beyond 60% poison."""
+        x = np.array([0.0, 0.1, 0.2, 0.4, 0.6, 0.75, 0.85, 0.9])
+        y = _sigmoid(x, L=0.7, k=11.0, x0=0.72, b=0.2)
+
+        runs = []
+        for pf, acc in zip(x, y):
+            for seed in [42, 123, 7]:
+                runs.append(_make_run(pf, 64, seed, acc))
+
+        agg = aggregate_results(runs)
+        fit = fit_sigmoid_curve(agg, hidden_width=64)
+        assert 0.65 < fit.threshold_midpoint < 0.85
+
 
 class TestSigmoidFunction:
     """Tests for the sigmoid helper."""
@@ -163,3 +177,24 @@ class TestResultSerialization:
         assert payload["total_time_seconds"] == pytest.approx(12.5)
         assert payload["n_runs"] == 2
         assert payload["mean_run_time_seconds"] == pytest.approx(0.1)
+
+
+class TestFindingsGeneralizability:
+    """Tests that findings logic adapts to non-default width sets."""
+
+    def test_findings_cover_dynamic_widths(self):
+        agg = [
+            AggregatedPoint(0.0, 16, 0.80, 0.01, 0.83, 0.01, 0.79, 0.01, 0.03, 0.01, 3),
+            AggregatedPoint(0.5, 16, 0.45, 0.02, 0.55, 0.02, 0.50, 0.02, 0.10, 0.02, 3),
+            AggregatedPoint(0.0, 48, 0.82, 0.01, 0.85, 0.01, 0.81, 0.01, 0.03, 0.01, 3),
+            AggregatedPoint(0.5, 48, 0.40, 0.02, 0.58, 0.02, 0.49, 0.02, 0.18, 0.02, 3),
+        ]
+        fits = [
+            SigmoidFit(16, 0.6, 5.0, 0.30, 0.2, 0.95, 0.41),
+            SigmoidFit(48, 0.6, 6.0, 0.25, 0.2, 0.96, 0.36),
+        ]
+
+        findings = compute_findings(agg, fits)
+
+        assert set(findings["clean_test_accuracy"].keys()) == {16, 48}
+        assert set(findings["gen_gap_at_50pct_poison"].keys()) == {16, 48}

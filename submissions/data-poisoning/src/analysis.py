@@ -84,12 +84,16 @@ def _sigmoid(x: np.ndarray, L: float, k: float, x0: float, b: float) -> np.ndarr
 def fit_sigmoid_curve(
     agg_points: list[AggregatedPoint],
     hidden_width: int,
+    chance_acc: float = 0.2,
+    threshold_search_max: float | None = None,
 ) -> SigmoidFit:
     """Fit a descending sigmoid to test accuracy vs. poison fraction for one model size.
 
     Args:
         agg_points: Aggregated data points.
         hidden_width: Which model size to fit.
+        chance_acc: Chance-level accuracy for the classification task.
+        threshold_search_max: Optional max poison fraction for threshold search.
 
     Returns:
         SigmoidFit with fitted parameters and R-squared.
@@ -124,14 +128,24 @@ def fit_sigmoid_curve(
     ss_tot = np.sum((y - np.mean(y)) ** 2)
     r_squared = 1.0 - ss_res / ss_tot if ss_tot > 0 else 0.0
 
-    # Find threshold where accuracy drops to midpoint between clean and chance
-    # For 5 classes, chance = 0.2. Midpoint = (clean + 0.2) / 2
+    if not (0.0 < chance_acc < 1.0):
+        raise ValueError(f"chance_acc must be in (0, 1), got {chance_acc}")
+
+    # Find threshold where accuracy drops to midpoint between clean and chance.
     clean_acc = y[0]  # poison_fraction=0
-    chance_acc = 1.0 / 5.0  # 0.2 for 5 classes
     target_acc = (clean_acc + chance_acc) / 2.0
 
-    # Search numerically
-    x_search = np.linspace(0, 0.6, 1000)
+    # Search numerically over a configurable range.
+    observed_max_poison = float(np.max(x)) if len(x) else 0.0
+    if threshold_search_max is not None:
+        search_max = float(threshold_search_max)
+    else:
+        search_max = min(1.0, max(0.6, observed_max_poison + 0.1))
+
+    if search_max <= 0:
+        raise ValueError(f"threshold_search_max must be positive, got {search_max}")
+
+    x_search = np.linspace(0.0, search_max, 2000)
     y_search = _sigmoid(x_search, *popt)
     idx_below = np.where(y_search <= target_acc)[0]
     if len(idx_below) > 0:
@@ -165,6 +179,14 @@ def compute_findings(
     """
     findings = {}
 
+    hidden_widths = sorted({p.hidden_width for p in agg_points})
+    if not hidden_widths:
+        hidden_widths = sorted({f.hidden_width for f in fits})
+
+    poison_fractions = sorted({p.poison_fraction for p in agg_points})
+    baseline_poison = poison_fractions[0] if poison_fractions else 0.0
+    max_poison = poison_fractions[-1] if poison_fractions else 0.5
+
     # 1. Critical thresholds per model size
     thresholds = {f.hidden_width: f.threshold_midpoint for f in fits}
     findings["critical_thresholds"] = thresholds
@@ -176,7 +198,6 @@ def compute_findings(
     # 3. Check if larger models are more sensitive
     sorted_fits = sorted(fits, key=lambda f: f.hidden_width)
     if len(sorted_fits) >= 2:
-        widths = [f.hidden_width for f in sorted_fits]
         threshs = [f.threshold_midpoint for f in sorted_fits]
         # If threshold decreases with width, larger models are more sensitive
         findings["larger_models_more_sensitive"] = all(
@@ -193,16 +214,27 @@ def compute_findings(
 
     # 6. Generalization gap at high poison
     high_poison_gaps = {}
-    for hw in [32, 64, 128]:
-        pts_hw = [p for p in agg_points if p.hidden_width == hw and p.poison_fraction == 0.5]
+    for hw in hidden_widths:
+        pts_hw = [p for p in agg_points if p.hidden_width == hw and p.poison_fraction == max_poison]
         if pts_hw:
             high_poison_gaps[hw] = pts_hw[0].gen_gap_mean
-    findings["gen_gap_at_50pct_poison"] = high_poison_gaps
+    findings["gen_gap_at_max_poison"] = {
+        "poison_fraction": max_poison,
+        "values": high_poison_gaps,
+    }
+
+    # Backward-compatible key for the current default sweep.
+    high_poison_50pct = {}
+    for hw in hidden_widths:
+        pts_hw = [p for p in agg_points if p.hidden_width == hw and p.poison_fraction == 0.5]
+        if pts_hw:
+            high_poison_50pct[hw] = pts_hw[0].gen_gap_mean
+    findings["gen_gap_at_50pct_poison"] = high_poison_50pct
 
     # 7. Clean accuracy (baseline)
     clean_accs = {}
-    for hw in [32, 64, 128]:
-        pts_hw = [p for p in agg_points if p.hidden_width == hw and p.poison_fraction == 0.0]
+    for hw in hidden_widths:
+        pts_hw = [p for p in agg_points if p.hidden_width == hw and p.poison_fraction == baseline_poison]
         if pts_hw:
             clean_accs[hw] = pts_hw[0].test_acc_mean
     findings["clean_test_accuracy"] = clean_accs

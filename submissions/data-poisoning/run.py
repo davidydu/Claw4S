@@ -59,9 +59,16 @@ def main() -> None:
     # ── Step 3: Fit sigmoid curves ───────────────────────────────────
     print("\n[Step 3/4] Fitting sigmoid curves...")
     fits = []
+    threshold_search_max = min(1.0, max(config.poison_fractions) + 0.1)
+    chance_acc = 1.0 / config.n_classes
     for hw in config.hidden_widths:
         try:
-            fit = fit_sigmoid_curve(agg, hw)
+            fit = fit_sigmoid_curve(
+                agg,
+                hw,
+                chance_acc=chance_acc,
+                threshold_search_max=threshold_search_max,
+            )
             fits.append(fit)
             print(f"  Width {hw}: k={fit.k:.2f}, x0={fit.x0:.3f}, "
                   f"threshold_mid={fit.threshold_midpoint:.3f}, R²={fit.r_squared:.4f}")
@@ -99,9 +106,10 @@ def main() -> None:
         print(f"  Width {hw}: {acc:.3f}")
 
     print(f"\nCritical thresholds (midpoint between clean and chance):")
+    max_poison_label = f"{max(config.poison_fractions):.0%}"
     for hw, thresh in findings.get("critical_thresholds", {}).items():
         if thresh == float("inf"):
-            print(f"  Width {hw}: > 50% poison (never reached)")
+            print(f"  Width {hw}: > {max_poison_label} poison (never reached)")
         else:
             print(f"  Width {hw}: {thresh:.1%} poison")
 
@@ -122,8 +130,17 @@ def main() -> None:
     else:
         print("Larger models: sensitivity comparison inconclusive")
 
-    print(f"\nGeneralization gap at 50% poison:")
-    for hw, gap in findings.get("gen_gap_at_50pct_poison", {}).items():
+    max_gap_label = "50% poison"
+    max_gap_values = findings.get("gen_gap_at_50pct_poison", {})
+    if not max_gap_values:
+        max_gap_info = findings.get("gen_gap_at_max_poison", {})
+        max_gap_fraction = max_gap_info.get("poison_fraction")
+        if isinstance(max_gap_fraction, (int, float)):
+            max_gap_label = f"{max_gap_fraction:.0%} poison"
+        max_gap_values = max_gap_info.get("values", {})
+
+    print(f"\nGeneralization gap at {max_gap_label}:")
+    for hw, gap in max_gap_values.items():
         print(f"  Width {hw}: {gap:.3f}")
 
     print(f"\nTotal experiment time: {elapsed:.1f}s")
