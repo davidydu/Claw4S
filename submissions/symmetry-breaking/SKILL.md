@@ -20,7 +20,6 @@ Create a virtual environment and install dependencies:
 
 ```bash
 python3 -m venv .venv
-.venv/bin/pip install --upgrade pip
 .venv/bin/pip install -r requirements.txt
 ```
 
@@ -67,7 +66,13 @@ Check that results were produced correctly:
 .venv/bin/python validate.py
 ```
 
-Expected: Prints file checks, data point counts, and `Validation passed.`
+Expected: Prints file checks, data point counts, scientific sanity diagnostics, and `Validation passed.`
+The validator now also reports:
+- chance-level accuracy (`1/modulus`)
+- best test accuracy at the highest epsilon
+- best-accuracy gain between highest and lowest epsilon
+
+If those signals are too weak (for example, no task-useful high-epsilon run), validation exits non-zero with a clear error message.
 
 ## Step 5: Review the Report
 

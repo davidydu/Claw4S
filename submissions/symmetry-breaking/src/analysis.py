@@ -45,6 +45,11 @@ def summarize_results(results: List[Dict[str, Any]]) -> Dict[str, Any]:
         "runs": [],
     }
 
+    modulus_values = sorted({r["modulus"] for r in results if "modulus" in r})
+    if len(modulus_values) == 1 and modulus_values[0] > 0:
+        summary["modulus"] = int(modulus_values[0])
+        summary["chance_accuracy"] = 1.0 / float(modulus_values[0])
+
     for r in results:
         breaking_epoch = compute_breaking_epoch(
             r["epochs_logged"], r["symmetry_values"], threshold=0.5
@@ -91,6 +96,27 @@ def summarize_results(results: List[Dict[str, Any]]) -> Dict[str, Any]:
         summary["median_breaking_epoch"] = float(np.median(breaking_epochs))
         summary["mean_breaking_epoch"] = float(np.mean(breaking_epochs))
         summary["std_breaking_epoch"] = float(np.std(breaking_epochs))
+
+    if summary["runs"]:
+        best_run = max(summary["runs"], key=lambda r: r["final_test_acc"])
+        summary["best_test_acc"] = float(best_run["final_test_acc"])
+        summary["best_run_hidden_dim"] = int(best_run["hidden_dim"])
+        summary["best_run_epsilon"] = float(best_run["epsilon"])
+        summary["high_accuracy_runs_0p1_or_above"] = int(
+            sum(1 for r in summary["runs"] if r["final_test_acc"] >= 0.1)
+        )
+
+        min_eps = summary["epsilons"][0]
+        max_eps = summary["epsilons"][-1]
+        min_eps_runs = [r for r in summary["runs"] if r["epsilon"] == min_eps]
+        max_eps_runs = [r for r in summary["runs"] if r["epsilon"] == max_eps]
+
+        if min_eps_runs and max_eps_runs:
+            min_eps_best = float(max(r["final_test_acc"] for r in min_eps_runs))
+            max_eps_best = float(max(r["final_test_acc"] for r in max_eps_runs))
+            summary["best_test_acc_at_min_epsilon"] = min_eps_best
+            summary["best_test_acc_at_max_epsilon"] = max_eps_best
+            summary["accuracy_gain_max_vs_min_epsilon"] = max_eps_best - min_eps_best
 
     return summary
 
@@ -155,6 +181,27 @@ def generate_report(
             f"{summary['median_breaking_epoch']:.0f}, "
             f"mean = {summary['mean_breaking_epoch']:.0f} "
             f"(std = {summary['std_breaking_epoch']:.0f})"
+        )
+
+    if "chance_accuracy" in summary:
+        lines.append(
+            f"- **Chance-level accuracy (1/modulus):** {summary['chance_accuracy']:.4f}"
+        )
+    if "best_test_acc" in summary:
+        lines.append(
+            f"- **Best run accuracy:** {summary['best_test_acc']:.4f} "
+            f"(hidden={summary['best_run_hidden_dim']}, "
+            f"epsilon={summary['best_run_epsilon']:.1e})"
+        )
+    if "accuracy_gain_max_vs_min_epsilon" in summary:
+        lines.append(
+            f"- **Best accuracy gain (max epsilon vs min epsilon):** "
+            f"{summary['accuracy_gain_max_vs_min_epsilon']:.4f}"
+        )
+    if "high_accuracy_runs_0p1_or_above" in summary:
+        lines.append(
+            f"- **Runs with test accuracy >= 0.10:** "
+            f"{summary['high_accuracy_runs_0p1_or_above']}"
         )
 
     lines.extend([

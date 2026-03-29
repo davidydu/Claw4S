@@ -1,5 +1,7 @@
 """Tests for analysis and summary functions."""
 
+import pytest
+
 from src.analysis import compute_breaking_epoch, generate_report, summarize_results
 
 
@@ -60,6 +62,13 @@ def test_summarize_results():
     assert "zero_eps_final_symmetry_mean" in summary
     assert "nonzero_eps_final_symmetry_mean" in summary
     assert len(summary["runs"]) == 2
+    assert summary["chance_accuracy"] == pytest.approx(1.0 / 97.0)
+    assert summary["best_test_acc"] == pytest.approx(0.4)
+    assert summary["best_run_hidden_dim"] == 16
+    assert summary["best_run_epsilon"] == pytest.approx(0.01)
+    assert summary["best_test_acc_at_min_epsilon"] == pytest.approx(0.1)
+    assert summary["best_test_acc_at_max_epsilon"] == pytest.approx(0.4)
+    assert summary["accuracy_gain_max_vs_min_epsilon"] == pytest.approx(0.3)
 
 
 def test_generate_report_includes_methodological_note():
@@ -90,3 +99,4 @@ def test_generate_report_includes_methodological_note():
     assert "## Methodological Note" in report
     assert "`W1`" in report
     assert "`W2`" in report
+    assert "Chance-level accuracy" in report
