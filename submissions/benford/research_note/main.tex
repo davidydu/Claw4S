@@ -37,7 +37,7 @@
 \begin{abstract}
 Benford's Law predicts that leading significant digits in naturally occurring datasets follow a logarithmic distribution, with digit 1 appearing approximately 30\% of the time.
 We investigate whether this law emerges in the weights of trained neural networks by training tiny MLPs on modular arithmetic and sine regression tasks, saving weight snapshots across 5{,}000 training epochs.
-Using chi-squared and Mean Absolute Deviation (MAD) tests, we find that \emph{training moves weight distributions toward Benford conformity overall}: the modular arithmetic model (hidden=64) reduces MAD by ${\sim}60\%$ from initialization (${\sim}0.031$) to near the ``marginal conformity'' threshold (${\sim}0.013$) after 5{,}000 epochs.
+Using chi-squared and Mean Absolute Deviation (MAD) tests with bootstrap confidence intervals, we find that \emph{training moves weight distributions toward Benford conformity overall}: the modular arithmetic model (hidden=64) reduces MAD by ${\sim}60\%$ from initialization (${\sim}0.031$) to near the ``marginal conformity'' threshold (${\sim}0.013$) after 5{,}000 epochs.
 Output-adjacent layers show stronger conformity than input-adjacent layers.
 All results are fully reproducible via an agent-executable \texttt{SKILL.md} requiring only CPU and no internet access.
 \end{abstract}
@@ -56,7 +56,7 @@ Sahu~\cite{sahu2021} introduced Model Enthalpy (MLH), measuring the closeness of
 Toosi~\cite{toosi2025} confirmed these findings in RNNs and LSTMs, showing that higher-performing models exhibit stronger Benford conformity.
 
 However, prior studies focused on large models requiring GPUs, limiting reproducibility.
-We contribute an \textbf{agent-executable study} using tiny MLPs trainable on CPU in under 3 minutes, with rigorous statistical testing (chi-squared and MAD with Nigrini's thresholds~\cite{nigrini2012}).
+We contribute an \textbf{agent-executable study} using tiny MLPs trainable on CPU in about two minutes on our machine, with rigorous statistical testing (chi-squared, MAD with Nigrini's thresholds~\cite{nigrini2012}, and bootstrap uncertainty bands).
 
 \section{Methodology}
 
@@ -81,6 +81,8 @@ At each snapshot epoch $\{0, 100, 500, 1000, 2000, 5000\}$, we:
 \textbf{Chi-squared test:} $\chi^2 = \sum_{d=1}^{9} \frac{(O_d - E_d)^2}{E_d}$ with 8 degrees of freedom, where $O_d = n \cdot f_d^{\text{obs}}$ and $E_d = n \cdot P(d)$.
 
 \textbf{Mean Absolute Deviation (MAD):} $\text{MAD} = \frac{1}{9}\sum_{d=1}^{9} |f_d^{\text{obs}} - P(d)|$, classified per Nigrini~\cite{nigrini2012}: $< 0.006$ = close conformity, $0.006$--$0.012$ = acceptable, $0.012$--$0.015$ = marginal, $> 0.015$ = nonconformity.
+
+\textbf{Uncertainty quantification:} For each row in the aggregate/per-layer/control tables, we estimate a 95\% confidence interval for MAD by multinomial bootstrap (1{,}000 resamples) using the observed digit frequencies and sample size.
 
 \subsection{Controls}
 We generate 10{,}000 values from three distributions: Uniform $U(-1,1)$, Normal $N(0, 0.01)$, and Kaiming Uniform (simulating PyTorch default initialization). None are expected to conform to Benford's Law.
@@ -165,13 +167,13 @@ The modular arithmetic task with $h=64$ achieves the strongest conformity, appro
 Output-adjacent layers consistently show better Benford conformity than input-adjacent layers. This may reflect the gradient structure: output layers receive more direct error signal, potentially imposing more structure on their weight distributions.
 
 \paragraph{Determinism and scope.}
-Repeated reruns with the fixed seed produced identical MAD trajectories and control statistics in our environment; only wall-clock runtime varied. We did not run a multi-seed sweep in this submission, so our claims are limited to the seed-42 configuration documented in \texttt{run.py}.
+Repeated reruns with the fixed seed produced identical MAD trajectories and control statistics in our environment; only wall-clock runtime varied. The generated \texttt{results.json} records software versions (Python, PyTorch, NumPy, SciPy, Matplotlib) to support environment-level reproducibility audits. We did not run a multi-seed sweep in this submission, so our claims are limited to the seed-42 configuration documented in \texttt{run.py}.
 
 \paragraph{Limitations.}
 Our models are deliberately tiny (4K--29K parameters) for reproducibility. Larger models may show stronger effects. We analyze only weight matrices, not biases. The MAD thresholds (Nigrini) were developed for financial forensics and may not directly apply to neural network weights. The chi-squared test is known to be overly sensitive for large sample sizes~\cite{nigrini2012}, which is why we emphasize MAD.
 
 \paragraph{The skill as contribution.}
-This analysis runs entirely on CPU with no internet access, completing in under 3 minutes. The \texttt{SKILL.md} enables any AI agent to reproduce all results, demonstrating that meaningful scientific analysis of neural network properties can be conducted in minimal, fully reproducible settings.
+This analysis runs entirely on CPU with no internet access, completing in roughly two minutes for the full profile and a few seconds for an optional quick profile. The \texttt{SKILL.md} enables any AI agent to reproduce all results, demonstrating that meaningful scientific analysis of neural network properties can be conducted in minimal, fully reproducible settings.
 
 \section{Conclusion}
 

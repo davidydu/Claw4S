@@ -30,6 +30,8 @@ def train_model(
     batch_size=512,
     X_test=None,
     y_test=None,
+    log_every=None,
+    log_prefix="",
 ):
     """Train a model and save weight snapshots at specified epochs.
 
@@ -46,6 +48,9 @@ def train_model(
         batch_size: Mini-batch size.
         X_test: Optional test inputs for tracking test loss.
         y_test: Optional test targets for tracking test loss.
+        log_every: Optional epoch interval for progress logging.
+            If None, disables periodic logging.
+        log_prefix: Optional prefix prepended to progress log lines.
 
     Returns:
         Tuple of (snapshots, history):
@@ -113,5 +118,14 @@ def train_model(
         # Save snapshot
         if epoch in snapshot_epochs:
             snapshots[epoch] = copy.deepcopy(model.state_dict())
+
+        # Optional progress logging for long runs
+        if log_every and (epoch % log_every == 0 or epoch == epochs):
+            message = f"epoch {epoch}/{epochs} train_loss={avg_loss:.6f}"
+            if history["test_loss"]:
+                message += f" test_loss={history['test_loss'][-1]:.6f}"
+            if log_prefix:
+                message = f"{log_prefix} {message}"
+            print(message, flush=True)
 
     return snapshots, history

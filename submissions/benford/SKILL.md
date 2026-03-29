@@ -13,7 +13,8 @@ This skill investigates whether trained neural network weights obey Benford's La
 - Requires **Python 3.10+** (tested with 3.13).
 - No internet access required (all data is generated synthetically).
 - No GPU required (CPU-only PyTorch).
-- Expected runtime: **~2-3 minutes** on a modern machine.
+- Expected runtime (default full run): **~2-3 minutes** on a modern machine.
+- Optional smoke test runtime (`--quick --skip-plots`): **~5-15 seconds**.
 - All commands must be run from the **submission directory** (`submissions/benford/`).
 
 ## Step 1: Environment Setup
@@ -38,7 +39,17 @@ Verify the analysis modules work correctly:
 
 Expected: Pytest exits with `31 passed` and exit code 0.
 
-## Step 3: Run the Analysis
+## Step 3: (Optional) Smoke Test Fast Path
+
+Run a fast end-to-end check before the full experiment:
+
+```bash
+.venv/bin/python run.py --quick --skip-plots
+```
+
+Expected: exits with code 0 in seconds, writes `results/results.json` and `results/report.md`, and logs progress every 100 epochs.
+
+## Step 4: Run the Full Analysis
 
 Execute the full Benford's Law analysis:
 
@@ -46,7 +57,7 @@ Execute the full Benford's Law analysis:
 .venv/bin/python run.py
 ```
 
-Expected: Script prints `[4/4] Saving results to results/` and exits with code 0. Creates `results/results.json`, `results/report.md`, and 13 figures in `results/figures/`.
+Expected: Script prints `Resolved config: ...`, periodic progress logs (every 1000 epochs), then `[4/4] Saving results to results/` and exits with code 0. Creates `results/results.json`, `results/report.md`, and 13 figures in `results/figures/`.
 
 This will:
 1. Generate modular arithmetic (mod 97) and sine regression datasets
@@ -58,7 +69,7 @@ This will:
 7. Generate control distributions (uniform, normal, Kaiming) for comparison
 8. Save results and generate report with visualizations
 
-## Step 4: Validate Results
+## Step 5: Validate Results
 
 Check that results were produced correctly:
 
@@ -66,9 +77,9 @@ Check that results were produced correctly:
 .venv/bin/python validate.py
 ```
 
-Expected: Prints model MAD trajectories and `Validation passed.`
+Expected: Prints metadata (including software versions and quick/full mode), model MAD trajectories, figure/report checks, and `Validation passed.`
 
-## Step 5: Review the Report
+## Step 6: Review the Report
 
 Read the generated report:
 
@@ -78,10 +89,11 @@ cat results/report.md
 
 The report contains:
 - Benford's Law reference distribution
-- Per-model training dynamics (MAD and chi-squared over epochs)
+- Per-model training dynamics (MAD, chi-squared, and bootstrap 95% CI over epochs)
 - Per-layer analysis at final epoch
 - Control distribution comparisons
 - Key findings on Benford conformity in trained weights
+- Reproducibility metadata (Python/PyTorch/NumPy/SciPy/Matplotlib versions)
 
 ## How to Extend
 
@@ -89,4 +101,4 @@ The report contains:
 - **Change model architecture:** Modify `TinyMLP` in `src/model.py` or create a new `nn.Module` subclass.
 - **Add statistical tests:** Extend `src/benford_analysis.py` with additional goodness-of-fit tests (e.g., Kolmogorov-Smirnov).
 - **Analyze biases:** Change `layer_filter="weight"` to `layer_filter="bias"` in `analyze_snapshot()` calls.
-- **Change snapshot schedule:** Modify `SNAPSHOT_EPOCHS` in `run.py`.
+- **Change sweep/config without code edits:** Use CLI flags such as `--epochs`, `--hidden-sizes`, `--snapshot-epochs`, `--controls-n`, `--seed`, and `--skip-plots`.

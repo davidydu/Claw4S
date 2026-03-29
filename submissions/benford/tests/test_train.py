@@ -82,3 +82,27 @@ def test_train_snapshots_differ():
         if not torch.equal(snapshots[0][key], snapshots[100][key]):
             return  # Found at least one different tensor
     assert False, "All weights identical between epoch 0 and 100"
+
+
+def test_train_logs_progress(capsys):
+    """Optional progress logging emits periodic updates."""
+    set_seed(42)
+    X_train, y_train, _, _ = generate_sine_data(n=120, seed=42)
+    model = TinyMLP(d_in=1, d_hidden=16, d_out=1, n_hidden=2)
+
+    train_model(
+        model=model,
+        X_train=X_train,
+        y_train=y_train,
+        task_type="regression",
+        epochs=5,
+        lr=1e-3,
+        snapshot_epochs=[0, 5],
+        seed=42,
+        log_every=2,
+        log_prefix="test",
+    )
+
+    output = capsys.readouterr().out
+    assert "test epoch 2/5" in output
+    assert "test epoch 4/5" in output

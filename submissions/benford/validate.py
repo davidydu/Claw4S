@@ -32,15 +32,41 @@ print(f"Seed: {meta.get('seed', 'MISSING')}")
 print(f"Tasks: {meta.get('tasks', [])}")
 print(f"Hidden sizes: {meta.get('hidden_sizes', [])}")
 print(f"Snapshot epochs: {meta.get('snapshot_epochs', [])}")
+print(f"Epochs: {meta.get('epochs', 'MISSING')}")
+print(f"Learning rate: {meta.get('learning_rate', 'MISSING')}")
+print(f"Quick mode: {meta.get('quick_mode', False)}")
+print(f"Plots enabled: {meta.get('make_plots', True)}")
 print(f"Runtime: {meta.get('runtime_seconds', 0):.1f}s")
+
+required_meta = [
+    "python_version",
+    "torch_version",
+    "numpy_version",
+    "scipy_version",
+    "matplotlib_version",
+    "epochs",
+    "learning_rate",
+    "controls_n",
+    "quick_mode",
+    "make_plots",
+]
+for field in required_meta:
+    if field not in meta:
+        errors.append(f"Missing metadata field: {field}")
+
+if meta.get("runtime_seconds", 0) <= 0:
+    errors.append("runtime_seconds must be > 0")
 
 # Check models
 models = data.get("models", {})
 num_models = len(models)
 print(f"\nModels analyzed: {num_models}")
 
-if num_models < 4:
-    errors.append(f"Expected >= 4 models, got {num_models}")
+expected_model_count = 2 * len(meta.get("hidden_sizes", []))
+if expected_model_count > 0 and num_models != expected_model_count:
+    errors.append(f"Expected {expected_model_count} models, got {num_models}")
+elif expected_model_count == 0 and num_models < 1:
+    errors.append("Expected at least 1 model")
 
 expected_epochs = set(str(e) for e in meta.get("snapshot_epochs", []))
 
@@ -129,15 +155,18 @@ for model_name in models:
     ])
 
 missing_figures = []
-for fig in expected_figures:
-    fig_path = os.path.join(FIGURES_DIR, fig)
-    if not os.path.exists(fig_path):
-        missing_figures.append(fig)
+if meta.get("make_plots", True):
+    for fig in expected_figures:
+        fig_path = os.path.join(FIGURES_DIR, fig)
+        if not os.path.exists(fig_path):
+            missing_figures.append(fig)
 
-if missing_figures:
-    errors.append(f"Missing figures: {missing_figures}")
+    if missing_figures:
+        errors.append(f"Missing figures: {missing_figures}")
+    else:
+        print(f"\nFigures: all {len(expected_figures)} present")
 else:
-    print(f"\nFigures: all {len(expected_figures)} present")
+    print("\nFigures: skipped (make_plots=False)")
 
 # Check report
 if not os.path.exists(REPORT_FILE):
