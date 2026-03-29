@@ -20,8 +20,8 @@ This skill trains neural networks on synthetic data with a spurious shortcut fea
 Create a virtual environment and install pinned dependencies:
 
 ```bash
+rm -rf .venv results
 python3 -m venv .venv
-.venv/bin/pip install --upgrade pip
 .venv/bin/pip install -r requirements.txt
 ```
 
@@ -41,7 +41,7 @@ Verify all modules work correctly before running the experiment:
 .venv/bin/python -m pytest tests/ -v
 ```
 
-Expected: Pytest exits with `19 passed` and exit code 0. Tests cover data generation, model construction, training, experiment logic, and report wording.
+Expected: Pytest exits with `22 passed` and exit code 0. Tests cover data generation, model construction, training, experiment logic, report wording, and strict results validation.
 
 ## Step 3: Run the Experiment
 
