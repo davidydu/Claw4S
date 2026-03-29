@@ -54,8 +54,44 @@ def generate_report(results: dict) -> str:
     for name, vals in sorted(corrs.items()):
         label = name.replace("_", " ").replace("vs", "vs.")
         sig = "***" if vals["p_value"] < 0.01 else "**" if vals["p_value"] < 0.05 else "*" if vals["p_value"] < 0.1 else ""
-        lines.append(f"- **{label}**: rho={vals['rho']:.3f}, p={vals['p_value']:.3f} {sig}")
+        n_val = vals.get("n", len(results["experiment_summaries"]))
+        ci_low = vals.get("ci_low")
+        ci_high = vals.get("ci_high")
+        if ci_low is not None and ci_high is not None:
+            ci_str = f", 95% CI=[{ci_low:.3f}, {ci_high:.3f}]"
+        else:
+            ci_str = ""
+        lines.append(
+            f"- **{label}**: rho={vals['rho']:.3f}, p={vals['p_value']:.3f}, "
+            f"n={n_val}{ci_str} {sig}"
+        )
     lines.append("")
+
+    # Task-stratified correlations (helps interpret pooled correlations)
+    corrs_by_task = results.get("correlations_by_task", {})
+    if corrs_by_task:
+        lines.append("## Task-Stratified Correlations (Spearman)")
+        lines.append("")
+        lines.append("These are computed within each task to reduce pooled-task confounding.")
+        lines.append("")
+        for task_name, task_corrs in sorted(corrs_by_task.items()):
+            pretty_task = task_name.replace("_", " ")
+            lines.append(f"### {pretty_task}")
+            for name, vals in sorted(task_corrs.items()):
+                label = name.replace("_", " ").replace("vs", "vs.")
+                sig = "***" if vals["p_value"] < 0.01 else "**" if vals["p_value"] < 0.05 else "*" if vals["p_value"] < 0.1 else ""
+                n_val = vals.get("n", 0)
+                ci_low = vals.get("ci_low")
+                ci_high = vals.get("ci_high")
+                if ci_low is not None and ci_high is not None:
+                    ci_str = f", 95% CI=[{ci_low:.3f}, {ci_high:.3f}]"
+                else:
+                    ci_str = ""
+                lines.append(
+                    f"- **{label}**: rho={vals['rho']:.3f}, p={vals['p_value']:.3f}, "
+                    f"n={n_val}{ci_str} {sig}"
+                )
+            lines.append("")
 
     # Grokking analysis
     lines.append("## Grokking-Sparsity Analysis (Modular Addition)")

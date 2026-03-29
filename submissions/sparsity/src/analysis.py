@@ -4,8 +4,6 @@ Runs 8 training experiments (4 hidden widths x 2 tasks) and computes
 correlations between sparsity metrics and generalization.
 """
 
-import json
-import os
 import time
 
 import torch
@@ -30,6 +28,88 @@ MOD_ADD_WD = 1.0
 # Regression: moderate LR + weight decay
 REG_LR = 1e-2
 REG_WD = 0.1
+N_BOOTSTRAP = 800
+
+
+CORRELATION_SPECS = [
+    ("dead_frac_vs_gen_gap", "final_dead_frac", "gen_gap"),
+    ("dead_frac_vs_test_acc", "final_dead_frac", "final_test_acc"),
+    ("zero_frac_vs_gen_gap", "final_zero_frac", "gen_gap"),
+    ("zero_frac_vs_test_acc", "final_zero_frac", "final_test_acc"),
+    ("zero_frac_change_vs_test_acc", "zero_frac_change", "final_test_acc"),
+    ("sparsity_change_vs_test_acc", "sparsity_change", "final_test_acc"),
+]
+
+
+def _bootstrap_spearman_ci(
+    x: list[float],
+    y: list[float],
+    *,
+    seed: int,
+    n_bootstrap: int = N_BOOTSTRAP,
+) -> tuple[float, float]:
+    """Estimate a 95% bootstrap CI for Spearman rho."""
+    n = len(x)
+    if n < 2:
+        return 0.0, 0.0
+
+    generator = torch.Generator().manual_seed(seed)
+    bootstrapped_rhos = []
+
+    for _ in range(n_bootstrap):
+        sample_idx = torch.randint(0, n, (n,), generator=generator).tolist()
+        x_sample = [x[i] for i in sample_idx]
+        y_sample = [y[i] for i in sample_idx]
+        if len(set(x_sample)) <= 1 or len(set(y_sample)) <= 1:
+            continue
+        rho, _ = stats.spearmanr(x_sample, y_sample)
+        if rho == rho:  # filter NaN
+            bootstrapped_rhos.append(float(rho))
+
+    if not bootstrapped_rhos:
+        return 0.0, 0.0
+
+    bootstrapped_rhos.sort()
+    low_idx = int(0.025 * (len(bootstrapped_rhos) - 1))
+    high_idx = int(0.975 * (len(bootstrapped_rhos) - 1))
+    return bootstrapped_rhos[low_idx], bootstrapped_rhos[high_idx]
+
+
+def _compute_correlation_table(
+    summaries: list[dict],
+    *,
+    seed: int,
+) -> dict:
+    """Compute all configured Spearman correlations for a summary subset."""
+    correlations = {}
+    for idx, (name, x_key, y_key) in enumerate(CORRELATION_SPECS):
+        x_vals = [s[x_key] for s in summaries]
+        y_vals = [s[y_key] for s in summaries]
+
+        if len(set(x_vals)) > 1 and len(set(y_vals)) > 1:
+            rho, p_val = stats.spearmanr(x_vals, y_vals)
+            ci_low, ci_high = _bootstrap_spearman_ci(
+                x_vals,
+                y_vals,
+                seed=seed + idx,
+            )
+            correlations[name] = {
+                "rho": float(rho),
+                "p_value": float(p_val),
+                "n": len(x_vals),
+                "ci_low": float(ci_low),
+                "ci_high": float(ci_high),
+            }
+        else:
+            correlations[name] = {
+                "rho": 0.0,
+                "p_value": 1.0,
+                "n": len(x_vals),
+                "ci_low": 0.0,
+                "ci_high": 0.0,
+            }
+
+    return correlations
 
 
 def run_single_experiment(
@@ -103,7 +183,8 @@ def compute_sparsity_generalization_correlation(experiments: list) -> dict:
     - Generalization gap (train_acc - test_acc at end of training)
     - Final test accuracy
 
-    Then computes Spearman correlations.
+    Then computes Spearman correlations with 95% bootstrap confidence
+    intervals, both pooled and task-stratified.
 
     Parameters
     ----------
@@ -113,7 +194,7 @@ def compute_sparsity_generalization_correlation(experiments: list) -> dict:
     Returns
     -------
     dict
-        Correlation statistics and per-experiment summaries.
+        Correlation statistics (pooled and per-task) and per-experiment summaries.
     """
     summaries = []
     for exp in experiments:
@@ -143,34 +224,22 @@ def compute_sparsity_generalization_correlation(experiments: list) -> dict:
         }
         summaries.append(summary)
 
-    # Compute correlations across all experiments
-    dead_fracs = [s["final_dead_frac"] for s in summaries]
-    near_dead_fracs = [s["final_near_dead_frac"] for s in summaries]
-    zero_fracs = [s["final_zero_frac"] for s in summaries]
-    gen_gaps = [s["gen_gap"] for s in summaries]
-    test_accs = [s["final_test_acc"] for s in summaries]
-    sparsity_changes = [s["sparsity_change"] for s in summaries]
-    zero_frac_changes = [s["zero_frac_change"] for s in summaries]
+    correlations = _compute_correlation_table(summaries, seed=SEED)
 
-    correlations = {}
-
-    def safe_spearman(x, y, name):
-        if len(set(x)) > 1 and len(set(y)) > 1:
-            r, p = stats.spearmanr(x, y)
-            correlations[name] = {"rho": float(r), "p_value": float(p)}
-        else:
-            correlations[name] = {"rho": 0.0, "p_value": 1.0}
-
-    safe_spearman(dead_fracs, gen_gaps, "dead_frac_vs_gen_gap")
-    safe_spearman(dead_fracs, test_accs, "dead_frac_vs_test_acc")
-    safe_spearman(zero_fracs, gen_gaps, "zero_frac_vs_gen_gap")
-    safe_spearman(zero_fracs, test_accs, "zero_frac_vs_test_acc")
-    safe_spearman(zero_frac_changes, test_accs, "zero_frac_change_vs_test_acc")
-    safe_spearman(sparsity_changes, test_accs, "sparsity_change_vs_test_acc")
+    # Also compute task-stratified correlations to reduce pooled-task confounding.
+    correlations_by_task = {}
+    tasks = sorted({s["task"] for s in summaries})
+    for task_idx, task in enumerate(tasks):
+        task_summaries = [s for s in summaries if s["task"] == task]
+        correlations_by_task[task] = _compute_correlation_table(
+            task_summaries,
+            seed=SEED + 1000 + task_idx * 100,
+        )
 
     return {
         "experiment_summaries": summaries,
         "correlations": correlations,
+        "correlations_by_task": correlations_by_task,
     }
 
 
@@ -313,6 +382,7 @@ def run_all_experiments() -> dict:
     return {
         "experiments": experiments,
         "correlations": correlation_results["correlations"],
+        "correlations_by_task": correlation_results["correlations_by_task"],
         "experiment_summaries": correlation_results["experiment_summaries"],
         "grokking_analysis": grokking_results,
         "config": {

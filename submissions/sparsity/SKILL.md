@@ -1,6 +1,6 @@
 ---
 name: activation-sparsity-evolution
-description: Track how ReLU activation sparsity evolves during training across model sizes and tasks. Studies whether self-sparsification predicts generalization and whether grokking transitions coincide with sparsity transitions. Trains 8 two-layer MLPs (4 widths x 2 tasks) on CPU with deterministic seeds.
+description: Track how ReLU activation sparsity evolves during training across model sizes and tasks. Studies whether self-sparsification predicts generalization and whether grokking transitions coincide with sparsity transitions. Trains 8 two-layer MLPs (4 widths x 2 tasks) on CPU with deterministic seeds and reports pooled/task-stratified correlations with bootstrap confidence intervals.
 allowed-tools: Bash(python *), Bash(python3 *), Bash(pip *), Bash(.venv/*), Bash(cat *), Read, Write
 ---
 
@@ -42,7 +42,7 @@ Verify all source modules work correctly:
 .venv/bin/python -m pytest tests/ -v
 ```
 
-Expected: Pytest exits with `30 passed` and exit code 0.
+Expected: Pytest exits with `33 passed` and exit code 0.
 
 ## Step 3: Run the Analysis
 
@@ -79,6 +79,7 @@ Expected output:
 ```
 Experiments: 8 (expected 8)
 Correlations: 6 computed
+Task-stratified correlation groups: 2
 Summaries: 8
 Grokking analyses: 4
 Hidden widths: [32, 64, 128, 256]
@@ -101,7 +102,8 @@ cat results/report.md
 
 The report contains:
 - Experiment results table (dead neuron fraction, zero fraction, zero fraction change, test accuracy, generalization gap per run)
-- Spearman correlation statistics (6 correlations: sparsity metrics vs generalization)
+- Spearman correlation statistics (6 pooled correlations + task-stratified correlations)
+- Sample size (`n`) and 95% bootstrap confidence intervals for each correlation
 - Grokking-sparsity coincidence analysis for each model width
 - Key findings summary with statistical significance
 - Limitations section
@@ -113,8 +115,9 @@ Generated plots in `results/`:
 
 ## Key Scientific Findings
 
-- **Zero fraction strongly predicts generalization**: Spearman rho=-0.857 (p=0.007) between final zero fraction and generalization gap across all 8 experiments.
+- **Zero fraction strongly predicts pooled generalization**: Spearman rho=-0.857 (p=0.007, 95% bootstrap CI=[-1.000, -0.351]) between final zero fraction and generalization gap across all 8 experiments.
 - **Task-dependent sparsification direction**: Regression tasks increase zero fraction during training (+0.024 to +0.052), while modular addition decreases it (-0.050 to -0.127).
+- **Within-task uncertainty remains high**: Task-stratified correlations (n=4 per task) have wide confidence intervals, so pooled trends should be treated as preliminary.
 - **No grokking observed within 3000 epochs**: None of the four modular-addition widths crossed the grokking threshold; width 256 achieved the highest test accuracy (0.725) without a sharp transition.
 
 ## How to Extend

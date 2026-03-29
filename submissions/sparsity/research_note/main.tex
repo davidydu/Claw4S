@@ -30,14 +30,15 @@ hidden widths 32--256 on modular addition (a grokking-prone task) and
 nonlinear regression, we track the fraction of zero activations,
 dead neurons, and activation entropy at 50-epoch intervals over 3000
 epochs. We find three key results: (1)~zero activation fraction strongly
-correlates with generalization gap (Spearman $\rho = -0.857$, $p = 0.007$)
-across experiments; (2)~the direction of sparsification is task-dependent
---- regression networks self-sparsify while modular addition networks
-become denser during training; and (3)~wider models exhibit different
-sparsity dynamics depending on the task structure. These results suggest
-activation sparsity as an informative probe of training dynamics and
-suggest that the relationship between sparsity and generalization is
-more nuanced than the simple ``sparsity aids generalization'' narrative.
+correlates with generalization gap in pooled analysis (Spearman
+$\rho = -0.857$, $p = 0.007$, bootstrap 95\% CI $[-1.000, -0.351]$,
+$n=8$); (2)~the direction of sparsification is task-dependent --- regression
+networks self-sparsify while modular addition networks become denser during
+training; and (3)~task-stratified correlations are uncertain with wide
+intervals ($n=4$ per task), indicating the pooled signal is preliminary.
+These results suggest activation sparsity as an informative probe of
+training dynamics while highlighting the need for multi-seed, higher-power
+follow-up studies.
 \end{abstract}
 
 \section{Introduction}
@@ -114,8 +115,10 @@ through the network and record five metrics:
 
 We compute Spearman rank correlations between final sparsity metrics
 and generalization measures (test accuracy, generalization gap) across
-all 8 experiments. For modular addition, we attempt to detect grokking
-(sharp test accuracy increase after training accuracy saturation).
+all 8 experiments, and separately within each task. For each correlation,
+we report a bootstrap 95\% confidence interval (800 resamples).
+For modular addition, we attempt to detect grokking (sharp test accuracy
+increase after training accuracy saturation).
 
 \section{Results}
 
@@ -153,14 +156,21 @@ Zero frac.\ change vs.\ test accuracy & $+0.667$ & 0.071 \\
 \label{tab:correlations}
 \end{table}
 
-The strongest finding is a strong negative correlation between
+The strongest pooled finding is a negative correlation between
 zero activation fraction and generalization gap ($\rho = -0.857$,
-$p = 0.007$). Experiments with higher zero fractions (more sparse
-activations) tend to have smaller generalization gaps and higher test
-accuracy. The change in zero fraction during training shows a positive
-but not conventionally significant trend with test accuracy
-($\rho = 0.667$, $p = 0.071$): experiments that \emph{increase} their
+$p = 0.007$, 95\% CI $[-1.000, -0.351]$). Experiments with higher zero
+fractions (more sparse activations) tend to have smaller generalization
+gaps and higher test accuracy in this pooled view. The change in zero
+fraction during training shows a positive but not conventionally
+significant trend with test accuracy ($\rho = 0.667$, $p = 0.071$,
+95\% CI $[0.041, 1.000]$): experiments that \emph{increase} their
 sparsity during training tend to generalize better in this small sample.
+
+Task-stratified correlations (modular addition only, regression only)
+have wide confidence intervals spanning both positive and negative values
+for most metrics, reflecting low statistical power at $n=4$ per task.
+This indicates that pooled cross-task trends should be interpreted as
+hypothesis-generating rather than definitive causal evidence.
 
 \subsection{Grokking and Sparsity}
 
@@ -186,9 +196,10 @@ test accuracy ($\sim$0.58 and $\sim$0.73 respectively).
 \section{Discussion}
 
 Our central finding --- that activation sparsity correlates strongly with
-generalization across experiments --- supports the view that sparse
+generalization in pooled analysis --- supports the view that sparse
 representations are associated with better generalization. However, the
-task-dependent direction of sparsification adds important nuance.
+task-dependent direction of sparsification and wide task-stratified
+intervals add important nuance.
 
 In regression, where the target function has smooth structure, networks
 benefit from sparse, selective activation patterns. In modular arithmetic,
@@ -213,13 +224,13 @@ AdamW's weight decay itself promotes sparsity, complicating causal claims.
 \section{Conclusion}
 
 Activation sparsity, measured as zero fraction, is strongly associated
-with generalization across ReLU MLP experiments ($\rho = -0.857$ vs.\
-generalization gap). The direction of sparsification during training is
-task-dependent: regression self-sparsifies while modular addition becomes
-denser. These findings suggest that monitoring activation sparsity
-provides a cheap, informative diagnostic for understanding training
-dynamics, but the relationship between sparsity and generalization is
-more nuanced than universal self-sparsification.
+with generalization in pooled ReLU MLP experiments ($\rho = -0.857$ vs.\
+generalization gap; 95\% CI $[-1.000, -0.351]$). The direction of
+sparsification during training is task-dependent: regression
+self-sparsifies while modular addition becomes denser. Task-stratified
+analyses are uncertain at current sample size, so the pooled signal should
+be treated as preliminary. Monitoring activation sparsity remains a cheap,
+informative diagnostic for training dynamics.
 
 \paragraph{Reproducibility.}
 All experiments use seed 42, pinned library versions (PyTorch 2.6.0,

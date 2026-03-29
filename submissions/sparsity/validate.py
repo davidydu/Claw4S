@@ -23,9 +23,21 @@ with open(results_path) as f:
 # Check experiments
 experiments = data.get("experiments", [])
 n_experiments = len(experiments)
-print(f"Experiments: {n_experiments} (expected 8)")
-if n_experiments != 8:
-    errors.append(f"Expected 8 experiments, got {n_experiments}")
+config = data.get("config", {})
+
+tasks_seen = {exp.get("task", "") for exp in experiments if exp.get("task")}
+widths_seen = {exp.get("hidden_dim", 0) for exp in experiments}
+
+configured_widths = set(config.get("hidden_widths", []))
+if configured_widths:
+    expected_widths = configured_widths
+else:
+    expected_widths = {32, 64, 128, 256}
+
+expected_experiments = len(expected_widths) * max(1, len(tasks_seen))
+print(f"Experiments: {n_experiments} (expected {expected_experiments})")
+if n_experiments != expected_experiments:
+    errors.append(f"Expected {expected_experiments} experiments, got {n_experiments}")
 
 # Check each experiment has required fields
 required_history_keys = [
@@ -66,6 +78,7 @@ for i, exp in enumerate(experiments):
 
 # Check correlations
 correlations = data.get("correlations", {})
+required_corr_fields = ["rho", "p_value", "n", "ci_low", "ci_high"]
 expected_corrs = [
     "dead_frac_vs_gen_gap", "dead_frac_vs_test_acc",
     "zero_frac_vs_gen_gap", "zero_frac_vs_test_acc",
@@ -75,11 +88,42 @@ for corr_name in expected_corrs:
     if corr_name not in correlations:
         errors.append(f"Missing correlation: {corr_name}")
     else:
-        rho = correlations[corr_name].get("rho", None)
+        corr_vals = correlations[corr_name]
+        for field in required_corr_fields:
+            if field not in corr_vals:
+                errors.append(f"Correlation {corr_name} missing field '{field}'")
+        rho = corr_vals.get("rho", None)
         if rho is not None and not (-1.0 <= rho <= 1.0):
             errors.append(f"Correlation {corr_name} rho={rho} out of [-1, 1] range")
+        n_samples = corr_vals.get("n", None)
+        if n_samples is not None and n_samples <= 0:
+            errors.append(f"Correlation {corr_name} has invalid n={n_samples}")
 
 print(f"Correlations: {len(correlations)} computed")
+
+# Check task-stratified correlations
+correlations_by_task = data.get("correlations_by_task", {})
+print(f"Task-stratified correlation groups: {len(correlations_by_task)}")
+if not correlations_by_task:
+    errors.append("Missing correlations_by_task")
+else:
+    for task in tasks_seen:
+        if task not in correlations_by_task:
+            errors.append(f"Missing task-stratified correlations for task '{task}'")
+            continue
+        task_corrs = correlations_by_task[task]
+        for corr_name in expected_corrs:
+            if corr_name not in task_corrs:
+                errors.append(
+                    f"Task '{task}' missing correlation '{corr_name}'"
+                )
+                continue
+            corr_vals = task_corrs[corr_name]
+            for field in required_corr_fields:
+                if field not in corr_vals:
+                    errors.append(
+                        f"Task '{task}' correlation {corr_name} missing field '{field}'"
+                    )
 
 # Check experiment summaries
 summaries = data.get("experiment_summaries", [])
@@ -88,25 +132,30 @@ print(f"Summaries: {len(summaries)}")
 # Check grokking analysis
 grokking = data.get("grokking_analysis", [])
 print(f"Grokking analyses: {len(grokking)}")
-if len(grokking) != 4:
-    errors.append(f"Expected 4 grokking analyses (one per width), got {len(grokking)}")
+expected_grokking = sum(1 for exp in experiments if "modular_addition" in exp.get("task", ""))
+if len(grokking) != expected_grokking:
+    errors.append(
+        f"Expected {expected_grokking} grokking analyses (one per modular-addition run), got {len(grokking)}"
+    )
 
 # Check hidden widths coverage
-widths_seen = set()
-for exp in experiments:
-    widths_seen.add(exp.get("hidden_dim", 0))
-expected_widths = {32, 64, 128, 256}
 if widths_seen != expected_widths:
     errors.append(f"Expected widths {expected_widths}, got {widths_seen}")
 print(f"Hidden widths: {sorted(widths_seen)}")
 
 # Check tasks
-tasks_seen = set()
-for exp in experiments:
-    tasks_seen.add(exp.get("task", ""))
 print(f"Tasks: {sorted(tasks_seen)}")
 if len(tasks_seen) < 2:
     errors.append(f"Expected at least 2 tasks, got {len(tasks_seen)}")
+
+# Check config metadata
+required_config_keys = [
+    "hidden_widths", "n_epochs", "track_every",
+    "mod_add_lr", "mod_add_wd", "reg_lr", "reg_wd", "seed",
+]
+for key in required_config_keys:
+    if key not in config:
+        errors.append(f"Missing config key: {key}")
 
 # Check generated files
 expected_files = ["results/report.md", "results/sparsity_evolution.png",
