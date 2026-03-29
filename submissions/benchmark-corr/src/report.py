@@ -20,12 +20,15 @@ def generate_report(results):
     clust = results["clustering"]
     red = results["redundancy"]
     fam = results["family_analysis"]
+    robust = results["robustness"]
 
     lines.append("# LLM Benchmark Correlation Analysis Report")
     lines.append("")
     lines.append(f"**Models analyzed:** {meta['n_models']}")
     lines.append(f"**Benchmarks:** {meta['n_benchmarks']} ({', '.join(meta['benchmarks'])})")
     lines.append(f"**Random seed:** {meta['seed']}")
+    lines.append(f"**Bootstrap samples:** {meta['n_bootstrap_samples']}")
+    lines.append(f"**Data fingerprint (SHA-256):** `{meta['data_fingerprint_sha256']}`")
     lines.append("")
 
     # --- Section 1: Correlation ---
@@ -140,8 +143,38 @@ def generate_report(results):
                  f"(p = {fam['pc1_param_pvalue']:.2e})")
     lines.append("")
 
-    # --- Section 6: Key Findings ---
-    lines.append("## 6. Key Findings")
+    # --- Section 6: Robustness ---
+    lines.append("## 6. Robustness Checks")
+    lines.append("")
+    ci_low = np.array(robust["pearson_ci95_lower"])
+    ci_high = np.array(robust["pearson_ci95_upper"])
+    arc_idx = BENCHMARKS.index("ARC-Challenge")
+    wino_idx = BENCHMARKS.index("WinoGrande")
+    pc1_ci = robust["pc1_param_correlation_ci95"]
+    top_pair = robust["top2_selection_frequencies"][0]
+    lines.append(
+        f"- Bootstrap n={robust['n_bootstrap_samples']} confirms ARC-Challenge vs WinoGrande "
+        f"correlation stability: 95% CI [{ci_low[arc_idx, wino_idx]:.3f}, "
+        f"{ci_high[arc_idx, wino_idx]:.3f}]."
+    )
+    lines.append(
+        f"- PC1-log(params) correlation remains strong under resampling: "
+        f"95% CI [{pc1_ci[0]:.3f}, {pc1_ci[1]:.3f}]."
+    )
+    n90_dist = robust["n_components_90_distribution"]
+    n90_fmt = ", ".join(
+        f"{k} PCs: {v}/{robust['n_bootstrap_samples']}"
+        for k, v in sorted(n90_dist.items(), key=lambda kv: int(kv[0]))
+    )
+    lines.append(f"- Effective dimensionality is stable across bootstraps ({n90_fmt}).")
+    lines.append(
+        f"- Most frequent top-2 subset from greedy selection: "
+        f"{top_pair['pair']} ({top_pair['frequency']*100:.1f}% of bootstrap runs)."
+    )
+    lines.append("")
+
+    # --- Section 7: Key Findings ---
+    lines.append("## 7. Key Findings")
     lines.append("")
     lines.append(f"1. **{pca['n_components_90']} principal components explain 90%+ of variance** "
                  f"across {meta['n_benchmarks']} benchmarks, confirming high redundancy.")
@@ -161,10 +194,14 @@ def generate_report(results):
     lines.append(f"5. Model families {sil_interp} in PC space "
                  f"(silhouette = {sil:.3f}), confirming that scale explains "
                  f"more variance than architecture.")
+    lines.append(
+        "6. Bootstrap robustness checks show the headline conclusions are stable under "
+        "model-level resampling."
+    )
     lines.append("")
 
-    # --- Section 7: Limitations ---
-    lines.append("## 7. Limitations")
+    # --- Section 8: Limitations ---
+    lines.append("## 8. Limitations")
     lines.append("")
     lines.append("- Scores are from multiple evaluation runs (Open LLM Leaderboard, original papers) "
                  "with potentially different prompting strategies.")

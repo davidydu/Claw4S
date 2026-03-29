@@ -2,6 +2,7 @@
 
 Usage: .venv/bin/python run.py
 """
+import argparse
 import os
 
 if not os.path.exists("src/data.py"):
@@ -18,6 +19,26 @@ import json
 import numpy as np
 
 
+def parse_args():
+    """Parse command-line options."""
+    parser = argparse.ArgumentParser(
+        description="Run LLM benchmark correlation analysis with robustness checks."
+    )
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=42,
+        help="Random seed for deterministic analysis (default: 42).",
+    )
+    parser.add_argument(
+        "--bootstrap-samples",
+        type=int,
+        default=400,
+        help="Bootstrap samples for uncertainty estimates (default: 400, min: 100).",
+    )
+    return parser.parse_args()
+
+
 class NumpyEncoder(json.JSONEncoder):
     """JSON encoder that handles numpy types."""
     def default(self, obj):
@@ -32,8 +53,13 @@ class NumpyEncoder(json.JSONEncoder):
         return super().default(obj)
 
 
+args = parse_args()
+if args.bootstrap_samples < 100:
+    print("ERROR: --bootstrap-samples must be >= 100")
+    raise SystemExit(2)
+
 print("[1/4] Running analysis...")
-results = run_full_analysis(seed=42)
+results = run_full_analysis(seed=args.seed, n_bootstrap=args.bootstrap_samples)
 
 print("[2/4] Generating figures...")
 generate_all_plots(results)

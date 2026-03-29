@@ -17,6 +17,8 @@ Scores are from the Open LLM Leaderboard v1 (normalized 25-shot ARC-C,
 5-shot GSM8K) cross-referenced with original papers where available.
 """
 
+import hashlib
+import json
 import numpy as np
 
 # Benchmark names (columns)
@@ -28,6 +30,27 @@ BENCHMARKS = [
     "TruthfulQA",
     "GSM8K",
 ]
+
+SOURCE_MANIFEST = {
+    "open_llm_leaderboard_v1": {
+        "dataset_name": "Open LLM Leaderboard v1",
+        "snapshot_date": "2024-06-15",
+        "url": "https://huggingface.co/spaces/open-llm-leaderboard/open_llm_leaderboard",
+        "notes": (
+            "Archived v1 benchmark settings: ARC-Challenge 25-shot, HellaSwag 10-shot, "
+            "MMLU 5-shot, WinoGrande 5-shot, TruthfulQA 0-shot, GSM8K 5-shot."
+        ),
+    },
+    "cross_reference_sources": [
+        "arXiv:2307.09288 (Llama 2)",
+        "arXiv:2310.06825 (Mistral 7B)",
+        "arXiv:2304.01373 (Pythia)",
+        "arXiv:2304.03208 (Cerebras-GPT)",
+        "arXiv:2205.01068 (OPT)",
+        "arXiv:2204.06745 (GPT-NeoX)",
+        "https://huggingface.co/blog/falcon (Falcon)",
+    ],
+}
 
 # Model metadata: (name, family, params_billions)
 MODEL_INFO = [
@@ -175,3 +198,14 @@ def get_family_indices():
             family_idx[fam] = []
         family_idx[fam].append(i)
     return family_idx
+
+
+def get_data_fingerprint():
+    """Return a deterministic SHA-256 fingerprint of benchmark metadata and scores."""
+    payload = {
+        "benchmarks": BENCHMARKS,
+        "model_info": MODEL_INFO,
+        "scores": np.round(SCORES, 6).tolist(),
+    }
+    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()

@@ -5,6 +5,8 @@ import math
 import os
 import sys
 
+from src.data import get_data_fingerprint
+
 errors = []
 
 # Check 1: results/results.json exists and is valid JSON
@@ -35,6 +37,15 @@ if data is not None:
         errors.append(f"Expected >= 6 benchmarks, got {n_benchmarks}")
     else:
         print(f"  PASS: {n_benchmarks} benchmarks.")
+    fingerprint = meta.get("data_fingerprint_sha256", "")
+    if len(fingerprint) != 64 or any(ch not in "0123456789abcdef" for ch in fingerprint):
+        errors.append("Metadata fingerprint missing or not a valid SHA-256 hex digest")
+    else:
+        expected_fp = get_data_fingerprint()
+        if fingerprint != expected_fp:
+            errors.append("Metadata fingerprint does not match current hardcoded dataset")
+        else:
+            print("  PASS: Data fingerprint matches hardcoded source table.")
 
 # Check 3: Correlation matrices are present and symmetric
 print("Check 3: Correlation matrices are present and symmetric...")
@@ -66,8 +77,8 @@ if data is not None:
     n90 = pca.get("n_components_90")
     if n90 is None:
         errors.append("PCA n_components_90 is missing")
-    elif n90 > 4:
-        errors.append(f"PCA n_components_90 = {n90}, expected <= 4 for redundancy thesis")
+    elif n90 > 3:
+        errors.append(f"PCA n_components_90 = {n90}, expected <= 3 for redundancy thesis")
     else:
         cumvar = pca.get("cumulative_variance", [])
         if len(cumvar) >= n90:
@@ -147,6 +158,37 @@ if data is not None:
         errors.append(f"PC1-param correlation = {pc1_corr:.3f}, expected |r| >= 0.5")
     else:
         print(f"  PASS: PC1-param correlation = {pc1_corr:.3f} (p = {pc1_pval:.2e})")
+
+# Check 10: Bootstrap robustness summary exists and is valid
+print("Check 10: Bootstrap robustness outputs are present and coherent...")
+if data is not None:
+    robust = data.get("robustness", {})
+    n_boot = robust.get("n_bootstrap_samples", 0)
+    if n_boot < 100:
+        errors.append(f"Expected >= 100 bootstrap samples, got {n_boot}")
+    else:
+        print(f"  PASS: n_bootstrap_samples = {n_boot}")
+
+    ci = robust.get("pc1_param_correlation_ci95")
+    if not isinstance(ci, list) or len(ci) != 2:
+        errors.append("pc1_param_correlation_ci95 missing or malformed")
+    elif ci[0] > ci[1]:
+        errors.append("pc1_param_correlation_ci95 bounds are inverted")
+    else:
+        print(f"  PASS: PC1-param bootstrap CI95 = [{ci[0]:.3f}, {ci[1]:.3f}]")
+
+    top2 = robust.get("top2_selection_frequencies", [])
+    if not top2:
+        errors.append("top2_selection_frequencies is missing or empty")
+    else:
+        top = top2[0]
+        if "pair" not in top or "frequency" not in top:
+            errors.append("top2_selection_frequencies[0] missing pair/frequency")
+        else:
+            print(
+                f"  PASS: Most frequent top-2 subset is {top['pair']} "
+                f"({top['frequency']*100:.1f}%)."
+            )
 
 # Final result
 if errors:

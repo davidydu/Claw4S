@@ -120,7 +120,7 @@ def test_full_analysis_returns_all_sections():
     """run_full_analysis should return all expected sections."""
     result = run_full_analysis(seed=42)
     expected_keys = {"metadata", "correlation", "pca", "clustering",
-                     "redundancy", "family_analysis"}
+                     "redundancy", "family_analysis", "robustness"}
     assert set(result.keys()) == expected_keys
 
 
@@ -142,3 +142,25 @@ def test_report_mentions_only_analyzed_benchmarks():
     """Generated report should not reference benchmarks outside the submission."""
     report = generate_report(run_full_analysis(seed=42))
     assert "PIQA" not in report
+
+
+def test_full_analysis_metadata_has_reproducibility_fingerprint():
+    """Metadata should include a deterministic data fingerprint for reproducibility."""
+    result = run_full_analysis(seed=42)
+    fp = result["metadata"]["data_fingerprint_sha256"]
+    assert len(fp) == 64
+    assert all(ch in "0123456789abcdef" for ch in fp)
+
+
+def test_robustness_section_has_expected_structure():
+    """Bootstrap robustness summary should include CI and selection stability fields."""
+    result = run_full_analysis(seed=42)
+    robustness = result["robustness"]
+    assert robustness["n_bootstrap_samples"] >= 100
+    assert set(robustness["n_components_90_distribution"].keys())
+    assert "top2_selection_frequencies" in robustness
+    assert len(robustness["top2_selection_frequencies"]) >= 1
+    assert "pc1_param_correlation_ci95" in robustness
+    ci = robustness["pc1_param_correlation_ci95"]
+    assert len(ci) == 2
+    assert ci[0] <= ci[1]

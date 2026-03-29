@@ -4,7 +4,7 @@ import numpy as np
 from src.data import (
     BENCHMARKS, MODEL_INFO, SCORES,
     get_model_names, get_model_families, get_model_params,
-    get_scores_dataframe, get_family_indices,
+    get_scores_dataframe, get_family_indices, get_data_fingerprint,
 )
 
 
@@ -88,3 +88,12 @@ def test_small_models_lower_scores():
     avg_small = SCORES[small_mask].mean()
     avg_large = SCORES[large_mask].mean()
     assert avg_large > avg_small
+
+
+def test_data_fingerprint_is_stable_sha256():
+    """Data fingerprint should be deterministic and look like a SHA-256 hex digest."""
+    fp1 = get_data_fingerprint()
+    fp2 = get_data_fingerprint()
+    assert fp1 == fp2
+    assert len(fp1) == 64
+    assert all(ch in "0123456789abcdef" for ch in fp1)

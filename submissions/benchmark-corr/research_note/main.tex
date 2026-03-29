@@ -23,7 +23,7 @@
 \maketitle
 
 \begin{abstract}
-We analyze the correlation structure of six widely-used LLM benchmarks (ARC-Challenge, HellaSwag, MMLU, WinoGrande, TruthfulQA, and GSM8K) across 40 published models spanning 11 families from 70M to 70B parameters. Using PCA, hierarchical clustering, and greedy forward selection on hardcoded published scores, we find that \textbf{just 2 principal components explain 97.4\% of benchmark variance}. The first component (74.0\% variance) correlates strongly with model scale ($r = 0.86$, $p < 10^{-12}$), while the second (23.4\%) captures TruthfulQA's orthogonal signal. A greedy selection of only ARC-Challenge and TruthfulQA recovers 95.4\% of total variance. These results suggest that the standard evaluation suite is highly redundant, and researchers could reduce evaluation cost by 67\% with minimal information loss.
+We analyze the correlation structure of six widely-used LLM benchmarks (ARC-Challenge, HellaSwag, MMLU, WinoGrande, TruthfulQA, and GSM8K) across 40 published models spanning 11 families from 70M to 70B parameters. Using PCA, hierarchical clustering, and greedy forward selection on hardcoded published scores, we find that \textbf{just 2 principal components explain 97.4\% of benchmark variance}. The first component (74.0\% variance) correlates strongly with model scale ($r = 0.86$, $p < 10^{-12}$), while the second (23.4\%) captures TruthfulQA's orthogonal signal. A greedy selection of only ARC-Challenge and TruthfulQA recovers 95.4\% of total variance. With 400 model-level bootstrap resamples, key claims are stable: ARC-Challenge--WinoGrande remains highly correlated (95\% CI [0.974, 0.991]) and ARC-Challenge + TruthfulQA is the most frequent top-2 subset (94.8\%). These results suggest that the standard evaluation suite is highly redundant, and researchers could reduce evaluation cost by 67\% with minimal information loss.
 \end{abstract}
 
 \section{Introduction}
@@ -51,6 +51,8 @@ All six benchmarks use the same evaluation harness (EleutherAI lm-evaluation-har
 \paragraph{Greedy Forward Selection.} We iteratively select the benchmark that maximizes total variance explained (via OLS regression) to identify the minimal informative subset.
 
 \paragraph{Model Family Analysis.} We project models into PC space and compute silhouette scores, intra/inter-family distances, and PC1-vs-$\log(\text{params})$ correlation.
+
+\paragraph{Bootstrap Robustness.} We perform 400 model-level bootstrap resamples (sampling models with replacement) and recompute key statistics: pairwise Pearson correlations, $n_{90}$ (components needed for 90\% variance), PC1-vs-$\log(\text{params})$ correlation, and greedy top-2 benchmark subsets. We report 95\% percentile confidence intervals and subset-selection frequencies.
 
 \section{Results}
 
@@ -89,13 +91,17 @@ Hierarchical clustering at $k=2$ isolates TruthfulQA from all other benchmarks. 
 
 Greedy selection yields: (1) ARC-Challenge alone explains 72.9\% of variance; (2) adding TruthfulQA reaches 95.4\%; (3) adding GSM8K reaches 98.2\%. This means \textbf{3 of 6 benchmarks capture 98\% of the information}, and even 2 benchmarks suffice for 95\%.
 
+\subsection{Robustness Under Resampling}
+
+Bootstrap analysis confirms that the main conclusions are not artifacts of the specific 40-model sample. ARC-Challenge--WinoGrande remains strongly correlated with 95\% CI [0.974, 0.991], and the PC1-vs-$\log(\text{params})$ correlation remains high with 95\% CI [0.783, 0.921]. In all 400 bootstrap runs, exactly 2 components were sufficient to exceed 90\% variance explained. ARC-Challenge + TruthfulQA was the most frequent top-2 subset (94.8\% of runs), indicating stable benchmark-pruning recommendations.
+
 \subsection{Model Scale Dominance}
 
 The negative silhouette score ($-0.29$) for model families in PC space confirms that \emph{model size matters more than architecture}. A Pythia-12B is closer to an OPT-13B than to a Pythia-70M, because PC1 (scale) dominates over family-specific effects.
 
 \section{Discussion}
 
-Our finding that 2 PCs explain 97\% of variance aligns with prior work suggesting benchmark saturation \citep{open-llm-leaderboard-blog}. The practical implication is clear: \textbf{researchers can evaluate on just ARC-Challenge and TruthfulQA to capture 95\% of the information from all six benchmarks}, reducing evaluation cost by 67\%.
+Our finding that 2 PCs explain 97\% of variance aligns with prior work suggesting benchmark saturation \citep{open-llm-leaderboard-blog}. The practical implication is clear: \textbf{researchers can evaluate on just ARC-Challenge and TruthfulQA to capture 95\% of the information from all six benchmarks}, reducing evaluation cost by 67\%. The bootstrap stability results strengthen this recommendation by showing narrow confidence intervals for core correlations and high repeatability of the top-2 subset.
 
 The two independent dimensions we identify correspond to (1) general capability scaling with model size, and (2) truthfulness/calibration, which does not scale reliably with size. This suggests that future benchmark suites should prioritize \emph{orthogonal} measurements rather than adding more correlated reasoning tasks.
 

@@ -9,7 +9,14 @@ from sklearn.decomposition import PCA
 from sklearn.metrics import silhouette_score as sklearn_silhouette
 from sklearn.preprocessing import StandardScaler
 
-from src.data import BENCHMARKS, SCORES, get_model_families, get_model_params
+from src.data import (
+    BENCHMARKS,
+    SCORES,
+    SOURCE_MANIFEST,
+    get_data_fingerprint,
+    get_model_families,
+    get_model_params,
+)
 
 
 def compute_correlation_matrices(scores, seed=42):
@@ -268,11 +275,88 @@ def analyze_model_families(scores, seed=42):
     }
 
 
-def run_full_analysis(seed=42):
+def run_bootstrap_robustness(scores, n_bootstrap=400, seed=42):
+    """Estimate uncertainty/stability via model-level bootstrap resampling.
+
+    Args:
+        scores: (n_models, n_benchmarks) array.
+        n_bootstrap: Number of bootstrap replicates.
+        seed: Random seed for reproducibility.
+
+    Returns:
+        dict with CI matrices and stability summaries.
+    """
+    if n_bootstrap < 100:
+        raise ValueError("n_bootstrap must be >= 100 for stable uncertainty estimates")
+
+    rng = np.random.default_rng(seed)
+    n_models, n_benchmarks = scores.shape
+    params = get_model_params()
+
+    corr_samples = np.zeros((n_bootstrap, n_benchmarks, n_benchmarks))
+    n90_values = []
+    top2_counts = {}
+    pc1_corr_values = []
+
+    for b in range(n_bootstrap):
+        indices = rng.integers(0, n_models, size=n_models)
+        sample_scores = scores[indices]
+        sample_params = params[indices]
+
+        corr_samples[b] = np.corrcoef(sample_scores.T)
+
+        scaler = StandardScaler()
+        sample_scaled = scaler.fit_transform(sample_scores)
+        pca = PCA(random_state=seed)
+        sample_pcs = pca.fit_transform(sample_scaled)
+        sample_cumvar = np.cumsum(pca.explained_variance_ratio_)
+        n90_values.append(int(np.searchsorted(sample_cumvar, 0.90) + 1))
+
+        pc1_corr, _ = stats.pearsonr(np.log10(sample_params), sample_pcs[:, 0])
+        if np.isfinite(pc1_corr):
+            pc1_corr_values.append(float(pc1_corr))
+
+        red = analyze_redundancy(sample_scores, seed=seed + b + 1)
+        pair = " + ".join(red["greedy_selection_order"][:2])
+        top2_counts[pair] = top2_counts.get(pair, 0) + 1
+
+    corr_ci_low = np.percentile(corr_samples, 2.5, axis=0)
+    corr_ci_high = np.percentile(corr_samples, 97.5, axis=0)
+
+    n90_arr = np.array(n90_values, dtype=int)
+    n90_distribution = {}
+    for value in sorted(set(n90_values)):
+        n90_distribution[str(value)] = int(np.sum(n90_arr == value))
+
+    top2_selection = [
+        {
+            "pair": pair,
+            "count": count,
+            "frequency": float(count / n_bootstrap),
+        }
+        for pair, count in sorted(top2_counts.items(), key=lambda kv: (-kv[1], kv[0]))
+    ]
+
+    pc1_ci_low, pc1_ci_high = np.percentile(np.array(pc1_corr_values), [2.5, 97.5])
+
+    return {
+        "n_bootstrap_samples": int(n_bootstrap),
+        "seed": seed,
+        "benchmarks": list(BENCHMARKS),
+        "pearson_ci95_lower": corr_ci_low.tolist(),
+        "pearson_ci95_upper": corr_ci_high.tolist(),
+        "n_components_90_distribution": n90_distribution,
+        "top2_selection_frequencies": top2_selection,
+        "pc1_param_correlation_ci95": [float(pc1_ci_low), float(pc1_ci_high)],
+    }
+
+
+def run_full_analysis(seed=42, n_bootstrap=400):
     """Run all analyses and return combined results dict.
 
     Args:
         seed: Random seed for all stochastic components.
+        n_bootstrap: Number of bootstrap replicates for robustness checks.
 
     Returns:
         dict with all analysis results, suitable for JSON serialization.
@@ -285,6 +369,7 @@ def run_full_analysis(seed=42):
     clustering = run_clustering(scores, seed=seed)
     redundancy = analyze_redundancy(scores, seed=seed)
     family_analysis = analyze_model_families(scores, seed=seed)
+    robustness = run_bootstrap_robustness(scores, n_bootstrap=n_bootstrap, seed=seed)
 
     return {
         "metadata": {
@@ -292,10 +377,15 @@ def run_full_analysis(seed=42):
             "n_benchmarks": int(scores.shape[1]),
             "benchmarks": list(BENCHMARKS),
             "seed": seed,
+            "n_bootstrap_samples": int(n_bootstrap),
+            "data_fingerprint_sha256": get_data_fingerprint(),
+            "source_manifest": SOURCE_MANIFEST,
+            "analysis_pipeline_version": "2.0",
         },
         "correlation": correlation,
         "pca": pca_results,
         "clustering": clustering,
         "redundancy": redundancy,
         "family_analysis": family_analysis,
+        "robustness": robustness,
     }
