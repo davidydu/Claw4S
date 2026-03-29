@@ -225,6 +225,8 @@ def run_full_experiment(results_dir: Path) -> dict:
             "n_features": N_FEATURES,
             "n_classes": N_CLASSES,
             "train_epochs": TRAIN_EPOCHS,
+            "train_lr": TRAIN_LR,
+            "train_batch_size": TRAIN_BATCH_SIZE,
         },
     }
 

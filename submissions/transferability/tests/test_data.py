@@ -12,6 +12,14 @@ def test_dataset_shape():
     assert y.shape == (100,), f"Expected (100,), got {y.shape}"
 
 
+def test_non_divisible_sample_count_preserved():
+    """n_samples is preserved even when not divisible by n_classes."""
+    ds = make_gaussian_clusters(n_samples=50, n_features=5, n_classes=3, seed=42)
+    X, y = ds.tensors
+    assert X.shape == (50, 5), f"Expected (50, 5), got {X.shape}"
+    assert y.shape == (50,), f"Expected (50,), got {y.shape}"
+
+
 def test_dataset_types():
     """Dataset tensors have correct dtypes."""
     ds = make_gaussian_clusters(n_samples=50, n_features=5, n_classes=3, seed=42)

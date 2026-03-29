@@ -89,3 +89,37 @@ def test_cross_depth_reuses_trained_models(monkeypatch, tmp_path):
     assert len(results) == len(experiment.SEEDS) * len(experiment.WIDTHS) ** 2
     assert len(trained_models) == len(experiment.SEEDS) * len(experiment.WIDTHS) * 2
     assert len(set(trained_models)) == len(trained_models)
+
+
+def test_run_full_experiment_records_training_hyperparameters(monkeypatch, tmp_path):
+    """run_full_experiment saves key training hyperparameters in config."""
+
+    def fake_run_same_arch_experiment(results_dir):
+        return [
+            {
+                "source_width": 32,
+                "target_width": 32,
+                "capacity_ratio": 1.0,
+                "transfer_rate": 1.0,
+            }
+        ]
+
+    def fake_run_cross_depth_experiment(results_dir):
+        return [
+            {
+                "source_width": 32,
+                "target_width": 32,
+                "capacity_ratio": 1.0,
+                "transfer_rate": 0.8,
+            }
+        ]
+
+    monkeypatch.setattr(experiment, "run_same_arch_experiment", fake_run_same_arch_experiment)
+    monkeypatch.setattr(experiment, "run_cross_depth_experiment", fake_run_cross_depth_experiment)
+
+    output = experiment.run_full_experiment(tmp_path)
+    config = output["config"]
+
+    assert config["train_epochs"] == experiment.TRAIN_EPOCHS
+    assert config["train_lr"] == experiment.TRAIN_LR
+    assert config["train_batch_size"] == experiment.TRAIN_BATCH_SIZE

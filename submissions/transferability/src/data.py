@@ -16,6 +16,9 @@ def make_gaussian_clusters(
 
     Each class is a Gaussian blob with a distinct centroid.
     Centroids are spaced along the unit hypersphere to ensure separability.
+    When n_samples is not divisible by n_classes, the remainder is
+    distributed deterministically across early classes so output size
+    is always exactly n_samples.
 
     Args:
         n_samples: Total number of samples across all classes.
@@ -28,7 +31,8 @@ def make_gaussian_clusters(
         TensorDataset with (X, y) where X is float32 and y is int64.
     """
     rng = np.random.RandomState(seed)
-    samples_per_class = n_samples // n_classes
+    base_samples_per_class = n_samples // n_classes
+    remainder = n_samples % n_classes
 
     # Generate well-separated centroids using orthogonal directions
     # Use QR decomposition for orthogonal centroid directions
@@ -38,9 +42,10 @@ def make_gaussian_clusters(
 
     xs, ys = [], []
     for c in range(n_classes):
-        x_c = rng.randn(samples_per_class, n_features) * cluster_std + centroids[c]
+        n_c = base_samples_per_class + (1 if c < remainder else 0)
+        x_c = rng.randn(n_c, n_features) * cluster_std + centroids[c]
         xs.append(x_c)
-        ys.append(np.full(samples_per_class, c, dtype=np.int64))
+        ys.append(np.full(n_c, c, dtype=np.int64))
 
     X = np.concatenate(xs, axis=0).astype(np.float32)
     y = np.concatenate(ys, axis=0)

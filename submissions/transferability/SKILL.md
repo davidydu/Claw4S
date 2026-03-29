@@ -43,8 +43,8 @@ python3 -m venv .venv
 .venv/bin/python -m pytest tests/ -v
 ```
 
-**Expected output:** Pytest exits with `19 passed` and exit code 0:
-- `tests/test_data.py` — 5 tests (dataset shape, types, classes, reproducibility, seed variation)
+**Expected output:** Pytest exits with `20 passed` and exit code 0:
+- `tests/test_data.py` — 6 tests (dataset shape, non-divisible sample handling, types, classes, reproducibility, seed variation)
 - `tests/test_models.py` — 5 tests (forward shape, 4-layer forward, param count, width/depth effects)
 - `tests/test_adversarial.py` — 6 tests (FGSM perturbation, magnitude bounds, clean accuracy, transfer rate bounds/keys, self-transfer)
 - `tests/test_experiment.py` — 3 tests (summary structure, summary values, cross-depth model reuse)
@@ -57,6 +57,7 @@ python3 -m venv .venv
 
 **Expected output:** Creates `results/` directory with:
 - `transfer_results.json` — raw data for all 96 evaluations plus summary statistics
+  - Includes full reproducibility config (`widths`, `seeds`, `epsilon`, `train_epochs`, `train_lr`, `train_batch_size`)
 - `transfer_heatmap.png` — 4x4 heatmap of mean transfer rates
 - `transfer_by_ratio.png` — transfer rate vs capacity ratio with error bars
 - `depth_comparison.png` — same-depth vs cross-depth bar chart
@@ -71,7 +72,7 @@ Off-diagonal mean transfer: ~0.86
 ```
 
 **What the experiment does:**
-1. Generates synthetic 5-class Gaussian cluster data (500 samples, 10 features)
+1. Generates synthetic 5-class Gaussian cluster data (500 samples, 10 features; exact sample count preserved even when `n_samples` is not divisible by `n_classes`)
 2. Trains 2-layer MLPs with widths [32, 64, 128, 256] (4 models per seed, 3 seeds)
 3. For each source-target pair (16 pairs): generates FGSM adversarial examples (epsilon=0.3) on the source, tests transfer to the target
 4. Repeats with cross-depth pairs: 2-layer source, 4-layer target
@@ -87,6 +88,7 @@ Off-diagonal mean transfer: ~0.86
 - 48 same-arch results, 48 cross-depth results
 - All transfer rates in [0, 1]
 - All summary statistics present
+- Reproducibility config keys present in `transfer_results.json`
 - 3 plot files exist and are non-trivial
 - Clean accuracies above chance
 - FGSM produced adversarial examples

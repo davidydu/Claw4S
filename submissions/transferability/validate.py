@@ -104,6 +104,21 @@ def validate() -> None:
         f"Runtime {summary['runtime_seconds']}s < 300s limit",
     )
 
+    config = data.get("config", {})
+    required_config_keys = [
+        "widths",
+        "seeds",
+        "epsilon",
+        "n_samples",
+        "n_features",
+        "n_classes",
+        "train_epochs",
+        "train_lr",
+        "train_batch_size",
+    ]
+    for key in required_config_keys:
+        check(key in config, f"Config contains '{key}'")
+
     # 6. Plots exist
     print("\n6. Visualization files:")
     for plot_name in EXPECTED_PLOTS:
