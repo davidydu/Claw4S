@@ -11,9 +11,11 @@ This skill reproduces a pruning-at-initialization study on tiny neural networks.
 ## Prerequisites
 
 - Requires **Python 3.10+**. No internet access or GPU needed.
-- Expected runtime: **2-5 minutes on CPU**. The verified March 28, 2026 run in this worktree completed in **112.9s** on Apple silicon.
+- Expected runtime: **2-6 minutes on CPU** (depends on BLAS/threading behavior and host load).
+- Verified runtime in this worktree on **March 28, 2026**: **153.4s** on Apple silicon CPU.
 - All commands must be run from the **submission directory** (`submissions/lottery-ticket/`).
 - Training uses a **10% validation split** from the training set for early stopping, and restores the best validation checkpoint before final test evaluation.
+- Experiments enable deterministic PyTorch algorithms and record environment provenance (`python_version`, `torch_version`, `numpy_version`, `platform`, `device`) in `results/results.json`.
 
 ## Step 1: Environment Setup
 
@@ -56,11 +58,12 @@ Expected output:
 - Prints `[4/4] Generating report...` followed by the full report
 - Creates files in `results/`:
   - `results.json` — raw experiment data
+  - `summary.csv` — machine-readable aggregated metrics (means/std/95% CI by task/strategy/sparsity)
   - `accuracy_vs_sparsity.png` — main accuracy vs sparsity plot
   - `epochs_vs_sparsity.png` — training epochs vs sparsity plot
-  - `report.txt` — summary report with key findings
+  - `report.txt` — summary report with key findings and 95% confidence intervals
 
-Runtime: about 2 minutes on the verified Apple-silicon run; budget 2-5 minutes on typical laptop CPUs.
+Runtime: typically 2-6 minutes on CPU; use the `Runtime: ...s` line in `validate.py` output as your measured reference.
 
 ## Step 4: Validate Results
 
@@ -75,8 +78,9 @@ Expected output: `Validation PASSED. All checks OK.` with exit code 0.
 The validator checks:
 - All 144 runs completed (8 sparsities x 3 strategies x 2 tasks x 3 seeds)
 - Dense baselines have reasonable performance (accuracy > 5%, R^2 > 0.5)
-- Results metadata records the validation split used for early stopping
+- Results metadata records the validation split used for early stopping and reproducibility provenance
 - All plots and reports were generated
+- `summary.csv` exists and contains CI columns
 - Each configuration has exactly 3 seeds for variance estimation
 
 ## Step 5: Review Key Findings

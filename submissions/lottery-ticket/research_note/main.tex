@@ -20,7 +20,7 @@
 \maketitle
 
 \begin{abstract}
-We study pruning at initialization in tiny 2-layer ReLU MLPs on two synthetic tasks: modular arithmetic (mod~97) and random-features regression. The model size depends on the task (about 37.5K parameters for modular arithmetic and 2.8K for regression), and we sweep 8 sparsity levels (0--95\%) across 3 pruning strategies (magnitude, random, structured) with 3 seeds each. Contrary to the standard ``winning tickets at birth'' narrative, global magnitude pruning collapses quickly: its critical sparsity is 0\% on modular arithmetic and 30\% on regression. Structured pruning is the strongest strategy in this setting, improving modular accuracy from 0.29 (dense) to 0.71 at 70\% sparsity and preserving $>$95\% of dense regression performance through 90\% sparsity. Random pruning is intermediate on regression and weak on modular arithmetic. The full 144-run sweep completes in about 2 minutes on CPU with pinned dependencies, deterministic seeds, and validation-based early stopping.
+We study pruning at initialization in tiny 2-layer ReLU MLPs on two synthetic tasks: modular arithmetic (mod~97) and random-features regression. The model size depends on the task (about 37.5K parameters for modular arithmetic and 2.8K for regression), and we sweep 8 sparsity levels (0--95\%) across 3 pruning strategies (magnitude, random, structured) with 3 seeds each. Contrary to the standard ``winning tickets at birth'' narrative, global magnitude pruning collapses quickly: its critical sparsity is 0\% on modular arithmetic and 30\% on regression. Structured pruning is the strongest strategy in this setting, improving modular accuracy from 0.29 (dense) to 0.71 at 70\% sparsity and preserving $>$95\% of dense regression performance through 90\% sparsity. Random pruning is intermediate on regression and weak on modular arithmetic. The full 144-run sweep completes in a few minutes on CPU with pinned dependencies, deterministic execution settings, validation-based early stopping, and seed-level uncertainty reporting (95\% confidence intervals).
 \end{abstract}
 
 \section{Introduction}
@@ -55,7 +55,7 @@ All pruning is applied \emph{at initialization}, before any training. Pruned wei
 
 \subsection{Experimental Setup}
 
-Sparsity levels: $\{0\%, 10\%, 30\%, 50\%, 70\%, 80\%, 90\%, 95\%\}$. Each configuration is run with 3 seeds (42, 123, 7) for variance estimation. Training uses Adam with $\text{lr} = 10^{-2}$ (classification) or $10^{-3}$ (regression), max 500 epochs, and early stopping with patience 100 on a deterministic 10\% validation split carved from the training data; the best validation checkpoint is restored before test evaluation. Total: 144 runs.
+Sparsity levels: $\{0\%, 10\%, 30\%, 50\%, 70\%, 80\%, 90\%, 95\%\}$. Each configuration is run with 3 seeds (42, 123, 7) for variance estimation. Training uses Adam with $\text{lr} = 10^{-2}$ (classification) or $10^{-3}$ (regression), max 500 epochs, and early stopping with patience 100 on a deterministic 10\% validation split carved from the training data; the best validation checkpoint is restored before test evaluation. We enable deterministic PyTorch algorithms and log a reproducibility manifest (Python/Torch/NumPy versions, platform, device, and sweep configuration) in the output metadata. Total: 144 runs.
 
 \section{Results}
 
@@ -70,9 +70,9 @@ Figure~\ref{fig:sparsity} shows test performance as a function of sparsity for b
     \label{fig:sparsity}
 \end{figure}
 
-\textbf{Modular arithmetic.} The dense baseline reaches only 0.29 test accuracy. Unstructured pruning performs poorly: both magnitude and random pruning collapse by 30\% sparsity and never recover. In contrast, structured pruning improves over the dense baseline across a broad sparsity range, peaking at 0.71 mean test accuracy at 70\% sparsity and retaining the highest critical sparsity (90\%).
+\textbf{Modular arithmetic.} The dense baseline reaches only 0.29 test accuracy. Unstructured pruning performs poorly: both magnitude and random pruning collapse by 30\% sparsity and never recover. In contrast, structured pruning improves over the dense baseline across a broad sparsity range, peaking at 0.71 mean test accuracy at 70\% sparsity and retaining the highest critical sparsity (90\%). With only 3 seeds, confidence intervals are non-trivial in width, but the separation between structured and unstructured pruning remains large at high sparsity.
 
-\textbf{Regression.} The regression task is robust to structured and mildly robust to random pruning, but not to magnitude pruning. Structured pruning stays above 0.95 of dense $R^2$ through 90\% sparsity. Random pruning remains competitive through 50\% sparsity and then degrades gradually. Magnitude pruning collapses sharply from 50\% sparsity onward.
+\textbf{Regression.} The regression task is robust to structured and mildly robust to random pruning, but not to magnitude pruning. Structured pruning stays above 0.95 of dense $R^2$ through 90\% sparsity. Random pruning remains competitive through 50\% sparsity and then degrades gradually. Magnitude pruning collapses sharply from 50\% sparsity onward; this collapse is visible even after accounting for seed-level uncertainty.
 
 \subsection{Strategy Comparison}
 
@@ -90,7 +90,7 @@ Collapsed unstructured models stop early because the validation metric plateaus 
 
 \textbf{Structured pruning behaves like architecture selection.} The fact that structured pruning can outperform the dense baseline, especially on modular arithmetic, suggests that the dense width is not ideal for this task and that removing weak hidden units improves inductive bias or optimization.
 
-\textbf{Limitations.} We study only 2-layer MLPs on synthetic tasks. The dense modular baseline is modest, so we should not interpret these results as broad evidence about large-network lottery tickets. Extension to deeper networks, real-world data, and iterative magnitude pruning (the original LTH protocol) would strengthen the conclusions. Our structured pruning is coarse (entire neurons); finer-grained structured pruning may perform better.
+\textbf{Limitations.} We study only 2-layer MLPs on synthetic tasks. The dense modular baseline is modest, so we should not interpret these results as broad evidence about large-network lottery tickets. Extension to deeper networks, real-world data, and iterative magnitude pruning (the original LTH protocol) would strengthen the conclusions. Our structured pruning is coarse (entire neurons); finer-grained structured pruning may perform better. We also use only 3 seeds per configuration, so interval estimates are necessarily wide and should be interpreted as coarse uncertainty bounds rather than tight confidence claims.
 
 \section{Conclusion}
 

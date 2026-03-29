@@ -6,9 +6,11 @@ and summary statistics.
 
 import json
 import os
+import csv
 from collections import defaultdict
 
 import numpy as np
+from scipy.stats import t as student_t
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -18,6 +20,23 @@ def load_results(results_path: str = "results/results.json") -> dict:
     """Load experiment results from JSON file."""
     with open(results_path) as f:
         return json.load(f)
+
+
+def _compute_mean_std_ci(values: list[float], confidence: float = 0.95) -> tuple[float, float, float, float]:
+    """Compute mean/std and confidence interval bounds for a sample."""
+    arr = np.asarray(values, dtype=float)
+    mean = float(np.mean(arr))
+    std = float(np.std(arr))
+    if arr.size <= 1:
+        return mean, std, mean, mean
+
+    sem = float(np.std(arr, ddof=1) / np.sqrt(arr.size))
+    if sem == 0.0:
+        return mean, std, mean, mean
+
+    t_crit = float(student_t.ppf((1.0 + confidence) / 2.0, df=arr.size - 1))
+    half_width = t_crit * sem
+    return mean, std, mean - half_width, mean + half_width
 
 
 def compute_summary_stats(results: list[dict]) -> dict:
@@ -46,9 +65,13 @@ def compute_summary_stats(results: list[dict]) -> dict:
         values = [r[metric_key] for r in runs]
         epochs = [r["epochs_trained"] for r in runs]
 
+        metric_mean, metric_std, metric_ci_low, metric_ci_high = _compute_mean_std_ci(values)
+
         summary[task][strategy][sparsity] = {
-            "metric_mean": float(np.mean(values)),
-            "metric_std": float(np.std(values)),
+            "metric_mean": metric_mean,
+            "metric_std": metric_std,
+            "metric_ci_low": metric_ci_low,
+            "metric_ci_high": metric_ci_high,
             "metric_values": values,
             "epochs_mean": float(np.mean(epochs)),
             "epochs_std": float(np.std(epochs)),
@@ -86,6 +109,55 @@ def find_critical_sparsity(summary: dict, task: str, strategy: str, threshold: f
             critical = sparsity
 
     return critical
+
+
+def export_summary_csv(summary: dict, output_dir: str = "results") -> str:
+    """Export aggregated summary statistics to a machine-readable CSV file."""
+    rows = []
+    for task in sorted(summary):
+        metric_name = "test_acc" if task == "modular" else "test_r2"
+        for strategy in sorted(summary[task]):
+            for sparsity in sorted(summary[task][strategy]):
+                cell = summary[task][strategy][sparsity]
+                rows.append(
+                    {
+                        "task": task,
+                        "strategy": strategy,
+                        "sparsity": sparsity,
+                        "metric_name": metric_name,
+                        "metric_mean": cell["metric_mean"],
+                        "metric_std": cell["metric_std"],
+                        "metric_ci_low": cell["metric_ci_low"],
+                        "metric_ci_high": cell["metric_ci_high"],
+                        "epochs_mean": cell["epochs_mean"],
+                        "epochs_std": cell["epochs_std"],
+                        "n_seeds": cell["n_seeds"],
+                    }
+                )
+
+    path = os.path.join(output_dir, "summary.csv")
+    with open(path, "w", newline="") as handle:
+        writer = csv.DictWriter(
+            handle,
+            fieldnames=[
+                "task",
+                "strategy",
+                "sparsity",
+                "metric_name",
+                "metric_mean",
+                "metric_std",
+                "metric_ci_low",
+                "metric_ci_high",
+                "epochs_mean",
+                "epochs_std",
+                "n_seeds",
+            ],
+        )
+        writer.writeheader()
+        writer.writerows(rows)
+
+    print(f"Summary CSV saved to {path}")
+    return path
 
 
 def plot_accuracy_vs_sparsity(summary: dict, output_dir: str = "results") -> str:
@@ -236,13 +308,16 @@ def generate_report(results_data: dict, output_dir: str = "results") -> str:
 
             data = summary[task][strategy]
             lines.append(f"\n  Strategy: {strategy.capitalize()}")
-            lines.append(f"  {'Sparsity':>10s}  {metric_name:>15s}  {'Std':>8s}  {'Epochs':>8s}")
+            lines.append(
+                f"  {'Sparsity':>10s}  {metric_name:>15s}  {'Std':>8s}  {'95% CI':>21s}  {'Epochs':>8s}"
+            )
 
             for sparsity in sorted(data.keys()):
                 s = data[sparsity]
+                ci_text = f"[{s['metric_ci_low']:.4f}, {s['metric_ci_high']:.4f}]"
                 lines.append(
                     f"  {sparsity:>9.0%}  {s['metric_mean']:>15.4f}  "
-                    f"{s['metric_std']:>8.4f}  {s['epochs_mean']:>8.0f}"
+                    f"{s['metric_std']:>8.4f}  {ci_text:>21s}  {s['epochs_mean']:>8.0f}"
                 )
 
             crit = find_critical_sparsity(summary, task, strategy)

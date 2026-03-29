@@ -5,6 +5,8 @@ Sweeps over sparsity levels, pruning strategies, tasks, and seeds.
 
 import json
 import os
+import platform
+import sys
 import time
 
 import torch
@@ -39,6 +41,42 @@ PRUNING_FNS = {
     "random": random_prune,
     "structured": structured_prune,
 }
+
+
+def configure_determinism() -> None:
+    """Enable deterministic execution settings when supported."""
+    torch.use_deterministic_algorithms(True)
+    if torch.backends.cudnn.is_available():
+        torch.backends.cudnn.benchmark = False
+        torch.backends.cudnn.deterministic = True
+
+
+def collect_runtime_metadata(elapsed_seconds: float, total_runs: int) -> dict:
+    """Build run metadata for reproducibility and validation."""
+    return {
+        "num_tasks": len(TASKS),
+        "num_strategies": len(PRUNING_STRATEGIES),
+        "num_sparsity_levels": len(SPARSITY_LEVELS),
+        "num_seeds": len(SEEDS),
+        "total_runs": total_runs,
+        "elapsed_seconds": round(float(elapsed_seconds), 1),
+        "hidden_dim": HIDDEN_DIM,
+        "max_epochs": MAX_EPOCHS,
+        "validation_fraction": VALIDATION_FRACTION,
+        "modular_mod": MODULAR_MOD,
+        "regression_n": REGRESSION_N,
+        "regression_d": REGRESSION_D,
+        "python_version": sys.version.split()[0],
+        "torch_version": torch.__version__,
+        "numpy_version": np.__version__,
+        "platform": platform.platform(),
+        "device": "cuda" if torch.cuda.is_available() else "cpu",
+        "deterministic_algorithms_enabled": torch.are_deterministic_algorithms_enabled(),
+        "seed_values": list(SEEDS),
+        "sparsity_values": list(SPARSITY_LEVELS),
+        "task_values": list(TASKS),
+        "strategy_values": list(PRUNING_STRATEGIES),
+    }
 
 
 def run_single_experiment(
@@ -132,6 +170,7 @@ def run_all_experiments(output_dir: str = "results") -> dict:
         Dictionary with all results and metadata.
     """
     os.makedirs(output_dir, exist_ok=True)
+    configure_determinism()
 
     all_results = []
     total_runs = len(TASKS) * len(PRUNING_STRATEGIES) * len(SPARSITY_LEVELS) * len(SEEDS)
@@ -169,22 +208,8 @@ def run_all_experiments(output_dir: str = "results") -> dict:
     elapsed = time.time() - start_time
     print(f"\nAll experiments completed in {elapsed:.1f}s")
 
-    # Compile metadata
     output = {
-        "metadata": {
-            "num_tasks": len(TASKS),
-            "num_strategies": len(PRUNING_STRATEGIES),
-            "num_sparsity_levels": len(SPARSITY_LEVELS),
-            "num_seeds": len(SEEDS),
-            "total_runs": total_runs,
-            "elapsed_seconds": round(elapsed, 1),
-            "hidden_dim": HIDDEN_DIM,
-            "max_epochs": MAX_EPOCHS,
-            "validation_fraction": VALIDATION_FRACTION,
-            "modular_mod": MODULAR_MOD,
-            "regression_n": REGRESSION_N,
-            "regression_d": REGRESSION_D,
-        },
+        "metadata": collect_runtime_metadata(elapsed_seconds=elapsed, total_runs=total_runs),
         "results": all_results,
     }
 

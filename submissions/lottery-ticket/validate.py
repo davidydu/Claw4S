@@ -26,6 +26,13 @@ print(f"Total runs: {len(results)}")
 print(f"Expected runs: {meta['total_runs']}")
 print(f"Runtime: {meta['elapsed_seconds']}s")
 print(f"Validation split: {meta.get('validation_fraction', 0.0):.0%}")
+print(
+    "Environment: "
+    f"python={meta.get('python_version', 'unknown')}, "
+    f"torch={meta.get('torch_version', 'unknown')}, "
+    f"numpy={meta.get('numpy_version', 'unknown')}, "
+    f"device={meta.get('device', 'unknown')}"
+)
 
 # 2. Check run count
 if len(results) != meta["total_runs"]:
@@ -37,6 +44,26 @@ if validation_fraction is None:
     errors.append("Missing validation_fraction metadata")
 elif not (0.0 < validation_fraction < 0.5):
     errors.append(f"Unexpected validation_fraction: {validation_fraction}")
+
+# 2c. Check reproducibility metadata exists
+required_meta_fields = [
+    "python_version",
+    "torch_version",
+    "numpy_version",
+    "platform",
+    "device",
+    "deterministic_algorithms_enabled",
+    "seed_values",
+    "sparsity_values",
+    "task_values",
+    "strategy_values",
+]
+for field in required_meta_fields:
+    if field not in meta:
+        errors.append(f"Missing metadata field: {field}")
+
+if "deterministic_algorithms_enabled" in meta and not meta["deterministic_algorithms_enabled"]:
+    errors.append("Deterministic algorithms are not enabled")
 
 # 3. Check all sparsity levels present
 expected_sparsities = {0.0, 0.1, 0.3, 0.5, 0.7, 0.8, 0.9, 0.95}
@@ -113,6 +140,19 @@ else:
     print(f"Report: {len(report_text)} chars")
     if "KEY FINDINGS" not in report_text:
         errors.append("Report missing KEY FINDINGS section")
+    if "95% CI" not in report_text:
+        errors.append("Report missing 95% CI statistics")
+
+# 11. Check summary CSV exists
+summary_path = "results/summary.csv"
+if not os.path.exists(summary_path):
+    errors.append(f"Missing summary CSV: {summary_path}")
+else:
+    with open(summary_path) as f:
+        header = f.readline().strip()
+    print(f"Summary CSV header: {header}")
+    if "metric_ci_low" not in header or "metric_ci_high" not in header:
+        errors.append("Summary CSV missing CI columns")
 
 # Final verdict
 if errors:

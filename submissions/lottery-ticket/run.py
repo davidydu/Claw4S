@@ -19,6 +19,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 from src.experiment import run_all_experiments
 from src.analysis import (
     compute_summary_stats,
+    export_summary_csv,
     plot_accuracy_vs_sparsity,
     plot_epochs_vs_sparsity,
     generate_report,
@@ -29,6 +30,7 @@ results_data = run_all_experiments(output_dir="results")
 
 print("\n[2/4] Computing summary statistics...")
 summary = compute_summary_stats(results_data["results"])
+export_summary_csv(summary, output_dir="results")
 
 print("\n[3/4] Generating plots...")
 plot_accuracy_vs_sparsity(summary, output_dir="results")
