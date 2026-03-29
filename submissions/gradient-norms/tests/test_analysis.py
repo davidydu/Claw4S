@@ -4,6 +4,7 @@ import numpy as np
 from src.analysis import (
     smooth,
     detect_transition_epoch,
+    detect_peak_epoch,
     compute_gradient_norm_rate,
     cross_correlation_lag,
 )
@@ -74,3 +75,18 @@ class TestCrossCorrelationLag:
         result = cross_correlation_lag(a, b, max_lag=50)
         # Best lag should be close to shift
         assert abs(result["best_lag"] - shift) <= 3
+
+    def test_flat_signals_prefer_zero_lag(self):
+        """Flat signals should resolve ties to 0 lag, not an edge lag."""
+        a = [1.0] * 100
+        b = [1.0] * 100
+        result = cross_correlation_lag(a, b, max_lag=10)
+        assert result["best_lag"] == 0
+
+
+class TestDetectPeakEpoch:
+    def test_single_point_signal(self):
+        """Single-point trajectories should not crash peak detection."""
+        result = detect_peak_epoch([0.5], [7])
+        assert result["transition_epoch"] == 7
+        assert result["transition_idx"] == 0

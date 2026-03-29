@@ -112,7 +112,14 @@ def cross_correlation_lag(
             corr_val = np.mean(a[-lag:] * b[:n + lag]) if -lag < n else 0.0
         correlations.append(float(corr_val))
 
-    best_idx = int(np.argmax(np.abs(correlations)))
+    abs_corr = np.abs(np.array(correlations, dtype=np.float64))
+    best_abs = abs_corr.max()
+    # Deterministic tie-break: prefer the lag closest to zero.
+    tied = np.where(np.isclose(abs_corr, best_abs, rtol=1e-12, atol=1e-12))[0]
+    if len(tied) == 1:
+        best_idx = int(tied[0])
+    else:
+        best_idx = int(min(tied, key=lambda i: abs(lags[int(i)])))
     return {
         "best_lag": lags[best_idx],
         "best_correlation": correlations[best_idx],
@@ -142,10 +149,26 @@ def detect_peak_epoch(
     Returns:
         dict with 'transition_epoch', 'transition_idx', 'smoothed' array.
     """
+    if len(signal) != len(epochs):
+        raise ValueError("signal and epochs must have the same length")
+    if not signal:
+        raise ValueError("signal must be non-empty")
+
     smoothed = smooth(signal, window=smooth_window)
-    skip = max(1, int(len(smoothed) * skip_frac))
-    # Find peak after initial transient
-    idx = skip + int(np.argmax(smoothed[skip:]))
+    if len(smoothed) == 1:
+        return {
+            "transition_epoch": epochs[0],
+            "transition_idx": 0,
+            "smoothed": smoothed,
+        }
+
+    skip = int(len(smoothed) * skip_frac)
+    if skip >= len(smoothed):
+        skip = 0
+
+    # Find peak after initial transient (if any)
+    tail = smoothed[skip:]
+    idx = skip + int(np.argmax(tail))
 
     return {
         "transition_epoch": epochs[idx],

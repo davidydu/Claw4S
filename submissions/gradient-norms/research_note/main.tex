@@ -40,7 +40,7 @@ Both tasks use a 2-layer MLP: input $\to$ Linear(hidden=64) $\to$ ReLU $\to$ Lin
 
 \subsection{Training Configuration}
 
-We train with AdamW (lr=$10^{-3}$, weight decay=$0.1$) for 3000 epochs on three dataset fractions: 50\%, 70\%, and 90\%. All runs use seed 42 for full reproducibility. This yields $2 \times 3 = 6$ training runs.
+We train with AdamW (lr=$10^{-3}$, weight decay=$0.1$) for 3000 epochs on three dataset fractions: 50\%, 70\%, and 90\%. All runs use seed 42 for the primary sweep and seeds \{42, 123, 7\} for variance analysis. For reproducibility, we enable deterministic PyTorch algorithms and log runtime/platform/library metadata into the output JSON. This yields $2 \times 3 = 6$ primary training runs plus $3 \times 3 = 9$ variance runs on modular addition.
 
 \subsection{Metrics Tracked}
 
@@ -59,7 +59,7 @@ Test metric transitions are detected as the epoch of steepest increase in the sm
 
 The \textbf{lag} is defined as: $\text{lag} = \text{epoch}_\text{metric transition} - \text{epoch}_\text{gradient peak}$. Positive lag means gradient norms transition first.
 
-We additionally compute cross-correlation between the derivative of the gradient norm signal and the derivative of the test metric to quantify temporal coupling.
+We additionally compute cross-correlation between the derivative of the gradient norm signal and the derivative of the test metric to quantify temporal coupling, with deterministic tie-breaking toward zero lag when correlations are equal.
 
 \section{Results}
 

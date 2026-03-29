@@ -9,8 +9,15 @@ Must be run from the submission directory: submissions/gradient-norms/
 
 import json
 import os
+import platform
 import sys
 import time
+from datetime import datetime, timezone
+
+import matplotlib
+import numpy as np
+import scipy
+import torch
 
 # Guard: must run from the correct directory
 if not os.path.isfile("SKILL.md"):
@@ -101,7 +108,6 @@ for frac in FRACTIONS:
 
 # --- Multi-seed variance analysis (modular addition only) ---
 print(f"\n[3/3] Multi-seed variance analysis (modular addition) ...")
-import numpy as _np
 
 variance_data: dict[float, list[int]] = {frac: [] for frac in FRACTIONS}
 for seed in VARIANCE_SEEDS:
@@ -125,8 +131,8 @@ print(f"  {'Frac':>5}  {'Mean Lag':>9}  {'Std Dev':>8}  {'Min':>6}  {'Max':>6}")
 variance_summary = {}
 for frac in FRACTIONS:
     lags = variance_data[frac]
-    mean_lag = _np.mean(lags)
-    std_lag = _np.std(lags, ddof=1) if len(lags) > 1 else 0.0
+    mean_lag = np.mean(lags)
+    std_lag = np.std(lags, ddof=1) if len(lags) > 1 else 0.0
     print(f"  {frac:>4.0%}  {mean_lag:>9.1f}  {std_lag:>8.1f}  {min(lags):>6d}  {max(lags):>6d}")
     variance_summary[str(frac)] = {
         "seeds": VARIANCE_SEEDS,
@@ -159,6 +165,17 @@ print(f"  Saved: {weight_path}")
 print("\n[4/4] Saving results to results/ ...")
 summary_data = {
     "experiment": "gradient_norm_phase_transitions",
+    "metadata": {
+        "created_utc": datetime.now(timezone.utc).isoformat(),
+        "runtime_seconds": elapsed,
+        "python_version": platform.python_version(),
+        "platform": platform.platform(),
+        "torch_version": torch.__version__,
+        "numpy_version": np.__version__,
+        "scipy_version": scipy.__version__,
+        "matplotlib_version": matplotlib.__version__,
+        "deterministic_algorithms": True,
+    },
     "config": {
         "tasks": ["modular_addition", "regression"],
         "fractions": FRACTIONS,
@@ -167,6 +184,8 @@ summary_data = {
         "weight_decay": WEIGHT_DECAY,
         "n_epochs": N_EPOCHS,
         "seed": SEED,
+        "variance_seeds": VARIANCE_SEEDS,
+        "variance_epochs": VARIANCE_EPOCHS,
     },
     "runs": [],
 }

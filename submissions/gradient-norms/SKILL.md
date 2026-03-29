@@ -51,7 +51,11 @@ Execute the full gradient norm phase transition experiment (6 primary runs + 9 v
 .venv/bin/python run.py
 ```
 
-Expected: Script prints training progress for each of the 6 primary runs (2 tasks x 3 fractions), then runs multi-seed variance analysis (3 seeds x 3 fractions for modular addition), generates plots, and saves results. Final output includes a summary table showing gradient transition epoch, metric transition epoch, and lag for each run, plus multi-seed lag statistics. Runtime: about 4-6 minutes on CPU (observed: 309.6s on Apple Silicon with Python 3.13 / PyTorch 2.6.0). Exits with code 0. Files created:
+Expected: Script prints training progress for each of the 6 primary runs (2 tasks x 3 fractions), then runs multi-seed variance analysis (3 seeds x 3 fractions for modular addition), generates plots, and saves results. Final output includes a summary table showing gradient transition epoch, metric transition epoch, and lag for each run, plus multi-seed lag statistics. Runtime: about 4-6 minutes on CPU (observed: 309.6s on Apple Silicon with Python 3.13 / PyTorch 2.6.0). Exits with code 0.
+
+`results/results.json` now includes reproducibility metadata (timestamp, runtime, Python/platform, library versions, deterministic setting) in addition to run metrics.
+
+Files created:
 
 - `results/results.json` -- structured experiment results
 - `results/run_modular_addition_frac*.png` -- per-run gradient norm + accuracy overlay (3 files)
@@ -68,7 +72,13 @@ Check that results are complete and scientifically sound:
 .venv/bin/python validate.py
 ```
 
-Expected: Prints run-by-run summary including transition epochs, lag values, and final metrics. Ends with `Validation passed.`
+Expected: Prints run-by-run summary including transition epochs, lag values, final metrics, and reproducibility metadata. Validation now enforces:
+- all modular-addition runs have positive lag (gradient leads),
+- all regression control runs have non-positive lag,
+- all variance-analysis lags are positive for each fraction,
+- required metadata and plots are present.
+
+Ends with `Validation passed.`
 
 ## Step 5: Review Results
 

@@ -63,6 +63,10 @@ def train_and_track(
             'config': dict of hyperparameters
     """
     torch.manual_seed(seed)
+    np.random.seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+    torch.use_deterministic_algorithms(True, warn_only=True)
 
     x_train = dataset["x_train"]
     y_train = dataset["y_train"]
@@ -158,5 +162,7 @@ def train_and_track(
             "weight_decay": weight_decay,
             "n_epochs": n_epochs,
             "seed": seed,
+            "deterministic_algorithms": True,
+            "torch_version": torch.__version__,
         },
     }

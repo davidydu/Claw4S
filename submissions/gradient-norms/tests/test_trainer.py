@@ -1,5 +1,7 @@
 """Tests for the training loop and metric tracking."""
 
+import torch
+
 from src.data import make_modular_addition_dataset, make_regression_dataset
 from src.trainer import train_and_track
 
@@ -57,3 +59,10 @@ class TestTrainer:
         r2 = train_and_track(dataset, hidden_dim=16, n_epochs=20, seed=42)
         assert r1["train_loss"] == r2["train_loss"]
         assert r1["grad_norms"]["layer1"] == r2["grad_norms"]["layer1"]
+
+    def test_reproducibility_metadata(self):
+        dataset = make_modular_addition_dataset(modulus=11, frac=0.7, seed=42)
+        result = train_and_track(dataset, hidden_dim=16, n_epochs=5, seed=42)
+        cfg = result["config"]
+        assert cfg["deterministic_algorithms"] is True
+        assert cfg["torch_version"] == torch.__version__

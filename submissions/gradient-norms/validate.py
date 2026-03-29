@@ -33,10 +33,32 @@ with open(results_path) as f:
 
 runs = data.get("runs", [])
 config = data.get("config", {})
+metadata = data.get("metadata", {})
 
 print(f"Experiment: {data.get('experiment', 'unknown')}")
+print(f"Metadata: {json.dumps(metadata, indent=2)}")
 print(f"Config: {json.dumps(config, indent=2)}")
 print(f"Number of runs: {len(runs)}")
+
+required_metadata = [
+    "created_utc",
+    "runtime_seconds",
+    "python_version",
+    "platform",
+    "torch_version",
+    "numpy_version",
+    "scipy_version",
+    "matplotlib_version",
+    "deterministic_algorithms",
+]
+for key in required_metadata:
+    if key not in metadata:
+        errors.append(f"Missing metadata field: {key}")
+
+if metadata.get("runtime_seconds", 0) <= 0:
+    errors.append("metadata.runtime_seconds must be > 0")
+if metadata.get("deterministic_algorithms") is not True:
+    errors.append("metadata.deterministic_algorithms must be true")
 
 # Check run count
 expected_runs = len(config.get("fractions", [])) * len(config.get("tasks", []))
@@ -44,7 +66,23 @@ if len(runs) != expected_runs:
     errors.append(f"Expected {expected_runs} runs, got {len(runs)}")
 
 # Check each run
+modular_lags = []
+regression_lags = []
+required_run_fields = [
+    "task_name",
+    "frac",
+    "gnorm_transition_epoch",
+    "metric_transition_epoch",
+    "lag_epochs",
+    "per_layer",
+    "final_train_metric",
+    "final_test_metric",
+]
 for i, run in enumerate(runs):
+    for key in required_run_fields:
+        if key not in run:
+            errors.append(f"Run {i+1}: missing field '{key}'")
+
     task = run.get("task_name", "unknown")
     frac = run.get("frac", 0)
     lag = run.get("lag_epochs")
@@ -55,8 +93,14 @@ for i, run in enumerate(runs):
     print(f"  Gradient transition epoch: {run.get('gnorm_transition_epoch')}")
     print(f"  Metric transition epoch:   {run.get('metric_transition_epoch')}")
     print(f"  Lag: {lag} epochs (leads={'YES' if run.get('lag_positive') else 'NO'})")
-    print(f"  Final train metric: {final_train:.4f}")
-    print(f"  Final test metric:  {final_test:.4f}")
+    if isinstance(final_train, (int, float)):
+        print(f"  Final train metric: {final_train:.4f}")
+    else:
+        print(f"  Final train metric: {final_train}")
+    if isinstance(final_test, (int, float)):
+        print(f"  Final test metric:  {final_test:.4f}")
+    else:
+        print(f"  Final test metric:  {final_test}")
     print(f"  Pearson r: {run.get('pearson_r', 0):.4f} (p={run.get('pearson_p', 1):.4e})")
 
     if lag is None:
@@ -68,11 +112,28 @@ for i, run in enumerate(runs):
                 f"Run {i+1} ({task} frac={frac}): train acc {final_train:.3f} < 0.9 "
                 f"(memorization may not have occurred)"
             )
+        if isinstance(lag, (int, float)):
+            modular_lags.append(lag)
+            if lag <= 0:
+                errors.append(
+                    f"Run {i+1} ({task} frac={frac}): expected positive lag for grokking task, got {lag}"
+                )
+    elif task == "regression" and isinstance(lag, (int, float)):
+        regression_lags.append(lag)
+        if lag > 0:
+            errors.append(
+                f"Run {i+1} ({task} frac={frac}): expected non-positive lag for smooth-learning control, got {lag}"
+            )
 
     # Per-layer data check
     per_layer = run.get("per_layer", {})
     if len(per_layer) < 2:
         errors.append(f"Run {i+1}: expected >=2 layer results, got {len(per_layer)}")
+
+if not modular_lags:
+    errors.append("No modular_addition runs found")
+if not regression_lags:
+    errors.append("No regression runs found")
 
 # --- Check plots ---
 expected_plots = [
@@ -104,11 +165,35 @@ print(f"\nGradient norm leads in {n_positive}/{len(runs)} runs")
 variance = data.get("variance_analysis", {})
 if variance:
     print("\nMulti-seed variance analysis (modular addition):")
+    expected_frac_keys = {str(f) for f in config.get("fractions", [])}
+    observed_frac_keys = set(variance.keys())
+    missing_frac_keys = expected_frac_keys - observed_frac_keys
+    if missing_frac_keys:
+        errors.append(f"Variance analysis missing fractions: {sorted(missing_frac_keys)}")
+
     for frac_str, stats in sorted(variance.items()):
+        for key in ["seeds", "lags", "mean", "std", "min", "max"]:
+            if key not in stats:
+                errors.append(f"Variance analysis for frac={frac_str}: missing field '{key}'")
+                continue
+
         print(f"  frac={frac_str}: mean_lag={stats['mean']:.1f} +/- {stats['std']:.1f} "
               f"(min={stats['min']}, max={stats['max']}, seeds={stats['seeds']})")
-        if len(stats.get("lags", [])) < 2:
+        lags = stats.get("lags", [])
+        seeds = stats.get("seeds", [])
+        if len(lags) < 2:
             errors.append(f"Variance analysis for frac={frac_str}: fewer than 2 seeds")
+        if len(seeds) != len(lags):
+            errors.append(
+                f"Variance analysis for frac={frac_str}: seeds/lags length mismatch "
+                f"({len(seeds)} vs {len(lags)})"
+            )
+        if any((not isinstance(l, (int, float))) for l in lags):
+            errors.append(f"Variance analysis for frac={frac_str}: non-numeric lag value")
+        if any((isinstance(l, (int, float)) and l <= 0) for l in lags):
+            errors.append(f"Variance analysis for frac={frac_str}: expected all positive lags, got {lags}")
+        if isinstance(stats.get("mean"), (int, float)) and stats["mean"] <= 0:
+            errors.append(f"Variance analysis for frac={frac_str}: mean lag must be positive")
 else:
     errors.append("Missing variance_analysis in results.json")
 
