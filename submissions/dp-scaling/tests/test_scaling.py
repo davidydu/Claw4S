@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from src.scaling import power_law, fit_scaling_law
+from src.scaling import power_law, fit_scaling_law, bootstrap_alpha_ci
 
 
 class TestPowerLaw:
@@ -52,7 +52,7 @@ class TestFitScalingLaw:
         assert fit["r_squared"] > 0.7
 
     def test_output_keys(self):
-        n = np.array([100, 200, 500], dtype=float)
+        n = np.array([100, 200, 500, 1000, 2000], dtype=float)
         losses = power_law(n, 5.0, 0.3, 1.0)
         fit = fit_scaling_law(n, losses)
         assert set(fit.keys()) == {"a", "alpha", "l_inf", "r_squared", "residuals"}
@@ -74,3 +74,41 @@ class TestFitScalingLaw:
 
         assert recorded["method"] == "trf"
         assert fit["alpha"] == pytest.approx(0.3)
+
+
+class TestBootstrapAlphaCI:
+    """Tests for bootstrap confidence intervals of scaling exponents."""
+
+    def test_returns_well_formed_interval(self):
+        param_counts = np.array([100, 200, 400, 800, 1600], dtype=float)
+        base = power_law(param_counts, 8.0, 0.35, 0.2)
+
+        # losses_by_size has shape (n_sizes, n_seeds)
+        losses_by_size = np.stack(
+            [
+                base * 1.03,
+                base * 1.01,
+                base * 0.99,
+                base * 0.98,
+            ],
+            axis=1,
+        )
+
+        ci = bootstrap_alpha_ci(
+            param_counts=param_counts,
+            losses_by_size=losses_by_size,
+            n_bootstrap=200,
+            seed=42,
+        )
+
+        assert set(ci.keys()) == {
+            "alpha_mean",
+            "alpha_std",
+            "alpha_ci95_low",
+            "alpha_ci95_high",
+            "n_bootstrap",
+        }
+        assert ci["n_bootstrap"] == 200
+        assert ci["alpha_std"] >= 0
+        assert ci["alpha_ci95_low"] <= ci["alpha_mean"] <= ci["alpha_ci95_high"]
+        assert ci["alpha_ci95_low"] > 0

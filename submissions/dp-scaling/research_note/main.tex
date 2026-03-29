@@ -25,7 +25,7 @@
 \maketitle
 
 \begin{abstract}
-Neural scaling laws predict that test loss decreases as a power law with model size: $L(N) \sim a \cdot N^{-\alpha} + L_\infty$. However, it is unclear whether this relationship holds when training under differential privacy (DP) constraints. We investigate this question by training two-layer MLPs of varying sizes (261--4,101 parameters) on a synthetic classification task using both standard SGD and DP-SGD with two noise levels ($\sigma = 1.0$ and $\sigma = 3.0$). We find that power-law scaling holds under DP-SGD with $R^2 > 0.95$, but the effect on the scaling exponent is nuanced. On our well-separated synthetic data, DP raises absolute loss levels (higher scaling coefficient $a$) while also yielding a larger fitted exponent $\alpha$ than the non-private baseline. Every run reaches 100\% test accuracy, so this should be interpreted as a loss-scaling and calibration result on an easy task rather than evidence that DP improves classification accuracy. Moderate and strong DP show nearly identical exponents, consistent with a clipping-dominated regime on this setup.
+Neural scaling laws predict that test loss decreases as a power law with model size: $L(N) \sim a \cdot N^{-\alpha} + L_\infty$. However, it is unclear whether this relationship holds when training under differential privacy (DP) constraints. We investigate this question by training two-layer MLPs of varying sizes (261--4,101 parameters) on a synthetic classification task using both standard SGD and DP-SGD with two noise levels ($\sigma = 1.0$ and $\sigma = 3.0$). We find that power-law scaling holds under DP-SGD with $R^2 > 0.95$, but the effect on the scaling exponent is nuanced. On our well-separated synthetic data, DP raises absolute loss levels (higher scaling coefficient $a$) while also yielding a larger fitted exponent $\alpha$ than the non-private baseline. Bootstrap confidence intervals for $\alpha$ are wide on this small/easy setup, so the exponent shift should be interpreted cautiously. Every run reaches 100\% test accuracy, so this should be interpreted as a loss-scaling and calibration result on an easy task rather than evidence that DP improves classification accuracy. Moderate and strong DP show nearly identical exponents, consistent with a clipping-dominated regime on this setup.
 \end{abstract}
 
 \section{Introduction}
@@ -68,21 +68,21 @@ We implement DP-SGD from scratch without external privacy libraries. For each mi
 
 \subsection{Scaling Law Fitting}
 
-For each privacy level, we fit Equation~\ref{eq:scaling} to the (parameter count, mean test loss) data using bounded nonlinear least squares via SciPy's trust-region reflective solver (\texttt{curve\_fit} with \texttt{method="trf"}), with bounds $a > 0$, $0 < \alpha < 5$, $L_\infty \geq 0$. We report the fitted exponent $\alpha$ and coefficient of determination $R^2$.
+For each privacy level, we fit Equation~\ref{eq:scaling} to the (parameter count, mean test loss) data using bounded nonlinear least squares via SciPy's trust-region reflective solver (\texttt{curve\_fit} with \texttt{method="trf"}), with bounds $a > 0$, $0 < \alpha < 5$, $L_\infty \geq 0$. We report the fitted exponent $\alpha$ and coefficient of determination $R^2$. To quantify uncertainty in $\alpha$, we compute a deterministic nonparametric bootstrap CI (1000 resamples; bootstrap seed 2026) by resampling per-seed losses at each model size and refitting.
 
 \section{Results}
 
 \begin{table}[h]
 \centering
-\caption{Scaling law fit parameters across privacy levels. $\alpha$ is the scaling exponent (higher = more efficient scaling), $R^2$ is the goodness of fit, and the ratio column shows $\alpha / \alpha_{\text{non-private}}$.}
+\caption{Scaling law fit parameters across privacy levels. $\alpha$ is the scaling exponent (higher = more efficient scaling), $R^2$ is the goodness of fit, and the ratio column shows $\alpha / \alpha_{\text{non-private}}$. The final column reports bootstrap 95\% CI for $\alpha$ (1000 resamples).}
 \label{tab:results}
-\begin{tabular}{lccccc}
+\begin{tabular}{lcccccc}
 \toprule
-Privacy Level & $\sigma$ & $\alpha$ & $L_\infty$ & $R^2$ & $\alpha / \alpha_{\text{NP}}$ \\
+Privacy Level & $\sigma$ & $\alpha$ & $L_\infty$ & $R^2$ & $\alpha / \alpha_{\text{NP}}$ & 95\% CI for $\alpha$ \\
 \midrule
-Non-private & 0.0 & 0.321 & $\approx 0$ & 0.974 & 1.000 \\
-Moderate DP & 1.0 & 0.432 & $\approx 0$ & 0.956 & 1.348 \\
-Strong DP   & 3.0 & 0.431 & $\approx 0$ & 0.974 & 1.344 \\
+Non-private & 0.0 & 0.321 & $\approx 0$ & 0.974 & 1.000 & [0.051, 5.000] \\
+Moderate DP & 1.0 & 0.432 & $\approx 0$ & 0.956 & 1.348 & [0.066, 5.000] \\
+Strong DP   & 3.0 & 0.431 & $\approx 0$ & 0.974 & 1.344 & [0.059, 5.000] \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -99,7 +99,9 @@ Strong DP   & 3.0 & 0.431 & $\approx 0$ & 0.974 & 1.344 \\
 \begin{enumerate}
   \item \textbf{Scaling laws hold under DP-SGD.} All three privacy levels exhibit power-law scaling with $R^2 > 0.95$, confirming that the functional form $L(N) = a \cdot N^{-\alpha} + L_\infty$ remains valid under privacy constraints.
 
-  \item \textbf{DP raises absolute loss while also yielding a larger fitted exponent on this task.} Counter to naive expectation, DP-SGD models show a \emph{higher} scaling exponent ($\alpha_{\text{DP}} \approx 0.43$) than non-private models ($\alpha_{\text{NP}} \approx 0.32$). While DP models start from higher absolute loss (the coefficient $a$ increases from 0.10 to about 0.42), every run in our sweep still reaches 100\% test accuracy. The difference therefore reflects cross-entropy loss and confidence calibration on an easy task, not a demonstrated gain in classification capability.
+  \item \textbf{DP raises absolute loss while also yielding a larger fitted exponent on this task.} Counter to naive expectation, DP-SGD point estimates show a \emph{higher} scaling exponent ($\alpha_{\text{DP}} \approx 0.43$) than non-private models ($\alpha_{\text{NP}} \approx 0.32$). While DP models start from higher absolute loss (the coefficient $a$ increases from 0.10 to about 0.42), every run in our sweep still reaches 100\% test accuracy. The difference therefore reflects cross-entropy loss and confidence calibration on an easy task, not a demonstrated gain in classification capability.
+
+  \item \textbf{Exponent uncertainty is high at this scale.} Bootstrap 95\% CIs for $\alpha$ are wide and hit the upper optimizer bound in all regimes, indicating that with only 5 model sizes and 3 seeds, exponent magnitude is not tightly identified even when the fit curve has high $R^2$.
 
   \item \textbf{The irreducible loss floor is near zero for all regimes.} $L_\infty \approx 0$ across all privacy levels, reflecting that the well-separated Gaussian clusters can be perfectly classified given sufficient capacity, regardless of privacy noise.
 
@@ -117,11 +119,12 @@ Strong DP   & 3.0 & 0.431 & $\approx 0$ & 0.974 & 1.344 \\
   \item \textbf{No formal privacy accounting:} We use noise multiplier $\sigma$ as a proxy for privacy level but do not compute formal $(\varepsilon, \delta)$ guarantees.
   \item \textbf{Fixed hyperparameters:} Learning rate, epochs, and clipping norm are fixed across all runs. Optimal hyperparameters may differ between private and non-private training.
   \item \textbf{Architecture-specific:} Results are for 2-layer MLPs only; deeper or different architectures may exhibit different scaling behavior under DP.
+  \item \textbf{Wide CI bounds:} Bootstrap intervals for $\alpha$ are broad, reflecting limited statistical power with only 3 seeds per model size.
 \end{itemize}
 
 \section{Conclusion}
 
-We demonstrate that neural scaling laws persist under DP-SGD with high goodness of fit ($R^2 > 0.95$). On our synthetic classification task, DP-SGD raises absolute loss levels while also yielding a slightly higher fitted $\alpha$ than the non-private baseline. Because all runs already achieve 100\% test accuracy, we interpret this as a result about loss scaling and calibration on an easy task, not a general claim that privacy improves learning efficiency. Moderate ($\sigma = 1.0$) and strong ($\sigma = 3.0$) DP show nearly identical exponents, consistent with a clipping-dominated regime on this setup. Future work should validate these patterns on harder tasks (e.g., natural images, language), at larger model scales, and with formal $(\varepsilon, \delta)$ privacy accounting.
+We demonstrate that neural scaling laws persist under DP-SGD with high goodness of fit ($R^2 > 0.95$). On our synthetic classification task, DP-SGD raises absolute loss levels while also yielding a slightly higher fitted $\alpha$ than the non-private baseline. Because all runs already achieve 100\% test accuracy, we interpret this as a result about loss scaling and calibration on an easy task, not a general claim that privacy improves learning efficiency. Bootstrap CIs for $\alpha$ are wide, so relative exponent differences should be treated as suggestive rather than conclusive. Moderate ($\sigma = 1.0$) and strong ($\sigma = 3.0$) DP show nearly identical exponents, consistent with a clipping-dominated regime on this setup. Future work should validate these patterns on harder tasks (e.g., natural images, language), at larger model scales, and with formal $(\varepsilon, \delta)$ privacy accounting.
 
 \bibliographystyle{plainnat}
 \begin{thebibliography}{3}

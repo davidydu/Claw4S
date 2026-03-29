@@ -59,11 +59,17 @@ def main() -> None:
         alpha = info.get("alpha")
         r2 = info.get("r_squared")
         ratio = info.get("alpha_ratio_vs_non_private")
+        alpha_ci95 = info.get("alpha_ci95")
         if alpha is not None:
             print(f"  {level:15s}: alpha = {alpha:.4f}  (R^2 = {r2:.4f})", end="")
             if ratio is not None and level != "non_private":
                 print(f"  ratio vs non-private = {ratio:.4f}", end="")
             print()
+            if alpha_ci95 is not None:
+                print(
+                    " " * 19
+                    + f"95% bootstrap CI: [{alpha_ci95[0]:.4f}, {alpha_ci95[1]:.4f}]"
+                )
         else:
             print(f"  {level:15s}: fitting failed")
 

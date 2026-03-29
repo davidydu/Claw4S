@@ -74,6 +74,14 @@ def validate() -> bool:
     for key in required_keys:
         check(f"JSON has key '{key}'", key in results)
 
+    # Check 2b: Reproducibility metadata
+    config = results.get("config", {})
+    env = config.get("environment", {})
+    check("Config has bootstrap settings", "bootstrap" in config)
+    check("Config has environment metadata", "environment" in config)
+    for key in ["python_version", "torch_version", "numpy_version", "scipy_version"]:
+        check(f"Environment has {key}", key in env and bool(env[key]))
+
     # Check 3: 45 training runs
     n_runs = len(results.get("raw_results", []))
     check(f"45 training runs completed (got {n_runs})", n_runs == 45)
@@ -132,6 +140,25 @@ def validate() -> bool:
                 r2 >= 0.5,
                 "Poor fit quality",
             )
+
+    # Check 7b: Alpha confidence intervals
+    for level in expected_levels:
+        fit = results.get("scaling_fits", {}).get(level, {})
+        alpha = fit.get("alpha")
+        ci = fit.get("alpha_ci95")
+        if alpha is not None:
+            check(f"{level} has alpha_ci95 interval", isinstance(ci, list) and len(ci) == 2)
+            if isinstance(ci, list) and len(ci) == 2:
+                check(
+                    f"{level} alpha_ci95 ordered",
+                    ci[0] <= ci[1],
+                    f"Got [{ci[0]}, {ci[1]}]",
+                )
+                check(
+                    f"{level} alpha inside alpha_ci95",
+                    ci[0] <= alpha <= ci[1],
+                    f"alpha={alpha:.4f}, ci={ci}",
+                )
 
     # Check 8: Test losses are finite and positive
     all_losses_valid = True

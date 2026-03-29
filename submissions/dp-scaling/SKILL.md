@@ -16,7 +16,6 @@ This skill trains small MLPs of varying sizes with both standard SGD and Differe
 ```bash
 cd submissions/dp-scaling
 python3 -m venv .venv
-.venv/bin/pip install --upgrade pip
 .venv/bin/pip install -r requirements.txt
 ```
 
@@ -29,7 +28,7 @@ cd submissions/dp-scaling
 .venv/bin/python -m pytest tests/ -v
 ```
 
-**Expected output:** All tests pass (approximately 20 tests). Tests cover data generation, model construction, parameter counting, standard training, DP-SGD training, per-sample gradient computation, gradient clipping, and scaling law fitting.
+**Expected output:** All tests pass (currently 31 tests). Tests cover data generation, model construction, parameter counting, standard training, DP-SGD training, per-sample gradient computation, gradient clipping, scaling law fitting, bootstrap confidence intervals, and experiment output structure.
 
 ## Step 2: Run the Experiment
 
@@ -50,11 +49,14 @@ cd submissions/dp-scaling
 ```
 SUMMARY: Scaling Law Exponents
   non_private    : alpha = X.XXXX  (R^2 = X.XXXX)
+                   95% bootstrap CI: [X.XXXX, X.XXXX]
   moderate_dp    : alpha = X.XXXX  (R^2 = X.XXXX)  ratio vs non-private = X.XXXX
+                   95% bootstrap CI: [X.XXXX, X.XXXX]
   strong_dp      : alpha = X.XXXX  (R^2 = X.XXXX)  ratio vs non-private = X.XXXX
+                   95% bootstrap CI: [X.XXXX, X.XXXX]
 ```
 
-The ratio values compare each private fit against the non-private baseline. On the verified run for this submission, both DP settings produce ratios above 1, meaning the fitted exponent is larger under DP on this dataset.
+The ratio values compare each private fit against the non-private baseline. The bootstrap CI is computed from 1000 deterministic resamples and can be wide on this small/easy dataset; treat it as uncertainty evidence rather than a sharp estimate.
 
 ## Step 3: Validate Results
 
@@ -66,9 +68,11 @@ cd submissions/dp-scaling
 **Expected output:** All validation checks pass:
 - All 3 output files exist and are non-empty
 - JSON has correct structure with all required keys
+- JSON config includes reproducibility metadata (`environment` package versions + bootstrap config)
 - All 45 training runs completed
 - All 3 privacy levels have valid scaling law fits
 - Scaling exponents are positive and bounded (0 < alpha < 5)
+- Each privacy level includes a valid 95% bootstrap CI for alpha
 - R-squared values >= 0.5 for each fit
 - All test losses are finite and positive
 - Prints "VALIDATION PASSED" at the end
@@ -88,7 +92,9 @@ cd submissions/dp-scaling
 
 **Scaling law fit:** L(N) = a * N^(-alpha) + L_inf via `scipy.optimize.curve_fit` with explicit trust-region reflective bounded least squares (`method="trf"`; a > 0, 0 < alpha < 5, L_inf >= 0).
 
-**Key findings:** (1) Power-law scaling holds under DP-SGD with R^2 > 0.95 on this toy problem. (2) DP raises absolute loss (coefficient a increases from about 0.10 to about 0.42), while the fitted exponent is larger under DP than in the non-private baseline on this dataset. (3) All 45 runs reach 100% test accuracy, so the observed differences are about cross-entropy loss and confidence calibration rather than classification accuracy. (4) Moderate (sigma=1.0) and strong (sigma=3.0) DP yield nearly identical exponents, which is consistent with a clipping-dominated regime on this setup but should not be treated as a general claim.
+**Uncertainty estimate:** 95% CI for alpha from 1000 bootstrap resamples (deterministic seed=2026), resampling loss observations across seeds at each model size.
+
+**Key findings:** (1) Power-law scaling holds under DP-SGD with R^2 > 0.95 on this toy problem. (2) DP raises absolute loss (coefficient a increases from about 0.10 to about 0.42), while the point estimate for alpha is larger under DP than in the non-private baseline on this dataset. (3) Bootstrap CIs for alpha are wide and can hit the optimizer bound on this small/easy setup, indicating substantial uncertainty in exponent magnitude despite high fit quality. (4) All 45 runs reach 100% test accuracy, so the observed differences are about cross-entropy loss and confidence calibration rather than classification accuracy. (5) Moderate (sigma=1.0) and strong (sigma=3.0) DP yield nearly identical exponents, which is consistent with a clipping-dominated regime on this setup but should not be treated as a general claim.
 
 ## How to Extend
 

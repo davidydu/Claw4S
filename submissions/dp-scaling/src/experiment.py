@@ -7,15 +7,17 @@ Orchestrates the full experimental sweep:
 
 import json
 import os
+import sys
 import time
 
 import numpy as np
+import scipy
 import torch
 
 from src.data import make_dataloaders
 from src.model import MLP, count_parameters
 from src.train import train_standard, train_dp_sgd, evaluate
-from src.scaling import fit_scaling_law
+from src.scaling import fit_scaling_law, bootstrap_alpha_ci
 
 
 # Experiment configuration (all pinned for reproducibility)
@@ -33,6 +35,8 @@ BATCH_SIZE = 64
 EPOCHS = 100
 LR = 0.01
 MAX_GRAD_NORM = 1.0
+N_BOOTSTRAP = 1000
+BOOTSTRAP_SEED = 2026
 
 
 def run_single_experiment(
@@ -165,11 +169,34 @@ def run_full_experiment() -> dict:
 
     # Fit scaling laws
     scaling_fits = {}
-    for privacy_level, agg in aggregated.items():
+    for level_idx, (privacy_level, agg) in enumerate(aggregated.items()):
         param_counts = np.array(agg["param_counts"], dtype=np.float64)
         mean_losses = np.array(agg["mean_losses"], dtype=np.float64)
+        level_results = [r for r in raw_results if r["privacy_level"] == privacy_level]
+        losses_by_size = np.array(
+            [
+                [r["test_loss"] for r in level_results if r["hidden_size"] == h]
+                for h in HIDDEN_SIZES
+            ],
+            dtype=np.float64,
+        )
         try:
             fit = fit_scaling_law(param_counts, mean_losses)
+            try:
+                bootstrap = bootstrap_alpha_ci(
+                    param_counts=param_counts,
+                    losses_by_size=losses_by_size,
+                    n_bootstrap=N_BOOTSTRAP,
+                    seed=BOOTSTRAP_SEED + level_idx,
+                )
+                fit["alpha_ci95"] = [
+                    float(bootstrap["alpha_ci95_low"]),
+                    float(bootstrap["alpha_ci95_high"]),
+                ]
+                fit["alpha_bootstrap"] = bootstrap
+            except RuntimeError as e:
+                fit["alpha_ci95"] = None
+                fit["alpha_bootstrap"] = {"error": str(e), "n_bootstrap": 0}
             scaling_fits[privacy_level] = fit
         except RuntimeError as e:
             print(f"  Warning: Scaling law fit failed for {privacy_level}: {e}")
@@ -178,6 +205,8 @@ def run_full_experiment() -> dict:
                 "alpha": None,
                 "l_inf": None,
                 "r_squared": None,
+                "alpha_ci95": None,
+                "alpha_bootstrap": {"error": str(e), "n_bootstrap": 0},
                 "error": str(e),
             }
 
@@ -190,6 +219,7 @@ def run_full_experiment() -> dict:
             "a": fit.get("a"),
             "l_inf": fit.get("l_inf"),
             "r_squared": fit.get("r_squared"),
+            "alpha_ci95": fit.get("alpha_ci95"),
         }
         if non_private_alpha is not None and fit.get("alpha") is not None:
             entry["alpha_ratio_vs_non_private"] = round(
@@ -212,6 +242,16 @@ def run_full_experiment() -> dict:
             "lr": LR,
             "max_grad_norm": MAX_GRAD_NORM,
             "privacy_configs": PRIVACY_CONFIGS,
+            "bootstrap": {
+                "n_bootstrap": N_BOOTSTRAP,
+                "seed": BOOTSTRAP_SEED,
+            },
+            "environment": {
+                "python_version": sys.version.split()[0],
+                "torch_version": torch.__version__,
+                "numpy_version": np.__version__,
+                "scipy_version": scipy.__version__,
+            },
         },
     }
 
@@ -229,6 +269,6 @@ def save_results(results: dict, output_dir: str = "results") -> str:
     os.makedirs(output_dir, exist_ok=True)
     path = os.path.join(output_dir, "experiment_results.json")
     with open(path, "w") as f:
-        json.dump(results, f, indent=2)
+        json.dump(results, f, indent=2, sort_keys=True)
     print(f"Results saved to {path}")
     return path
