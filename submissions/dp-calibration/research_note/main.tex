@@ -16,7 +16,7 @@
 \maketitle
 
 \begin{abstract}
-We present a systematic comparison of four differential privacy (DP) accounting methods for calibrating noise in the Gaussian mechanism: naive composition, advanced composition, R\'enyi DP (RDP), and Gaussian DP (GDP/f-DP). Across 72 parameter configurations spanning noise multipliers $\sigma \in [0.1, 10]$, composition steps $T \in [10, 10{,}000]$, and failure probabilities $\delta \in [10^{-7}, 10^{-5}]$, we find that GDP accounting yields the tightest $\varepsilon$-bounds in 90.3\% of configurations, with RDP as a consistent runner-up (average tightness ratio 1.45$\times$). Naive and advanced composition are 10$\times$ and 9.9$\times$ looser on average, respectively. Advanced composition improves over naive only in the highest-noise, largest-$T$ corner of our grid ($\sigma=10$, $T \ge 1000$), a limitation underappreciated in practice.
+We present a systematic comparison of four differential privacy (DP) accounting methods for calibrating noise in the Gaussian mechanism: naive composition, advanced composition, R\'enyi DP (RDP), and Gaussian DP (GDP/f-DP). Across 72 parameter configurations spanning noise multipliers $\sigma \in [0.1, 10]$, composition steps $T \in [10, 10{,}000]$, and failure probabilities $\delta \in [10^{-7}, 10^{-5}]$, we find that GDP accounting yields the tightest $\varepsilon$-bounds in 90.3\% of configurations, with RDP as a consistent runner-up (average tightness ratio 1.45$\times$, median 1.28$\times$). Naive and advanced composition are 10$\times$ and 9.9$\times$ looser on average, respectively. Advanced composition improves over naive only in the highest-noise, largest-$T$ corner of our grid ($\sigma=10$, $T \ge 1000$), a limitation underappreciated in practice. To improve independent reproducibility, each run emits a deterministic SHA256 digest of the full result tensor and runtime package-version metadata.
 \end{abstract}
 
 \section{Introduction}
@@ -53,6 +53,8 @@ yielding 72 configurations $\times$ 4 methods = 288 total computations.
 
 \textbf{GDP:} Each step is $\mu$-GDP with $\mu = 1/\sigma$. After $T$ compositions, $\mu_{\text{total}} = \sqrt{T}/\sigma$ by the CLT. We numerically solve $\delta(\varepsilon) = \Phi(-\varepsilon/\mu + \mu/2) - e^{\varepsilon}\Phi(-\varepsilon/\mu - \mu/2)$ for $\varepsilon$ via binary search with log-space arithmetic to handle large arguments.
 
+\textbf{Reproducibility manifest:} Each run records Python/library versions and a deterministic SHA256 digest over all per-configuration outputs (method $\varepsilon$, best method, and tightness ratios). On the pinned grid in this note, the digest is \texttt{1d93cec82a3e3e76bb62a347d178fc25ca1a609b9329b1843ebe533b21c70217}.
+
 \section{Results}
 
 \subsection{Overall Method Ranking}
@@ -73,7 +75,7 @@ Advanced    &  0 &  0.0\% & 9.93$\times$ \\
 \label{tab:wins}
 \end{table}
 
-GDP is the tightest method in 90.3\% of configurations (Table~\ref{tab:wins}). RDP is never the outright winner but is consistently close (1.45$\times$ on average), making it a good practical choice when GDP implementation is unavailable.
+GDP is the tightest method in 90.3\% of configurations (Table~\ref{tab:wins}). RDP is never the outright winner but is consistently close (1.45$\times$ mean, 1.28$\times$ median, 2.02$\times$ 95th percentile), making it a good practical choice when GDP implementation is unavailable.
 
 \subsection{When Does Naive Win?}
 
@@ -89,7 +91,7 @@ GDP uniformly outperforms RDP across all configurations, with the gap widening a
 
 \section{Discussion}
 
-\textbf{Practical implications.} For practitioners choosing an accounting method: (1) GDP should be the default for Gaussian mechanisms, especially at large $T$; (2) RDP remains competitive and is easier to extend to non-Gaussian mechanisms; (3) advanced composition only becomes meaningfully better than naive at the top of the tested noise range ($\sigma=10$, $T \ge 1000$); (4) the choice of accounting method can affect the required noise by 2--10$\times$.
+\textbf{Practical implications.} For practitioners choosing an accounting method: (1) GDP should be the default for Gaussian mechanisms, especially at large $T$; (2) RDP remains competitive and is easier to extend to non-Gaussian mechanisms; (3) advanced composition only becomes meaningfully better than naive at the top of the tested noise range ($\sigma=10$, $T \ge 1000$); (4) the choice of accounting method can affect the required noise by 2--10$\times$; (5) digest-based run fingerprints help detect silent implementation drift during reproducibility checks.
 
 \textbf{Limitations.} Our analysis assumes (a) the Gaussian mechanism with unit sensitivity, (b) full-batch composition without subsampling, and (c) homogeneous steps. With Poisson subsampling, privacy amplification would tighten all bounds, and the relative ranking might shift. The GDP CLT guarantee is also asymptotic and may be loose for very small $T$.
 

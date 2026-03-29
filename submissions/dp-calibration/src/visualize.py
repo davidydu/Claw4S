@@ -31,6 +31,21 @@ METHOD_LABELS = {
     "gdp": "Gaussian DP (GDP)",
 }
 
+PREFERRED_DELTA = 1e-6
+
+
+def _choose_reference_delta(data: dict) -> float:
+    """Pick a delta value that exists in the current results grid."""
+    delta_values = data["grid"]["delta_values"]
+    if not delta_values:
+        raise ValueError("delta_values grid is empty")
+    if PREFERRED_DELTA in delta_values:
+        return PREFERRED_DELTA
+    return min(
+        delta_values,
+        key=lambda d: abs(np.log10(d) - np.log10(PREFERRED_DELTA)),
+    )
+
 
 def generate_all_figures(data: dict, output_dir: str = "results") -> list[str]:
     """Generate all visualization figures and return list of saved paths."""
@@ -47,13 +62,14 @@ def generate_all_figures(data: dict, output_dir: str = "results") -> list[str]:
 
 def _plot_epsilon_vs_T(data: dict, output_dir: str) -> str:
     """Plot epsilon vs T for each method at fixed sigma and delta."""
+    reference_delta = _choose_reference_delta(data)
+
     fig, axes = plt.subplots(2, 3, figsize=(15, 9))
     fig.suptitle("Privacy Loss (epsilon) vs Composition Steps (T)",
                  fontsize=14, fontweight="bold")
 
     T_values = data["grid"]["T_values"]
     sigma_values = data["grid"]["sigma_values"]
-    delta = 1e-6  # fixed delta for this plot
 
     for idx, sigma in enumerate(sigma_values):
         ax = axes[idx // 3][idx % 3]
@@ -61,7 +77,11 @@ def _plot_epsilon_vs_T(data: dict, output_dir: str) -> str:
             eps_values = []
             for T in T_values:
                 for r in data["results"]:
-                    if r["T"] == T and r["sigma"] == sigma and r["delta"] == delta:
+                    if (
+                        r["T"] == T
+                        and r["sigma"] == sigma
+                        and r["delta"] == reference_delta
+                    ):
                         eps = r["epsilons"][method]
                         if eps == "Infinity" or (isinstance(eps, float) and eps == float("inf")):
                             eps = None
@@ -84,7 +104,7 @@ def _plot_epsilon_vs_T(data: dict, output_dir: str) -> str:
         ax.set_ylabel("Privacy Loss (epsilon)")
         ax.set_title(f"sigma = {sigma}")
         ax.grid(True, alpha=0.3)
-        if idx == 0:
+        if idx == 0 and ax.get_legend_handles_labels()[0]:
             ax.legend(fontsize=7)
 
     plt.tight_layout()
@@ -96,13 +116,14 @@ def _plot_epsilon_vs_T(data: dict, output_dir: str) -> str:
 
 def _plot_tightness_heatmap(data: dict, output_dir: str) -> str:
     """Plot heatmap of tightness ratios: method_eps / best_eps."""
+    reference_delta = _choose_reference_delta(data)
+
     methods = data["grid"]["methods"]
     T_values = data["grid"]["T_values"]
     sigma_values = data["grid"]["sigma_values"]
-    delta = 1e-6  # fixed delta
 
     fig, axes = plt.subplots(1, 4, figsize=(18, 5), constrained_layout=True)
-    fig.suptitle("Tightness Ratio (method_eps / best_eps) at delta=1e-6",
+    fig.suptitle(f"Tightness Ratio (method_eps / best_eps) at delta={reference_delta:.1e}",
                  fontsize=14, fontweight="bold")
 
     for m_idx, method in enumerate(methods):
@@ -112,7 +133,11 @@ def _plot_tightness_heatmap(data: dict, output_dir: str) -> str:
         for i, T in enumerate(T_values):
             for j, sigma in enumerate(sigma_values):
                 for r in data["results"]:
-                    if r["T"] == T and r["sigma"] == sigma and r["delta"] == delta:
+                    if (
+                        r["T"] == T
+                        and r["sigma"] == sigma
+                        and r["delta"] == reference_delta
+                    ):
                         ratio = r["tightness_ratio"].get(method, None)
                         if ratio is not None and ratio != "Infinity":
                             matrix[i, j] = float(ratio)
@@ -193,13 +218,15 @@ def _plot_method_comparison_bars(data: dict, output_dir: str) -> str:
 
 def _plot_epsilon_vs_sigma(data: dict, output_dir: str) -> str:
     """Plot epsilon vs sigma for each method at fixed T and delta."""
+    reference_delta = _choose_reference_delta(data)
+
     fig, axes = plt.subplots(2, 2, figsize=(12, 10))
-    fig.suptitle("Privacy Loss (epsilon) vs Noise Multiplier (sigma) at delta=1e-6",
+    fig.suptitle(
+        f"Privacy Loss (epsilon) vs Noise Multiplier (sigma) at delta={reference_delta:.1e}",
                  fontsize=14, fontweight="bold")
 
     sigma_values = data["grid"]["sigma_values"]
     T_values = data["grid"]["T_values"]
-    delta = 1e-6
 
     for idx, T in enumerate(T_values):
         ax = axes[idx // 2][idx % 2]
@@ -207,7 +234,11 @@ def _plot_epsilon_vs_sigma(data: dict, output_dir: str) -> str:
             eps_values = []
             for sigma in sigma_values:
                 for r in data["results"]:
-                    if r["T"] == T and r["sigma"] == sigma and r["delta"] == delta:
+                    if (
+                        r["T"] == T
+                        and r["sigma"] == sigma
+                        and r["delta"] == reference_delta
+                    ):
                         eps = r["epsilons"][method]
                         if eps == "Infinity" or (isinstance(eps, float) and eps == float("inf")):
                             eps = None
@@ -229,7 +260,7 @@ def _plot_epsilon_vs_sigma(data: dict, output_dir: str) -> str:
         ax.set_ylabel("Privacy Loss (epsilon)")
         ax.set_title(f"T = {T}")
         ax.grid(True, alpha=0.3)
-        if idx == 0:
+        if idx == 0 and ax.get_legend_handles_labels()[0]:
             ax.legend(fontsize=8)
 
     plt.tight_layout()
