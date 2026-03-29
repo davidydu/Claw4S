@@ -24,8 +24,6 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 os.chdir(SCRIPT_DIR)
 sys.path.insert(0, SCRIPT_DIR)
 
-import copy
-import torch
 from src.data import make_dataloaders
 from src.model import create_model
 from src.dpsgd import train_dpsgd, train_non_private
@@ -33,6 +31,10 @@ from src.analysis import (
     compute_summary_statistics,
     identify_privacy_cliff,
     generate_all_plots,
+)
+from src.reproducibility import (
+    configure_reproducibility,
+    collect_reproducibility_metadata,
 )
 
 # ── Experiment Configuration ─────────────────────────────────────────
@@ -55,6 +57,7 @@ RESULTS_DIR = os.path.join(SCRIPT_DIR, "results")
 
 def main() -> None:
     """Run the full DP-SGD experiment sweep."""
+    configure_reproducibility()
     os.makedirs(RESULTS_DIR, exist_ok=True)
 
     print("=" * 60)
@@ -152,6 +155,10 @@ def main() -> None:
             "learning_rate": LEARNING_RATE,
             "batch_size": BATCH_SIZE,
             "delta": DELTA,
+        },
+        "metadata": {
+            "elapsed_seconds": round(elapsed, 2),
+            "reproducibility": collect_reproducibility_metadata(),
         },
         "baseline_runs": baseline_runs,
         "dp_runs": dp_runs,
