@@ -8,6 +8,15 @@ Sweep label noise (0%--50%) across MLP architectures to measure how network dept
 - ~200 MB disk for PyTorch CPU install
 - No GPU required; the verified CPU run completed all 168 training runs in 83.9 seconds, so budget about 1-2 minutes depending on machine speed
 
+## Step 0: (Recommended) Start from a clean state
+
+```bash
+cd submissions/label-noise
+rm -rf .venv results
+```
+
+**Expected output:** Command exits with code 0. This ensures a fresh-agent reproduction with no cached artifacts.
+
 ## Step 1: Create virtual environment and install dependencies
 
 ```bash
@@ -48,7 +57,14 @@ cd submissions/label-noise
 .venv/bin/python validate.py
 ```
 
-**Expected output:** `RESULT: PASS` — validates file existence, data structure, run counts (168), value ranges, and scientific sanity (noise hurts accuracy, trained models beat chance).
+**Expected output:** `RESULT: PASS` — validates file existence, strict run completeness (exactly 168 runs with no duplicates/missing configs), value ranges, and scientific sanity (noise hurts accuracy, trained models beat chance).
+
+Optional (if results are written elsewhere):
+
+```bash
+cd submissions/label-noise
+.venv/bin/python validate.py --results-dir /absolute/path/to/results
+```
 
 ## What This Measures
 
