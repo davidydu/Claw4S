@@ -15,6 +15,16 @@ This skill reproduces and extends the classic Zhang et al. (2017) memorization e
 - All commands must be run from the **submission directory** (`submissions/memorization/`).
 - No internet access required (synthetic data only).
 
+## Step 0: Clean Previous Artifacts
+
+For a cold reproducibility run, clear prior artifacts:
+
+```bash
+rm -rf results
+```
+
+Expected: `results/` is absent before starting.
+
 ## Step 1: Environment Setup
 
 Create a virtual environment and install dependencies:
@@ -41,11 +51,19 @@ Verify the analysis modules work correctly:
 .venv/bin/python -m pytest tests/ -v
 ```
 
-Expected: Pytest exits with all tests passed (15+ tests) and exit code 0.
+Expected: Pytest exits with all tests passed (20+ tests) and exit code 0.
 
 ## Step 3: Run the Experiment
 
-Execute the full memorization capacity sweep:
+Quick smoke run (fast sanity check, optional):
+
+```bash
+.venv/bin/python run.py --seeds 42 --hidden-dims 5,10 --max-epochs 200 --no-plots
+```
+
+Expected: Script exits with code 0 and writes `results/results.json` + `results/report.md` (plots intentionally skipped). Use this for quick sanity only.
+
+Full reproducibility run (recommended for paper-quality results and required before `validate.py`):
 
 ```bash
 .venv/bin/python run.py
@@ -60,6 +78,7 @@ This will:
 4. Fit sigmoid to train_acc vs log(#params) to measure transition sharpness
 5. Detect interpolation threshold (smallest model achieving 99%+ train accuracy)
 6. Save seed-42 sweep results plus 3-seed aggregate statistics to `results/results.json`, report to `results/report.md`, figures to `results/figures/`
+7. Record reproducibility metadata (`run_metadata`) including dependency versions, timestamps, and exact run configuration
 
 ## Step 4: Validate Results
 
@@ -69,7 +88,7 @@ Check that results were produced correctly:
 .venv/bin/python validate.py
 ```
 
-Expected: Prints experiment summary, output file sizes, and `Validation passed.`
+Expected: Prints experiment summary, run metadata summary, output file sizes, and `Validation passed.`
 
 ## Step 5: Review the Report
 
@@ -89,9 +108,10 @@ The report contains:
 
 ## How to Extend
 
-- **Change dataset size:** Modify `DEFAULT_N_TRAIN` in `src/sweep.py` (e.g., 500 or 1000 samples).
-- **Change feature dimension:** Modify `DEFAULT_D` in `src/sweep.py`.
-- **Add hidden widths:** Add values to `DEFAULT_HIDDEN_DIMS` in `src/sweep.py`.
-- **Test deeper networks:** Modify `MLP` in `src/model.py` to add more layers.
-- **Different optimizer:** Change `torch.optim.Adam` in `src/train.py` to SGD or another optimizer.
-- **Real datasets:** Replace `generate_dataset()` in `src/data.py` with a loader for CIFAR-10 or MNIST.
+- **Change dataset size:** `.venv/bin/python run.py --n-train 500 --n-test 100`
+- **Change feature dimension/classes:** `.venv/bin/python run.py --d 50 --n-classes 20`
+- **Add/remove hidden widths:** `.venv/bin/python run.py --hidden-dims 10,20,40,80,160`
+- **Increase statistical power:** `.venv/bin/python run.py --seeds 42,43,44,45,46`
+- **Faster debug loop:** `.venv/bin/python run.py --seeds 42 --hidden-dims 5,10 --max-epochs 200 --no-plots`
+- **Different optimizer / architecture:** Modify `src/train.py` and/or `src/model.py` for optimizer or network-depth ablations.
+- **Real datasets:** Replace `generate_dataset()` in `src/data.py` with a dataset loader (e.g., MNIST/CIFAR).

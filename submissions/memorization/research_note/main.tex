@@ -77,21 +77,23 @@ The full workflow comprises 48 training runs (8 widths $\times$ 2 label types $\
 
 \subsection{Interpolation Threshold}
 
-We define the interpolation threshold as the smallest parameter count achieving $\geq 99\%$ training accuracy. For random labels, this occurs at a substantially higher parameter count than for structured labels, reflecting the fact that structured data contains exploitable patterns that reduce the effective number of parameters needed.
+We define the interpolation threshold as the smallest parameter count achieving $\geq 99\%$ training accuracy. In the seed-42 primary sweep, random labels first cross this threshold at $P=630$ parameters ($h=20$), while structured labels cross at $P=320$ parameters ($h=10$). This corresponds to parameter-to-sample ratios of $3.1\times$ (random) vs.\ $1.6\times$ (structured), and a $2.0\times$ larger threshold for random labels.
+
+Across three seeds, this transition is stable: random-label models at $h\geq 20$ consistently achieve near-perfect training accuracy (mean $=1.00$, std $\approx 0$), while $h=10$ remains near-threshold (mean $0.955 \pm 0.018$), indicating a narrow capacity boundary.
 
 \subsection{Transition Sharpness}
 
-The sigmoid fit to training accuracy vs.\ log-parameters yields the sharpness coefficient $k$. For random labels, we observe the transition concentrated over approximately one order of magnitude in parameter count.
+The sigmoid fit to training accuracy vs.\ log-parameters yields the sharpness coefficient $k$. For random labels, we obtain $k=9.95$ with midpoint threshold $p^*=166$ parameters ($R^2=1.000$). For structured labels, the fitted transition is even steeper ($k=36.32$, midpoint $p^*=136$, $R^2=1.000$), consistent with easier optimization when labels contain signal aligned with input geometry.
 
 \subsection{Memorization vs.\ Generalization}
 
-As predicted, test accuracy on random labels remains near chance level ($\sim 10\%$) regardless of model size. This confirms that memorization capacity is orthogonal to generalization: a network can perfectly memorize random labels without learning any transferable features.
+As predicted, test accuracy on random labels remains near chance level regardless of model size: in the seed-42 sweep, mean random-label test accuracy is $8.5\%$ (chance $=10\%$), despite 100\% training accuracy for sufficiently wide models. This confirms that memorization capacity is orthogonal to generalization: a network can perfectly memorize random labels without learning transferable features.
 
-For structured labels, test accuracy increases with model size, demonstrating that when labels carry genuine structure, larger models can both memorize training data and extract generalizable patterns.
+For structured labels, test accuracy is substantially higher (roughly $52\%-70\%$ in seed-42 runs, with multi-seed means up to $\sim 75\%$), demonstrating that when labels carry genuine structure, larger models can both memorize training data and extract generalizable patterns.
 
 \section{Discussion}
 
-Our findings replicate the core result of Zhang et al.\ (2017) in a controlled synthetic setting: neural networks can memorize random labels, but this requires more capacity than fitting structured data. The sigmoid characterization of the transition adds a quantitative measure (sharpness $k$) that was not reported in the original work, while the 3-seed variance table shows that the qualitative conclusions are stable across seeds.
+Our findings replicate the core result of Zhang et al.\ (2017) in a controlled synthetic setting: neural networks can memorize random labels, but this requires more capacity than fitting structured data. Quantitatively, random labels need approximately $2\times$ the parameter budget of structured labels to hit the 99\% memorization threshold in our setup. The sigmoid characterization adds a measurable transition descriptor ($k$), while the 3-seed variance table demonstrates that these conclusions are not artifacts of a single seed.
 
 \textbf{Limitations.} We study only two-layer MLPs on Gaussian data. Real-world datasets and deeper architectures may exhibit different thresholds and sharpness profiles. We use only three random seeds, so a larger sweep would further tighten uncertainty estimates for threshold location and transition sharpness. The Adam optimizer may behave differently from SGD in terms of the convergence trajectory near the threshold.
 

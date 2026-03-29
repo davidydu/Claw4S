@@ -19,6 +19,49 @@ with open(RESULTS_PATH) as f:
 
 errors = []
 
+# Check reproducibility metadata
+run_metadata = data.get("run_metadata")
+if not isinstance(run_metadata, dict):
+    errors.append(
+        "Missing run_metadata in results.json. Re-run run.py to regenerate reproducibility metadata."
+    )
+else:
+    required_fields = [
+        "seeds",
+        "hidden_dims",
+        "n_train",
+        "n_test",
+        "d",
+        "n_classes",
+        "max_epochs",
+        "lr",
+        "python_version",
+        "dependency_versions",
+        "execution",
+    ]
+    missing = [key for key in required_fields if key not in run_metadata]
+    if missing:
+        errors.append(f"run_metadata missing required fields: {missing}")
+    else:
+        print(f"Run metadata: Python {run_metadata['python_version']}")
+        print(f"  Seeds: {run_metadata['seeds']}")
+        print(f"  Hidden dims: {run_metadata['hidden_dims']}")
+
+        dep_versions = run_metadata.get("dependency_versions", {})
+        for dep in ["torch", "numpy", "scipy"]:
+            if dep not in dep_versions:
+                errors.append(f"run_metadata.dependency_versions missing '{dep}'")
+
+        execution = run_metadata.get("execution", {})
+        for key in ["start_utc", "end_utc", "plots_generated"]:
+            if key not in execution:
+                errors.append(f"run_metadata.execution missing '{key}'")
+
+        if isinstance(run_metadata.get("seeds"), list) and len(run_metadata["seeds"]) < 2:
+            errors.append(
+                f"Expected >= 2 seeds in run_metadata for variance estimation, got {run_metadata['seeds']}"
+            )
+
 # Check metadata
 metadata = data.get("metadata", {})
 n_train = metadata.get("n_train", 0)
@@ -39,6 +82,20 @@ if len(hidden_dims) < 4:
     errors.append(f"Expected >= 4 hidden dims, got {len(hidden_dims)}")
 if len(label_types) < 2:
     errors.append(f"Expected >= 2 label types, got {len(label_types)}")
+
+if isinstance(run_metadata, dict):
+    for key in ["n_train", "n_test", "d", "n_classes", "max_epochs"]:
+        if key in run_metadata and metadata.get(key) != run_metadata.get(key):
+            errors.append(
+                f"Mismatch between metadata.{key}={metadata.get(key)} and "
+                f"run_metadata.{key}={run_metadata.get(key)}"
+            )
+
+    if "hidden_dims" in run_metadata and run_metadata["hidden_dims"] != hidden_dims:
+        errors.append(
+            "Mismatch between metadata.hidden_dims and run_metadata.hidden_dims "
+            f"({hidden_dims} vs {run_metadata['hidden_dims']})"
+        )
 
 # Check results
 results = data.get("results", [])
