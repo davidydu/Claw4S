@@ -4,7 +4,7 @@
 
 This skill trains 2-layer ReLU MLPs of varying widths (16 to 512 neurons) on two synthetic 2D classification tasks (concentric circles and two moons), generates adversarial examples using FGSM and PGD attacks across an epsilon sweep, and measures how the robustness gap (clean accuracy minus robust accuracy) changes with model capacity. Experiments run across 3 random seeds for statistical variance, totaling 180 individual evaluations.
 
-**Key finding:** Larger models are not uniformly more vulnerable. With cross-seed averaging, the circles task shows a modest increase and plateau in robustness gap as width grows (FGSM/PGD correlation with log parameter count: `r = 0.64 / 0.64`), while the moons task shows improved robustness for larger models (`r = -0.80 / -0.56`). The relationship is dataset-dependent rather than a single monotonic scaling law.
+**Key finding:** Larger models are not uniformly more vulnerable. With cross-seed averaging, the circles task shows a modest increase and plateau in robustness gap as width grows (FGSM/PGD correlation with log parameter count: `r = 0.64 / 0.64`, `p = 0.17 / 0.17`), while the moons task shows improved robustness for larger models (`r = -0.80 / -0.56`, `p = 0.054 / 0.25`). The relationship is dataset-dependent rather than a single monotonic scaling law, and confidence intervals are reported for each trend in `results.json`.
 
 ## Prerequisites
 
@@ -83,11 +83,15 @@ Total training + evaluation time: ~80-160s
 
   Corr(log params, FGSM gap): ~0.64
   Corr(log params, PGD gap):  ~0.64
+  FGSM trend p-value (Pearson): ~0.17 (95% CI for r includes 0)
+  PGD trend p-value (Pearson):  ~0.17 (95% CI for r includes 0)
 
   [MOONS] Per-width summary (mean +/- std across 3 seeds):
   ...
   Corr(log params, FGSM gap): ~-0.80
   Corr(log params, PGD gap):  ~-0.56
+  FGSM trend p-value (Pearson): ~0.05
+  PGD trend p-value (Pearson):  ~0.25
 
 ======================================================================
 Experiment complete. Results saved to results/
@@ -133,7 +137,9 @@ Validation checks:
 - PGD at least as strong as FGSM (within tolerance)
 - Robust accuracy generally decreases with epsilon
 - Cross-seed aggregated results present (60 entries)
-- Per-dataset summary statistics, correlation values, and plots present and non-empty
+- Per-dataset summary statistics include correlation, p-values, and confidence intervals
+- Environment metadata (`python`, `torch`, `numpy`, `scipy`, `platform`) present in `results.json`
+- Plots present and non-empty
 
 ## How to Extend
 
@@ -164,7 +170,7 @@ In `run.py`, modify the `SEEDS` list:
 ```python
 SEEDS = [42, 123, 7, 0, 999]
 ```
-Also update `EXPECTED_SEEDS` in `validate.py` to match.
+`validate.py` automatically reads `config.seeds` from `results/results.json`, so no validator edits are required.
 
 ### Stronger PGD attacks
 In `run.py`, increase `n_steps` in the `pgd_attack` call:

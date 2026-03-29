@@ -32,9 +32,11 @@ Across 180 experiments (6 widths $\times$ 5 epsilons $\times$ 3 seeds $\times$ 2
 we do not find a single monotonic scaling law.
 On the circles task, the cross-seed mean robustness gap increases modestly from the smallest
 models to mid-sized models and then plateaus, yielding positive correlations between
-log parameter count and mean robustness gap ($r = 0.64$ for FGSM and $r = 0.64$ for PGD).
+log parameter count and mean robustness gap ($r = 0.64$ for FGSM and $r = 0.64$ for PGD;
+$p \approx 0.17$ for both).
 On the moons task, the trend reverses: larger models are more robust
-($r = -0.80$ for FGSM and $r = -0.56$ for PGD).
+($r = -0.80$ for FGSM and $r = -0.56$ for PGD;
+$p \approx 0.054$ and $p \approx 0.25$, respectively).
 These dataset-dependent trends suggest that in the small-model regime, task geometry and
 optimization dynamics matter more than parameter count alone when determining adversarial
 vulnerability.
@@ -102,6 +104,8 @@ $\{42, 123, 7\}$, yielding $6 \times 5 \times 3 \times 2 = 180$ total experiment
     \item \textbf{Robustness gap}: $\text{clean\_acc} - \text{robust\_acc}$.
     \item \textbf{Correlation}: Pearson $r$ between $\log_{10}(\text{param count})$
           and mean robustness gap (averaged across $\varepsilon$ values).
+    \item \textbf{Uncertainty}: two-sided Pearson $p$-value and 95\% confidence interval
+          for $r$ (computed with SciPy).
 \end{itemize}
 
 \section{Results}
@@ -123,6 +127,9 @@ The mean PGD gap follows the same pattern.
 The correlation between $\log_{10}$(params) and mean robustness gap is
 $r = 0.64$ (FGSM) and $r = 0.64$ (PGD), indicating a mild positive association
 rather than strict capacity independence.
+However, with only six width points, uncertainty is large:
+FGSM 95\% CI $[-0.36, 0.95]$, PGD 95\% CI $[-0.36, 0.95]$,
+and both two-sided $p$-values are $\approx 0.17$.
 
 \begin{table}[h]
 \centering
@@ -146,6 +153,8 @@ On the moons task, the pattern reverses.
 FGSM gap shows a strong negative correlation ($r = -0.80$), and PGD gap also
 decreases with scale ($r = -0.56$), suggesting that larger models are
 meaningfully more robust on this geometry.
+FGSM is near conventional significance ($p \approx 0.054$, 95\% CI $[-0.98, 0.02]$),
+while PGD remains uncertain ($p \approx 0.25$, 95\% CI $[-0.94, 0.46]$).
 
 \subsection{Attack Strength Comparison}
 
@@ -198,6 +207,8 @@ Our results suggest a three-regime model of adversarial robustness scaling:
     \item \textbf{Single architecture}: Only 2-layer ReLU MLPs; deeper architectures
           may show different scaling.
     \item \textbf{Limited scale}: Width 512 is still small by modern standards.
+    \item \textbf{Low $n$ for scaling fits}: Correlations are estimated from 6 width points,
+          leading to wide confidence intervals even when point estimates are moderate-to-large.
 \end{itemize}
 
 \subsection{Reproducibility}

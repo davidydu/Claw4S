@@ -143,6 +143,24 @@ class TestComputeSummaryStatistics:
         assert summary["corr_logparams_fgsm_gap"] is not None
         assert -1.0 <= summary["corr_logparams_fgsm_gap"] <= 1.0
 
+    def test_trend_stats_include_uncertainty_and_significance(self):
+        results = _make_sample_results()
+        augmented = compute_robustness_gaps(results)
+        summary = compute_summary_statistics(augmented)
+
+        fgsm_trend = summary["trend_fgsm_gap"]
+        assert math.isclose(fgsm_trend["pearson_r"], summary["corr_logparams_fgsm_gap"])
+        assert 0.0 <= fgsm_trend["pearson_p_value"] <= 1.0
+        assert 0.0 <= fgsm_trend["spearman_p_value"] <= 1.0
+        assert -1.0 <= fgsm_trend["spearman_rho"] <= 1.0
+        assert len(fgsm_trend["pearson_r_ci95"]) == 2
+        ci_low, ci_high = fgsm_trend["pearson_r_ci95"]
+        assert ci_low <= fgsm_trend["pearson_r"] <= ci_high
+
+        pgd_trend = summary["trend_pgd_gap"]
+        assert math.isclose(pgd_trend["pearson_r"], summary["corr_logparams_pgd_gap"])
+        assert len(pgd_trend["pearson_r_ci95"]) == 2
+
     def test_clean_acc_averaged_across_replicates(self):
         results = _make_multiseed_dataset_results()
         circles = [r for r in results if r["dataset"] == "circles"]

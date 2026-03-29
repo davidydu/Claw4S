@@ -13,6 +13,7 @@ Usage (from submissions/adversarial-robustness/):
 
 import json
 import os
+import platform
 import sys
 import time
 
@@ -27,6 +28,7 @@ if not os.path.isfile(os.path.join(os.getcwd(), "SKILL.md")):
 
 import torch
 import numpy as np
+import scipy
 
 from src.data import make_dataloaders
 from src.models import build_model, HIDDEN_WIDTHS
@@ -45,6 +47,13 @@ DATASETS = [
     {"name": "circles", "noise": 0.15},
     {"name": "moons", "noise": 0.15},
 ]
+
+
+def _format_ci(ci: list[float | None]) -> str:
+    """Format a two-element confidence interval for console output."""
+    if len(ci) != 2 or ci[0] is None or ci[1] is None:
+        return "[n/a, n/a]"
+    return f"[{ci[0]:.4f}, {ci[1]:.4f}]"
 
 
 def run_single_experiment(dataset_name: str, noise: float, seed: int,
@@ -218,6 +227,15 @@ def main() -> None:
                   f"{summary['corr_logparams_fgsm_gap']:.4f}")
             print(f"  Corr(log params, PGD gap):  "
                   f"{summary['corr_logparams_pgd_gap']:.4f}")
+            fgsm_trend = summary.get("trend_fgsm_gap", {})
+            pgd_trend = summary.get("trend_pgd_gap", {})
+            if fgsm_trend.get("pearson_p_value") is not None:
+                fgsm_ci = fgsm_trend.get("pearson_r_ci95", [None, None])
+                pgd_ci = pgd_trend.get("pearson_r_ci95", [None, None])
+                print(f"  FGSM trend p-value (Pearson): {fgsm_trend['pearson_p_value']:.4f} "
+                      f"(95% CI for r: {_format_ci(fgsm_ci)})")
+                print(f"  PGD trend p-value (Pearson):  {pgd_trend['pearson_p_value']:.4f} "
+                      f"(95% CI for r: {_format_ci(pgd_ci)})")
 
     print()
 
@@ -243,6 +261,13 @@ def main() -> None:
             "epsilons": EPSILONS,
             "seeds": SEEDS,
             "datasets": DATASETS,
+        },
+        "environment": {
+            "python": platform.python_version(),
+            "torch": torch.__version__,
+            "numpy": np.__version__,
+            "scipy": scipy.__version__,
+            "platform": platform.platform(),
         },
     }
     json_path = os.path.join(output_dir, "results.json")

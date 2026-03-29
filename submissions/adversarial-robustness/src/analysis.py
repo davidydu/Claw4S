@@ -11,6 +11,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
+from scipy.stats import pearsonr, spearmanr, linregress
 
 
 def compute_robustness_gaps(results: list[dict]) -> list[dict]:
@@ -67,20 +68,70 @@ def compute_summary_statistics(results: list[dict]) -> dict:
         }
     summary["per_width"] = per_width
 
-    # Correlation: param_count vs mean_gap
+    # Correlation and trend stats: param_count vs mean_gap
     param_counts = np.array([per_width[w]["param_count"] for w in widths], dtype=float)
     mean_fgsm_gaps = np.array([per_width[w]["mean_fgsm_gap"] for w in widths])
     mean_pgd_gaps = np.array([per_width[w]["mean_pgd_gap"] for w in widths])
 
     if len(widths) >= 3:
         log_params = np.log10(param_counts)
-        summary["corr_logparams_fgsm_gap"] = float(np.corrcoef(log_params, mean_fgsm_gaps)[0, 1])
-        summary["corr_logparams_pgd_gap"] = float(np.corrcoef(log_params, mean_pgd_gaps)[0, 1])
+        fgsm_trend = _compute_trend_statistics(log_params, mean_fgsm_gaps)
+        pgd_trend = _compute_trend_statistics(log_params, mean_pgd_gaps)
+        summary["trend_fgsm_gap"] = fgsm_trend
+        summary["trend_pgd_gap"] = pgd_trend
+        summary["corr_logparams_fgsm_gap"] = fgsm_trend["pearson_r"]
+        summary["corr_logparams_pgd_gap"] = pgd_trend["pearson_r"]
     else:
         summary["corr_logparams_fgsm_gap"] = None
         summary["corr_logparams_pgd_gap"] = None
+        summary["trend_fgsm_gap"] = _empty_trend_statistics()
+        summary["trend_pgd_gap"] = _empty_trend_statistics()
 
     return summary
+
+
+def _empty_trend_statistics() -> dict:
+    """Return a default trend-statistics object for underspecified inputs."""
+    return {
+        "pearson_r": None,
+        "pearson_p_value": None,
+        "pearson_r_ci95": [None, None],
+        "spearman_rho": None,
+        "spearman_p_value": None,
+        "slope_per_log10_param": None,
+    }
+
+
+def _safe_float(value: float | np.floating | None) -> float | None:
+    """Convert finite numeric values to float, otherwise return None."""
+    if value is None:
+        return None
+    as_float = float(value)
+    if np.isnan(as_float) or np.isinf(as_float):
+        return None
+    return as_float
+
+
+def _compute_trend_statistics(log_params: np.ndarray, mean_gaps: np.ndarray) -> dict:
+    """Compute trend statistics with uncertainty for scaling claims."""
+    stats = _empty_trend_statistics()
+
+    pearson = pearsonr(log_params, mean_gaps)
+    pearson_ci = pearson.confidence_interval(confidence_level=0.95)
+    spearman = spearmanr(log_params, mean_gaps)
+    slope = linregress(log_params, mean_gaps).slope
+
+    stats["pearson_r"] = _safe_float(pearson.statistic)
+    stats["pearson_p_value"] = _safe_float(pearson.pvalue)
+    stats["pearson_r_ci95"] = [
+        _safe_float(pearson_ci.low),
+        _safe_float(pearson_ci.high),
+    ]
+    stats["spearman_rho"] = _safe_float(spearman.statistic)
+    stats["spearman_p_value"] = _safe_float(spearman.pvalue)
+    stats["slope_per_log10_param"] = _safe_float(slope)
+
+    return stats
 
 
 def summarize_results_by_dataset(results: list[dict]) -> dict[str, dict]:

@@ -30,6 +30,40 @@ EXPECTED_N_RESULTS = (len(EXPECTED_WIDTHS) * len(EXPECTED_EPSILONS)
                       * len(EXPECTED_SEEDS) * len(EXPECTED_DATASETS))  # 180
 
 
+def infer_expected_config(data: dict) -> dict:
+    """Infer expected validation dimensions from results config if present."""
+    config = data.get("config", {})
+
+    widths = config.get("hidden_widths", EXPECTED_WIDTHS)
+    epsilons = config.get("epsilons", EXPECTED_EPSILONS)
+    seeds = config.get("seeds", EXPECTED_SEEDS)
+    raw_datasets = config.get("datasets", EXPECTED_DATASETS)
+
+    datasets: list[str] = []
+    for ds in raw_datasets:
+        if isinstance(ds, dict):
+            name = ds.get("name")
+        else:
+            name = ds
+        if isinstance(name, str) and name not in datasets:
+            datasets.append(name)
+    if not datasets:
+        datasets = list(EXPECTED_DATASETS)
+
+    widths = sorted(set(int(w) for w in widths))
+    epsilons = sorted(set(float(eps) for eps in epsilons))
+    seeds = sorted(set(int(seed) for seed in seeds))
+
+    return {
+        "widths": widths,
+        "epsilons": epsilons,
+        "seeds": seeds,
+        "datasets": datasets,
+        "n_results": len(widths) * len(epsilons) * len(seeds) * len(datasets),
+        "n_aggregated": len(widths) * len(epsilons) * len(datasets),
+    }
+
+
 def main() -> None:
     """Validate results with error accumulation."""
     errors: list[str] = []
@@ -66,10 +100,11 @@ def main() -> None:
     summary = data.get("summary", {})
     dataset_summaries = data.get("dataset_summaries", {})
     aggregated = data.get("aggregated", [])
+    expected = infer_expected_config(data)
 
     # 4. Check result count
-    if len(results) != EXPECTED_N_RESULTS:
-        errors.append(f"Expected {EXPECTED_N_RESULTS} results, got {len(results)}")
+    if len(results) != expected["n_results"]:
+        errors.append(f"Expected {expected['n_results']} results, got {len(results)}")
 
     # 5. Check all widths, epsilons, seeds, datasets present
     found_widths = sorted(set(r.get("hidden_width") for r in results))
@@ -77,14 +112,14 @@ def main() -> None:
     found_seeds = sorted(set(r.get("seed") for r in results))
     found_datasets = sorted(set(r.get("dataset") for r in results))
 
-    if found_widths != EXPECTED_WIDTHS:
-        errors.append(f"Expected widths {EXPECTED_WIDTHS}, found {found_widths}")
-    if found_epsilons != EXPECTED_EPSILONS:
-        errors.append(f"Expected epsilons {EXPECTED_EPSILONS}, found {found_epsilons}")
-    if found_seeds != sorted(EXPECTED_SEEDS):
-        errors.append(f"Expected seeds {sorted(EXPECTED_SEEDS)}, found {found_seeds}")
-    if found_datasets != sorted(EXPECTED_DATASETS):
-        errors.append(f"Expected datasets {sorted(EXPECTED_DATASETS)}, found {found_datasets}")
+    if found_widths != expected["widths"]:
+        errors.append(f"Expected widths {expected['widths']}, found {found_widths}")
+    if found_epsilons != expected["epsilons"]:
+        errors.append(f"Expected epsilons {expected['epsilons']}, found {found_epsilons}")
+    if found_seeds != expected["seeds"]:
+        errors.append(f"Expected seeds {expected['seeds']}, found {found_seeds}")
+    if found_datasets != sorted(expected["datasets"]):
+        errors.append(f"Expected datasets {sorted(expected['datasets'])}, found {found_datasets}")
 
     # 6. Validate each result entry
     required_keys = ["dataset", "seed", "hidden_width", "param_count",
@@ -116,8 +151,8 @@ def main() -> None:
 
     # 7. Scientific validity checks
     # All models should achieve reasonable clean accuracy (>= 80%)
-    for ds in EXPECTED_DATASETS:
-        for w in EXPECTED_WIDTHS:
+    for ds in expected["datasets"]:
+        for w in expected["widths"]:
             w_results = [r for r in results
                          if r.get("hidden_width") == w and r.get("dataset") == ds]
             if w_results:
@@ -138,9 +173,9 @@ def main() -> None:
                       f"(expected PGD to be at least as strong)")
 
     # Robust accuracy should generally decrease with epsilon
-    for ds in EXPECTED_DATASETS:
-        for w in EXPECTED_WIDTHS:
-            for seed in EXPECTED_SEEDS:
+    for ds in expected["datasets"]:
+        for w in expected["widths"]:
+            for seed in expected["seeds"]:
                 w_results = sorted(
                     [r for r in results
                      if r.get("hidden_width") == w
@@ -160,38 +195,76 @@ def main() -> None:
     if not aggregated:
         errors.append("Missing aggregated results (cross-seed averages)")
     else:
-        expected_agg = len(EXPECTED_WIDTHS) * len(EXPECTED_EPSILONS) * len(EXPECTED_DATASETS)
-        if len(aggregated) != expected_agg:
-            errors.append(f"Expected {expected_agg} aggregated entries, got {len(aggregated)}")
+        if len(aggregated) != expected["n_aggregated"]:
+            errors.append(
+                f"Expected {expected['n_aggregated']} aggregated entries, got {len(aggregated)}"
+            )
 
     # 9. Check summary statistics
     if not dataset_summaries:
         errors.append("Missing dataset_summaries in results.json")
     else:
         found_summary_datasets = sorted(dataset_summaries.keys())
-        if found_summary_datasets != sorted(EXPECTED_DATASETS):
+        if found_summary_datasets != sorted(expected["datasets"]):
             errors.append("dataset_summaries missing expected datasets "
                           f"(found {found_summary_datasets})")
-        for ds_name in EXPECTED_DATASETS:
+        for ds_name in expected["datasets"]:
             ds_summary = dataset_summaries.get(ds_name, {})
             if "per_width" not in ds_summary:
                 errors.append(f"{ds_name} summary missing 'per_width' key")
             if "corr_logparams_fgsm_gap" not in ds_summary:
                 errors.append(f"{ds_name} summary missing correlation statistics")
+            _validate_trend_stats(ds_name, ds_summary, errors)
     if summary and "per_width" not in summary:
         errors.append("Legacy summary missing 'per_width' key")
 
-    # 10. Check plot files are non-empty
+    # 10. Check reproducibility metadata
+    environment = data.get("environment", {})
+    if not isinstance(environment, dict) or not environment:
+        errors.append("Missing environment metadata in results.json")
+    else:
+        for key in ("python", "torch", "numpy", "scipy", "platform"):
+            if key not in environment:
+                errors.append(f"environment metadata missing '{key}' field")
+
+    # 11. Check plot files are non-empty
     for fname in ["clean_vs_robust.png", "robustness_gap.png", "param_scaling.png"]:
         fpath = os.path.join(RESULTS_DIR, fname)
         if os.path.isfile(fpath) and os.path.getsize(fpath) < 1000:
             errors.append(f"Plot {fname} appears too small ({os.path.getsize(fpath)} bytes)")
 
-    _report(errors)
+    _report(errors, expected_datasets=expected["datasets"])
 
 
-def _report(errors: list[str]) -> None:
+def _validate_trend_stats(ds_name: str, ds_summary: dict, errors: list[str]) -> None:
+    """Validate trend statistics metadata in each dataset summary."""
+    required = {
+        "trend_fgsm_gap": "fgsm",
+        "trend_pgd_gap": "pgd",
+    }
+    for key, label in required.items():
+        trend = ds_summary.get(key)
+        if not isinstance(trend, dict):
+            errors.append(f"{ds_name} summary missing '{key}' trend metadata")
+            continue
+
+        ci = trend.get("pearson_r_ci95")
+        if not (isinstance(ci, list) and len(ci) == 2):
+            errors.append(f"{ds_name} {label} trend has malformed pearson_r_ci95")
+
+        for p_name in ("pearson_p_value", "spearman_p_value"):
+            p_val = trend.get(p_name)
+            if p_val is not None and not (0.0 <= p_val <= 1.0):
+                errors.append(
+                    f"{ds_name} {label} trend {p_name}={p_val} outside [0, 1]"
+                )
+
+
+def _report(errors: list[str], expected_datasets: list[str] | None = None) -> None:
     """Print validation report and exit with appropriate code."""
+    if expected_datasets is None:
+        expected_datasets = list(EXPECTED_DATASETS)
+
     print("=" * 60)
     print("Adversarial Robustness Scaling -- Validation Report")
     print("=" * 60)
@@ -222,14 +295,19 @@ def _report(errors: list[str]) -> None:
                 if summary.get("per_width"):
                     print(f"  - Legacy summary preserved for "
                           f"{len(summary['widths'])} model sizes")
-                for ds_name in EXPECTED_DATASETS:
+                for ds_name in expected_datasets:
                     ds_summary = dataset_summaries.get(ds_name)
                     if ds_summary and ds_summary.get("corr_logparams_fgsm_gap") is not None:
+                        fgsm_trend = ds_summary.get("trend_fgsm_gap", {})
+                        pgd_trend = ds_summary.get("trend_pgd_gap", {})
                         print(f"  - {ds_name}: {ds_summary['n_experiments']} dataset results, "
                               f"Corr(log params, FGSM gap) = "
                               f"{ds_summary['corr_logparams_fgsm_gap']:.4f}, "
                               f"Corr(log params, PGD gap) = "
                               f"{ds_summary['corr_logparams_pgd_gap']:.4f}")
+                        if fgsm_trend.get("pearson_p_value") is not None:
+                            print(f"      trend p-values: FGSM={fgsm_trend['pearson_p_value']:.4f}, "
+                                  f"PGD={pgd_trend['pearson_p_value']:.4f}")
                 print()
         except (json.JSONDecodeError, FileNotFoundError, KeyError):
             pass  # Summary printing is best-effort
