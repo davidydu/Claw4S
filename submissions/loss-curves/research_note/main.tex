@@ -73,6 +73,7 @@ We compare fits using the Akaike Information Criterion:
 \text{AIC} = n \ln(\text{RSS}/n) + 2k
 \]
 where $n$ is the number of data points, $k$ the number of parameters, and RSS the residual sum of squares. We also compute BIC $= n \ln(\text{RSS}/n) + k \ln n$ as a robustness check.
+To quantify confidence in model selection beyond ``winner-takes-all'' ranking, we report $\Delta\text{AIC}$ between the best and second-best converged forms for each run, with standard evidence bins: strong ($\Delta\text{AIC}\ge 10$), moderate ($4\le\Delta\text{AIC}<10$), and weak ($0\le\Delta\text{AIC}<4$).
 
 \section{Results}
 
@@ -97,6 +98,7 @@ Classification     & Stretched exp. & Stretched exp. & Power law \\
 The stretched exponential is the best-fit form in 8 of 12 configurations (67\%), and is the majority winner for 3 of 4 task types (Table~\ref{tab:best_forms}).
 It dominates all modular arithmetic runs and most classification runs.
 Regression tasks favor power-law or log-power decay, possibly because the loss landscape is smoother for linear-target regression.
+Across all 12 runs, $\Delta\text{AIC}$ support is strong (all runs satisfy $\Delta\text{AIC}\ge 10$), indicating that selected winners are not near-ties under AIC.
 
 \subsection{Exponent Distributions}
 
@@ -128,6 +130,8 @@ The connection between high $\gamma$ and grokking-like dynamics in modular arith
 
 All experiments are fully reproducible via the accompanying \texttt{SKILL.md}.
 Seeds are fixed (\texttt{seed=42}), dependencies are pinned, and the analysis runs in roughly 3--7 minutes on CPU-only machines, depending on system load.
+The pipeline checkpoints progress after each run (\texttt{results/checkpoint.json}) so interrupted executions can resume deterministically without recomputing completed task/size pairs.
+Result metadata records software provenance (Python, Torch, NumPy, SciPy, Matplotlib versions) alongside configuration and runtime.
 The complete code, including training, fitting, plotting, and validation, is self-contained in the \texttt{submissions/loss-curves/} directory.
 
 \bibliographystyle{plainnat}

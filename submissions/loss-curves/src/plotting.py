@@ -255,8 +255,18 @@ def generate_report(results_json_path: str = "results/results.json") -> str:
     lines.append(f"  Tasks: {', '.join(meta['tasks'])}")
     lines.append(f"  Hidden sizes: {meta['hidden_sizes']}")
     lines.append(f"  Epochs: {meta['n_epochs']} (skip first {meta['skip_epochs']})")
+    lines.append(f"  Seed: {meta.get('seed', 'n/a')}")
     lines.append(f"  Total runs: {meta['total_runs']}")
     lines.append(f"  Runtime: {meta['elapsed_seconds']}s")
+    provenance = meta.get("provenance", {})
+    if provenance:
+        lines.append(
+            "  Environment: "
+            f"Python {provenance.get('python_version', 'n/a')}, "
+            f"Torch {provenance.get('torch_version', 'n/a')}, "
+            f"NumPy {provenance.get('numpy_version', 'n/a')}, "
+            f"SciPy {provenance.get('scipy_version', 'n/a')}"
+        )
 
     uni = data["universality"]
     lines.append(f"\n--- Universality Summary ---")
@@ -275,21 +285,40 @@ def generate_report(results_json_path: str = "results/results.json") -> str:
     for task, form in uni["best_form_by_task"].items():
         lines.append(f"    {task}: {form}")
 
+    support_counts = uni.get("support_counts", {})
+    if support_counts:
+        lines.append(f"\n  ΔAIC support strength (best vs second-best):")
+        for level in ["strong", "moderate", "weak", "undetermined"]:
+            lines.append(f"    {level}: {support_counts.get(level, 0)}")
+        lines.append(f"\n  Support by task:")
+        for task, counts in sorted(uni.get("support_by_task", {}).items()):
+            lines.append(
+                f"    {task}: "
+                f"strong={counts.get('strong', 0)}, "
+                f"moderate={counts.get('moderate', 0)}, "
+                f"weak={counts.get('weak', 0)}, "
+                f"undetermined={counts.get('undetermined', 0)}"
+            )
+
     lines.append(f"\n--- Per-Run Results ---")
     lines.append(
         f"{'Task':<18} {'Hidden':>6} {'Params':>7} {'Final Loss':>11} "
-        f"{'Best Form':<15} {'AIC':>10} {'BIC':>10}"
+        f"{'Best Form':<15} {'AIC':>10} {'BIC':>10} {'ΔAIC':>8} {'Support':<12}"
     )
-    lines.append("-" * 80)
+    lines.append("-" * 110)
 
     for run in data["runs_summary"]:
         best = run["fits"][0] if run["fits"] else {}
         aic_str = f"{best.get('aic', float('inf')):.1f}"
         bic_str = f"{best.get('bic', float('inf')):.1f}"
+        fit_support = run.get("fit_support", {})
+        delta_aic = fit_support.get("delta_aic")
+        delta_str = "n/a" if delta_aic is None else f"{delta_aic:.1f}"
+        support_str = fit_support.get("support_level", "n/a")
         lines.append(
             f"{run['task']:<18} {run['hidden_size']:>6} {run['n_params']:>7} "
             f"{run['final_loss']:>11.6f} {run['best_form']:<15} "
-            f"{aic_str:>10} {bic_str:>10}"
+            f"{aic_str:>10} {bic_str:>10} {delta_str:>8} {support_str:<12}"
         )
 
     # Exponent summary

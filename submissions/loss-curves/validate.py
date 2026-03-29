@@ -35,24 +35,48 @@ if os.path.isfile(results_path):
     meta = data.get("metadata", {})
     total_runs = meta.get("total_runs", 0)
     print(f"Total runs: {total_runs}")
-    if total_runs != 12:
-        errors.append(f"Expected 12 runs, got {total_runs}")
 
     tasks = meta.get("tasks", [])
     print(f"Tasks: {', '.join(tasks)}")
-    if len(tasks) != 4:
-        errors.append(f"Expected 4 tasks, got {len(tasks)}")
+    if not tasks:
+        errors.append("Metadata.tasks is empty")
 
     hidden_sizes = meta.get("hidden_sizes", [])
     print(f"Hidden sizes: {hidden_sizes}")
-    if hidden_sizes != [32, 64, 128]:
-        errors.append(f"Expected hidden_sizes [32, 64, 128], got {hidden_sizes}")
+    if not hidden_sizes:
+        errors.append("Metadata.hidden_sizes is empty")
+
+    expected_total = len(tasks) * len(hidden_sizes)
+    if total_runs != expected_total:
+        errors.append(
+            f"total_runs mismatch: expected {expected_total}, got {total_runs}"
+        )
+
+    provenance = meta.get("provenance", {})
+    required_provenance_fields = [
+        "seed",
+        "python_version",
+        "torch_version",
+        "numpy_version",
+        "scipy_version",
+        "matplotlib_version",
+    ]
+    for field in required_provenance_fields:
+        if provenance.get(field) in (None, ""):
+            errors.append(f"Missing metadata.provenance.{field}")
+    if provenance:
+        print(
+            "Provenance: "
+            f"py={provenance.get('python_version')} "
+            f"torch={provenance.get('torch_version')} "
+            f"seed={provenance.get('seed')}"
+        )
 
     # Check runs
     runs = data.get("runs_summary", [])
     print(f"Run summaries: {len(runs)}")
-    if len(runs) != 12:
-        errors.append(f"Expected 12 run summaries, got {len(runs)}")
+    if len(runs) != total_runs:
+        errors.append(f"Expected {total_runs} run summaries, got {len(runs)}")
 
     # Check each run has fits
     for run in runs:
@@ -71,6 +95,24 @@ if os.path.isfile(results_path):
             errors.append(
                 f"Run {run['task']}/h={run['hidden_size']}: missing final_loss"
             )
+        support = run.get("fit_support")
+        if not support:
+            errors.append(
+                f"Run {run['task']}/h={run['hidden_size']}: missing fit_support"
+            )
+        else:
+            level = support.get("support_level")
+            if level not in {"strong", "moderate", "weak", "undetermined"}:
+                errors.append(
+                    f"Run {run['task']}/h={run['hidden_size']}: invalid support "
+                    f"level {level}"
+                )
+            delta_aic = support.get("delta_aic")
+            if delta_aic is not None and delta_aic < 0:
+                errors.append(
+                    f"Run {run['task']}/h={run['hidden_size']}: "
+                    f"negative delta_aic {delta_aic}"
+                )
 
     # Check universality
     uni = data.get("universality", {})
@@ -88,6 +130,27 @@ if os.path.isfile(results_path):
     else:
         for task, form in uni["best_form_by_task"].items():
             print(f"  {task}: best = {form}")
+
+    support_counts = uni.get("support_counts")
+    if not support_counts:
+        errors.append("Missing support_counts in universality analysis")
+    else:
+        expected_levels = {"strong", "moderate", "weak", "undetermined"}
+        missing = expected_levels.difference(support_counts.keys())
+        if missing:
+            errors.append(
+                "support_counts missing level(s): " + ", ".join(sorted(missing))
+            )
+        total_support = sum(support_counts.get(level, 0) for level in expected_levels)
+        if total_support != total_runs:
+            errors.append(
+                f"support_counts total mismatch: expected {total_runs}, "
+                f"got {total_support}"
+            )
+        print(
+            "Support levels: "
+            + ", ".join(f"{k}={support_counts.get(k, 0)}" for k in sorted(expected_levels))
+        )
 
     # Check exponents exist
     if not uni.get("exponents_by_form"):

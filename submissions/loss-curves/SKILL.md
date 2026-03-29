@@ -12,6 +12,7 @@ This skill trains tiny MLPs on 4 tasks (modular addition mod 97, modular multipl
 
 - Requires **Python 3.10+**. No internet access needed; all data is generated synthetically.
 - Expected runtime: **3-7 minutes** on CPU-only machines. The modular arithmetic runs are the slowest, and heavily shared machines can take longer.
+- The analysis is **checkpointed** to `results/checkpoint.json` after each completed run. If interrupted, re-running `run.py` resumes from completed runs.
 - All commands must be run from the **submission directory** (`submissions/loss-curves/`).
 
 ## Step 1: Environment Setup
@@ -40,7 +41,7 @@ Verify all analysis modules work correctly:
 .venv/bin/python -m pytest tests/ -v
 ```
 
-Expected: Pytest exits with all tests passed (20+ tests) and exit code 0.
+Expected: Pytest exits with all tests passed (30+ tests) and exit code 0.
 
 ## Step 3: Run the Analysis
 
@@ -50,6 +51,16 @@ Execute the full loss curve universality analysis:
 .venv/bin/python run.py
 ```
 
+Optional execution controls:
+
+```bash
+# Ignore checkpoint and recompute all runs from scratch
+.venv/bin/python run.py --fresh
+
+# Run only selected tasks/hidden sizes (for extension/smoke checks)
+.venv/bin/python run.py --tasks mod_add,regression --hidden-sizes 32,64 --epochs 800
+```
+
 This will:
 1. Train 12 MLP models (4 tasks x 3 hidden sizes) for 1500 epochs each
 2. Fit 4 functional forms (power law, exponential, stretched exponential, log-power) to each loss curve
@@ -57,10 +68,11 @@ This will:
 4. Analyze universality of best-fit forms and exponent distributions
 5. Generate plots and save results
 
-Expected: Script prints progress for each of 12 runs, with the longest pauses during the modular arithmetic tasks, saves results to `results/`, and prints a summary report. Exit code 0. Files created:
+Expected: Script prints progress for each of 12 runs, with the longest pauses during the modular arithmetic tasks, saves results to `results/`, and prints a summary report including per-run $\Delta$AIC support strength and environment provenance. Exit code 0. Files created:
 - `results/results.json` -- compact results with fits and universality analysis
 - `results/full_curves.json` -- full per-epoch loss data for all 12 runs
 - `results/report.txt` -- human-readable summary report
+- `results/checkpoint.json` -- resumable partial/full run state
 - `results/loss_curves_with_fits.png` -- 4x3 grid of loss curves with fitted functions
 - `results/aic_comparison.png` -- AIC comparison bar chart by task
 - `results/exponent_distributions.png` -- exponent distributions grouped by task
@@ -73,7 +85,7 @@ Check that all results were produced correctly:
 .venv/bin/python validate.py
 ```
 
-Expected: Prints run counts, task details, majority best-fit form, and `Validation passed.`
+Expected: Prints run counts, task details, majority best-fit form, provenance (Python/Torch/seed), support-level counts (`strong/moderate/weak/undetermined`), and `Validation passed.`
 
 ## Step 5: Review the Report
 
@@ -85,10 +97,12 @@ cat results/report.txt
 
 The report contains:
 - Configuration summary (tasks, hidden sizes, epochs)
+- Reproducibility provenance (Python/Torch/NumPy/SciPy versions and seed)
 - Universality summary: majority best-fit form and fraction
 - Best-fit form counts across all 12 runs
 - Best form per task
-- Per-run table: task, hidden size, params, final loss, best form, AIC, BIC
+- Per-run table: task, hidden size, params, final loss, best form, AIC, BIC, $\Delta$AIC, support level
+- Support-strength summary: counts and per-task breakdown of $\Delta$AIC evidence
 - Key exponent statistics (mean, std, min, max) per functional form
 
 ## How to Extend
