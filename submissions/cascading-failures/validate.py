@@ -11,6 +11,7 @@ Checks:
 import json
 import math
 import sys
+from collections import Counter
 
 
 def main() -> None:
@@ -38,12 +39,18 @@ def main() -> None:
 
     raw = data.get("raw_results", [])
     agg = data.get("aggregated", [])
+    n_agg = meta.get("n_conditions", 0)
+
+    if len(raw) != n_sims:
+        errors.append(f"metadata.n_simulations={n_sims} but raw_results has {len(raw)} rows")
+    if len(agg) != n_agg:
+        errors.append(f"metadata.n_conditions={n_agg} but aggregated has {len(agg)} rows")
 
     # --- Metric range checks ---
     for r in raw:
         cs = r.get("cascade_size", -1)
         if not (0.0 <= cs <= 1.0):
-            errors.append(f"cascade_size out of [0,1]: {cs} in {r['topology']}/{r['agent_type']}")
+            errors.append(f"cascade_size out of [0,1]: {cs} in {r.get('topology')}/{r.get('agent_type')}")
 
         sr = r.get("systemic_risk", -1)
         if math.isfinite(sr) and sr < 0:
@@ -52,6 +59,34 @@ def main() -> None:
         speed = r.get("cascade_speed")
         if speed is not None and math.isfinite(speed) and speed < 0:
             errors.append(f"Negative cascade_speed: {speed}")
+
+        loc = r.get("shock_location")
+        is_hub = r.get("shock_node_is_hub")
+        has_non_hub = r.get("has_non_hub_nodes")
+        if loc not in {"hub", "random"}:
+            errors.append(f"Invalid shock_location: {loc}")
+        if not isinstance(is_hub, bool):
+            errors.append("Missing/invalid shock_node_is_hub flag in raw_results row")
+        if not isinstance(has_non_hub, bool):
+            errors.append("Missing/invalid has_non_hub_nodes flag in raw_results row")
+        if loc == "hub" and is_hub is False:
+            errors.append("Hub condition used a non-hub shock node")
+        if loc == "random" and has_non_hub is True and is_hub is True:
+            errors.append("Random condition selected a hub despite non-hub nodes existing")
+
+    # Every condition should include exactly 3 seed replicates.
+    condition_counts = Counter(
+        (
+            r.get("topology"),
+            r.get("agent_type"),
+            r.get("shock_magnitude"),
+            r.get("shock_location"),
+        )
+        for r in raw
+    )
+    for key, count in sorted(condition_counts.items()):
+        if count != 3:
+            errors.append(f"Condition {key} has {count} replicates (expected 3)")
 
     # --- Coverage checks (full experiment only) ---
     if not is_diag:
@@ -98,7 +133,6 @@ def main() -> None:
                 warnings.append("Severe shocks cause SMALLER cascades than mild (unexpected)")
 
     # --- Report ---
-    n_agg = meta.get("n_conditions", 0)
     print(f"Aggregated conditions: {n_agg}")
 
     if warnings:

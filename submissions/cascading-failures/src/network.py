@@ -149,4 +149,12 @@ def build_network(name: str, n: int, seed: int = 42) -> AdjList:
 
 def hub_node(adj: AdjList) -> int:
     """Return the node with highest degree (hub)."""
-    return max(adj, key=lambda k: len(adj[k]))
+    return max_degree_nodes(adj)[0]
+
+
+def max_degree_nodes(adj: AdjList) -> List[int]:
+    """Return all nodes with the maximum degree, sorted ascending."""
+    if not adj:
+        raise ValueError("adjacency list must include at least one node")
+    max_degree = max(len(neighbors) for neighbors in adj.values())
+    return sorted([node for node, neighbors in adj.items() if len(neighbors) == max_degree])

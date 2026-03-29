@@ -36,6 +36,7 @@ class SimConfig:
     agent_type: str = "fragile"
     adj: AdjList = field(default_factory=dict)
     shock_node: int = 0
+    shock_location: str = "random"
     shock_magnitude: float = 10.0
     shock_round: int = 100
     shock_duration: int = 200

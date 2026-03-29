@@ -22,17 +22,11 @@ def main() -> None:
 
     if DIAGNOSTIC:
         print("[1/3] Running DIAGNOSTIC (18 simulations)...")
-        # Override experiment to run only 1 topology x 1 agent x 3 mags x 2 locs x 3 seeds
-        from src import experiment as exp
-        orig_topos = exp.TOPOLOGY_NAMES
-        orig_agents = exp.AGENT_TYPE_NAMES
-        exp.TOPOLOGY_NAMES = ["ring"]
-        exp.AGENT_TYPE_NAMES = ["fragile"]
-        try:
-            raw_results = run_experiment()
-        finally:
-            exp.TOPOLOGY_NAMES = orig_topos
-            exp.AGENT_TYPE_NAMES = orig_agents
+        # 1 topology x 1 agent x 3 magnitudes x 2 locations x 3 seeds
+        raw_results = run_experiment(
+            topology_names=["ring"],
+            agent_type_names=["fragile"],
+        )
     else:
         print("[1/3] Running full experiment (324 simulations)...")
         raw_results = run_experiment()
@@ -47,6 +41,12 @@ def main() -> None:
                 "n_simulations": len(raw_results),
                 "n_conditions": len(aggregated),
                 "diagnostic": DIAGNOSTIC,
+                "topologies": sorted({r["topology"] for r in raw_results}),
+                "agent_types": sorted({r["agent_type"] for r in raw_results}),
+                "shock_magnitudes": sorted({r["shock_magnitude"] for r in raw_results}),
+                "shock_locations": sorted({r["shock_location"] for r in raw_results}),
+                "seeds": sorted({r["seed"] for r in raw_results}),
+                "shock_selection_policy": "hub=max-degree node; random=uniform over non-hub nodes when possible",
             },
             "raw_results": raw_results,
             "aggregated": aggregated,
