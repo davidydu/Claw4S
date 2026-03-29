@@ -1,5 +1,6 @@
 """Tests for the training loop."""
 
+import pytest
 import torch
 
 from src.models import FlexibleMLP
@@ -41,6 +42,44 @@ class TestTrainer:
         assert "final_test_metric" in results
         assert results["metric_name"] == "r_squared"
         assert "training_time_sec" in results
+
+    def test_validation_metrics_and_split_sizes_are_reported(self):
+        """Training should report validation metrics and deterministic split."""
+        data = make_regression_data(
+            n_train=120, n_test=30, input_dim=4, seed=7
+        )
+        model = FlexibleMLP(4, 16, 1, 2)
+        results = train_model(
+            model,
+            data,
+            max_epochs=20,
+            lr=1e-3,
+            seed=7,
+            validation_fraction=0.25,
+            log_interval=100,
+        )
+        assert "best_val_metric" in results
+        assert "final_val_metric" in results
+        assert results["val_split_fraction"] == 0.25
+        assert results["train_size"] == 90
+        assert results["val_size"] == 30
+        assert results["test_size"] == 30
+        assert len(results["epoch_val_metrics"]) == results["total_epochs"]
+
+    def test_invalid_validation_fraction_raises(self):
+        """Validation fraction must stay in [0, 1)."""
+        data = make_regression_data(
+            n_train=50, n_test=20, input_dim=4, seed=42
+        )
+        model = FlexibleMLP(4, 8, 1, 1)
+        with pytest.raises(ValueError, match="validation_fraction"):
+            train_model(
+                model,
+                data,
+                max_epochs=5,
+                validation_fraction=1.0,
+                seed=42,
+            )
 
     def test_early_stopping(self):
         """Training should stop early if no improvement."""

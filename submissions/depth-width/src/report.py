@@ -31,6 +31,10 @@ def generate_report(results: dict) -> str:
         lines.append(f"- Sparse parity: n_bits={metadata['n_bits']}, "
                       f"k_relevant={metadata['k_relevant']}")
     lines.append(f"- PyTorch version: {metadata['torch_version']}")
+    if metadata.get("python_version"):
+        lines.append(f"- Python version: {metadata['python_version']}")
+    if metadata.get("platform"):
+        lines.append(f"- Platform: {metadata['platform']}")
     lines.append(f"- Total experiments: {metadata['num_experiments']}")
     task_hparams = metadata.get("task_hparams", {})
     if task_hparams:
@@ -39,6 +43,18 @@ def generate_report(results: dict) -> str:
             lines.append(f"  - {task}: lr={hp.get('lr')}, "
                          f"wd={hp.get('weight_decay')}, "
                          f"epochs={hp.get('max_epochs')}")
+    model_selection = metadata.get("model_selection")
+    validation_split = metadata.get("validation_split_fraction")
+    if (
+        model_selection == "validation_split"
+        and validation_split is not None
+    ):
+        validation_pct = round(validation_split * 100)
+        lines.append(
+            "- Model selection: validation split "
+            f"({validation_pct}% of training data); test metric "
+            "evaluated once at the best validation epoch"
+        )
     lines.append("")
 
     # Group by task
@@ -88,8 +104,16 @@ def generate_report(results: dict) -> str:
         # Convergence speed table — use task-specific threshold from metadata
         task_hp = task_hparams.get(task, {})
         conv_thresh = task_hp.get("convergence_threshold", 0.90)
-        lines.append(f"### Convergence Speed (Epochs to {metric_label} "
-                      f">= {conv_thresh:.2f})")
+        if model_selection == "validation_split":
+            lines.append(
+                "### Validation Convergence Speed "
+                f"(Epochs to {metric_label} >= {conv_thresh:.2f})"
+            )
+        else:
+            lines.append(
+                f"### Convergence Speed (Epochs to {metric_label} "
+                f">= {conv_thresh:.2f})"
+            )
         lines.append("")
         lines.append(header)
         lines.append(sep)

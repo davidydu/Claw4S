@@ -2,6 +2,8 @@
 
 import json
 import os
+import platform
+import sys
 
 import torch
 
@@ -14,6 +16,7 @@ from src.trainer import train_model
 PARAM_BUDGETS = [5_000, 20_000, 50_000]
 DEPTHS = [1, 2, 4, 8]
 SEED = 42
+VALIDATION_SPLIT_FRACTION = 0.2
 
 # Sparse parity config
 N_BITS = 20
@@ -83,6 +86,7 @@ def run_single_experiment(
         convergence_threshold=hparams["convergence_threshold"],
         patience=hparams["patience"],
         seed=SEED,
+        validation_fraction=VALIDATION_SPLIT_FRACTION,
     )
 
     return {
@@ -93,10 +97,12 @@ def run_single_experiment(
         "task_name": task_data["task_name"],
         "task_type": task_data["task_type"],
         **{k: v for k, v in results.items()
-           if k not in ("epoch_losses", "epoch_test_metrics")},
+           if k not in ("epoch_losses", "epoch_test_metrics", "epoch_val_metrics")},
         # Store sampled curves (every 50th epoch) to keep JSON small
         "loss_curve_sampled": results["epoch_losses"][::50],
-        "metric_curve_sampled": results["epoch_test_metrics"][::50],
+        "val_metric_curve_sampled": results["epoch_val_metrics"][::50],
+        "metric_curve_sampled": results["epoch_val_metrics"][::50],
+        "selection_metric": "validation",
     }
 
 
@@ -107,6 +113,7 @@ def run_all_experiments() -> dict:
         Dict with all results and metadata.
     """
     torch.manual_seed(SEED)
+    torch.use_deterministic_algorithms(True, warn_only=True)
 
     # Generate task data
     parity_data = make_sparse_parity_data(
@@ -153,10 +160,14 @@ def run_all_experiments() -> dict:
         "k_relevant": K_RELEVANT,
         "param_budgets": PARAM_BUDGETS,
         "depths": DEPTHS,
+        "model_selection": "validation_split",
+        "validation_split_fraction": VALIDATION_SPLIT_FRACTION,
         "task_hparams": {k: {kk: vv for kk, vv in v.items()}
                          for k, v in TASK_HPARAMS.items()},
         "num_experiments": len(all_results),
         "torch_version": torch.__version__,
+        "python_version": sys.version.split()[0],
+        "platform": platform.platform(),
     }
 
     return {"metadata": metadata, "results": all_results}

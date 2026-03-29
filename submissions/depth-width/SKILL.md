@@ -11,8 +11,13 @@ This skill runs a controlled experiment comparing deep-narrow vs shallow-wide ML
 ## Prerequisites
 
 - Requires **Python 3.10+**. No internet access needed (all data is generated synthetically).
-- Expected runtime: **~3 minutes** on CPU.
+- Expected runtime: **~4-6 minutes** on CPU.
 - All commands must be run from the **submission directory** (`submissions/depth-width/`).
+- For a clean reproducibility run, delete stale artifacts first:
+
+```bash
+rm -rf .venv results
+```
 
 ## Step 1: Environment Setup
 
@@ -40,7 +45,8 @@ Verify all modules work correctly:
 .venv/bin/python -m pytest tests/ -v
 ```
 
-Expected: Pytest exits with `27 passed` and exit code 0.
+Expected: Pytest exits with all tests passing (currently `30 passed`) and
+exit code 0.
 
 ## Step 3: Run the Experiments
 
@@ -60,6 +66,8 @@ This runs:
 2. **Smooth regression**: 8-dim inputs, target = sin components + pairwise interactions. Tests generalization on smooth functions.
 
 For each task, sweeps 3 parameter budgets (5K, 20K, 50K) x 4 depths (1, 2, 4, 8 hidden layers), adjusting width to keep total parameters constant.
+Model checkpoints are selected using a deterministic **20\% validation split**
+from training data; test metrics are evaluated once at the best validation epoch.
 
 ## Step 4: Validate Results
 
@@ -69,7 +77,8 @@ Check that all 24 experiments completed successfully:
 .venv/bin/python validate.py
 ```
 
-Expected: Prints summary statistics and `Validation passed.`
+Expected: Prints summary statistics including model-selection protocol and ends
+with `Validation passed.`
 
 ## Step 5: Review the Report
 

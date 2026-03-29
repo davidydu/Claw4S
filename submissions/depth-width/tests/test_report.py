@@ -115,3 +115,48 @@ def test_generate_report_numbers_key_findings_sequentially():
 
     assert "1. **smooth_regression**" in report
     assert "2. **sparse_parity**" in report
+
+
+def test_generate_report_includes_validation_selection_protocol():
+    """Report metadata should document validation-based model selection."""
+    results = {
+        "metadata": {
+            "seed": 42,
+            "param_budgets": [5000],
+            "depths": [1],
+            "torch_version": "2.6.0",
+            "num_experiments": 1,
+            "model_selection": "validation_split",
+            "validation_split_fraction": 0.2,
+            "task_hparams": {
+                "smooth_regression": {
+                    "lr": 1e-3,
+                    "weight_decay": 1e-4,
+                    "max_epochs": 800,
+                    "convergence_threshold": 0.90,
+                }
+            },
+        },
+        "results": [
+            {
+                "param_budget": 5000,
+                "num_hidden_layers": 1,
+                "hidden_width": 500,
+                "actual_params": 5001,
+                "task_name": "smooth_regression",
+                "task_type": "regression",
+                "metric_name": "r_squared",
+                "best_test_metric": 0.90,
+                "best_val_metric": 0.91,
+                "convergence_epoch": 100,
+            },
+        ],
+    }
+
+    report = generate_report(results)
+
+    assert (
+        "- Model selection: validation split (20% of training data); "
+        "test metric evaluated once at the best validation epoch"
+    ) in report
+    assert "### Validation Convergence Speed" in report

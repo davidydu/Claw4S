@@ -43,6 +43,17 @@ print(f"Parameter budgets: {metadata.get('param_budgets')}")
 print(f"Depths tested: {metadata.get('depths')}")
 print(f"Seed: {metadata.get('seed')}")
 print(f"PyTorch version: {metadata.get('torch_version')}")
+print(f"Model selection: {metadata.get('model_selection')}")
+print(f"Validation split fraction: {metadata.get('validation_split_fraction')}")
+
+if metadata.get("model_selection") != "validation_split":
+    errors.append("metadata.model_selection must be 'validation_split'")
+
+val_frac = metadata.get("validation_split_fraction")
+if not isinstance(val_frac, (int, float)) or not 0.0 < val_frac < 1.0:
+    errors.append(
+        "metadata.validation_split_fraction must be a float in (0, 1)"
+    )
 
 # Check expected experiment count
 expected_budgets = metadata.get("param_budgets", [])
@@ -63,6 +74,8 @@ for i, r in enumerate(results):
     for field in required_fields:
         if field not in r:
             errors.append(f"Experiment {i} missing field: {field}")
+    if "best_val_metric" not in r:
+        errors.append(f"Experiment {i} missing field: best_val_metric")
 
 # Check non-skipped results have metrics
 completed = [r for r in results if not r.get("skipped")]

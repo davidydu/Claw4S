@@ -44,7 +44,7 @@ We use fully-connected MLPs with ReLU activations, Kaiming initialization, and n
 
 \subsection{Training}
 
-All models are trained with AdamW, cosine annealing learning rate schedule, and full-batch gradient descent. Task-specific hyperparameters: sparse parity uses lr$=3{\times}10^{-3}$, weight decay$=10^{-2}$, max 1{,}500 epochs; regression uses lr$=10^{-3}$, weight decay$=10^{-4}$, max 800 epochs. All experiments use seed 42. We report best test metric achieved during training. For convergence-speed comparisons, we use task-specific thresholds: 85\% test accuracy for sparse parity and 0.90 test $R^2$ for regression.
+All models are trained with AdamW, cosine annealing learning rate schedule, and full-batch gradient descent. Task-specific hyperparameters: sparse parity uses lr$=3{\times}10^{-3}$, weight decay$=10^{-2}$, max 1{,}500 epochs; regression uses lr$=10^{-3}$, weight decay$=10^{-4}$, max 800 epochs. All experiments use seed 42. For each configuration, we split the training set deterministically into 80\% optimization-train and 20\% validation; early stopping and checkpoint selection use validation metrics only, and the test metric is evaluated once at the best validation epoch. For convergence-speed comparisons, we use task-specific validation thresholds: 85\% accuracy for sparse parity and 0.90 $R^2$ for regression.
 
 \section{Results}
 
