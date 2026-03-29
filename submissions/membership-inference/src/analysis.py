@@ -8,7 +8,7 @@ import json
 import os
 import numpy as np
 from scipy import stats
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 
 try:
     import matplotlib
@@ -43,6 +43,8 @@ def compute_correlations(results: List[Dict[str, Any]]) -> Dict[str, Any]:
 
     # Pearson correlations (handle degenerate case where all values are identical)
     def safe_pearsonr(x: np.ndarray, y: np.ndarray) -> tuple:
+        if len(x) < 2 or len(y) < 2:
+            return (0.0, 1.0)
         if np.std(x) < 1e-10 or np.std(y) < 1e-10:
             return (0.0, 1.0)
         return stats.pearsonr(x, y)
@@ -232,6 +234,7 @@ def generate_report(
     results: List[Dict[str, Any]],
     correlations: Dict[str, Any],
     output_path: str,
+    config: Optional[Dict[str, Any]] = None,
 ) -> None:
     """Generate a markdown summary report.
 
@@ -240,6 +243,22 @@ def generate_report(
         correlations: Correlation analysis results.
         output_path: Path to write the report.
     """
+    report_config = dict(config) if config is not None else {
+        "n_samples": 500,
+        "n_features": 10,
+        "n_classes": 5,
+        "hidden_widths": [r["hidden_width"] for r in results],
+        "n_shadow_models": 3,
+        "n_repeats": 3,
+        "train_fraction": 0.5,
+    }
+
+    widths = report_config.get("hidden_widths", [r["hidden_width"] for r in results])
+    widths_text = ", ".join(str(w) for w in widths)
+    train_fraction = report_config.get("train_fraction", 0.5)
+    train_pct = int(round(train_fraction * 100))
+    test_pct = 100 - train_pct
+
     lines = [
         "# Membership Inference Scaling Analysis Report",
         "",
@@ -354,12 +373,25 @@ def generate_report(
         "",
         "## Methodology",
         "",
-        "- **Data**: Synthetic Gaussian clusters (500 samples, 10 features, 5 classes)",
-        "- **Target models**: 2-layer MLPs with hidden widths: 16, 32, 64, 128, 256",
-        "- **Shadow models**: 3 per width, same architecture, independent data",
+        (
+            f"- **Data**: Synthetic Gaussian clusters "
+            f"({report_config.get('n_samples', 500)} samples, "
+            f"{report_config.get('n_features', 10)} features, "
+            f"{report_config.get('n_classes', 5)} classes), "
+            f"{train_pct}/{test_pct} train/test split"
+        ),
+        f"- **Target models**: 2-layer MLPs with hidden widths: {widths_text}",
+        (
+            f"- **Shadow models**: "
+            f"{report_config.get('n_shadow_models', 3)} per width, "
+            "same architecture, independent data"
+        ),
         "- **Attack classifier**: Logistic regression on softmax prediction vectors",
         "- **Metric**: ROC AUC of membership classification",
-        "- **Repeats**: 3 per width for variance estimation",
+        (
+            f"- **Repeats**: {report_config.get('n_repeats', 3)} per width "
+            "for variance estimation"
+        ),
         "",
         "## Limitations",
         "",
@@ -380,6 +412,8 @@ def save_results(
     results: List[Dict[str, Any]],
     correlations: Dict[str, Any],
     output_path: str,
+    config: Optional[Dict[str, Any]] = None,
+    runtime: Optional[Dict[str, str]] = None,
 ) -> None:
     """Save full results to JSON.
 
@@ -388,20 +422,25 @@ def save_results(
         correlations: Correlation analysis results.
         output_path: Path to write JSON output.
     """
+    output_config = dict(config) if config is not None else {
+        "n_samples": 500,
+        "n_features": 10,
+        "n_classes": 5,
+        "hidden_widths": [r["hidden_width"] for r in results],
+        "n_shadow_models": 3,
+        "n_repeats": 3,
+        "seed": 42,
+        "train_fraction": 0.5,
+    }
+
     output = {
         "experiment": "membership_inference_scaling",
-        "config": {
-            "n_samples": 500,
-            "n_features": 10,
-            "n_classes": 5,
-            "hidden_widths": [r["hidden_width"] for r in results],
-            "n_shadow_models": 3,
-            "n_repeats": 3,
-            "seed": 42,
-        },
+        "config": output_config,
         "results": results,
         "correlations": correlations,
     }
+    if runtime is not None:
+        output["runtime"] = dict(runtime)
 
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     with open(output_path, "w") as f:

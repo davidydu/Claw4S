@@ -137,3 +137,36 @@ def test_save_results_creates_valid_json():
         assert "correlations" in data
         assert "config" in data
         assert len(data["results"]) == 3
+
+
+def test_compute_correlations_single_width_is_safe():
+    """Single-width input should not crash Pearson correlation computation."""
+    single = _make_mock_results()[:1]
+    corrs = compute_correlations(single)
+    for key in ("auc_vs_log_params", "auc_vs_overfit_gap", "gap_vs_log_params"):
+        assert corrs[key]["r"] == 0.0
+        assert corrs[key]["p"] == 1.0
+
+
+def test_save_results_uses_supplied_config():
+    """save_results should preserve run-specific config instead of hardcoded defaults."""
+    results = _make_mock_results()
+    corrs = compute_correlations(results)
+    custom_config = {
+        "n_samples": 600,
+        "n_features": 12,
+        "n_classes": 3,
+        "hidden_widths": [16, 64, 256],
+        "n_shadow_models": 5,
+        "n_repeats": 7,
+        "seed": 123,
+        "train_fraction": 0.4,
+    }
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        path = os.path.join(tmpdir, "results.json")
+        save_results(results, corrs, path, config=custom_config)
+        with open(path) as f:
+            data = json.load(f)
+
+    assert data["config"] == custom_config

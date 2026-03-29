@@ -52,7 +52,15 @@ Execute the full membership inference scaling analysis:
 .venv/bin/python run.py
 ```
 
-Expected output: The script prints progress for each of 5 model widths (16, 32, 64, 128, 256), showing attack AUC and overfitting gap per width. Final line: `Done in <N>s`. Files `results/results.json` and `results/report.md` are created.
+Expected output: The script prints a `Config:` line followed by progress for each model width, showing attack AUC and overfitting gap. Final line: `Done in <N>s`. Files `results/results.json` and `results/report.md` are created.
+
+To run a custom configuration (recommended for extension studies), use CLI flags instead of editing source files:
+
+```bash
+.venv/bin/python run.py --widths 32,64,128 --n-repeats 5 --n-shadow 4 --seed 123 --output-dir results_custom
+```
+
+Expected output: same workflow, but with your custom widths/repeats/shadow count and artifacts written to `results_custom/`.
 
 This will:
 1. Generate synthetic Gaussian cluster data (500 samples, 10 features, 5 classes)
@@ -74,6 +82,12 @@ Check that results were produced correctly:
 
 Expected: Prints per-width AUC and gap summary, correlation analysis, and `Validation passed.`
 
+If you used a custom output directory, validate that directory explicitly:
+
+```bash
+.venv/bin/python validate.py --results-path results_custom/results.json
+```
+
 ## Step 5: Review the Report
 
 Read the generated report:
@@ -84,11 +98,23 @@ cat results/report.md
 
 Review the results table and key findings about whether overfitting gap or model size appears more predictive in this run.
 
+## Step 6: Determinism Check (Optional but Recommended)
+
+Run the same command twice with the same seed and compare the JSON hash:
+
+```bash
+shasum -a 256 results/results.json
+```
+
+Expected: identical hash values across repeated runs with unchanged config and code.
+
 ## How to Extend
 
-- **Change model sizes**: Edit `HIDDEN_WIDTHS` in `src/models.py` (list of integers).
-- **Change data complexity**: Edit `N_SAMPLES`, `N_FEATURES`, `N_CLASSES` in `src/data.py`.
-- **Add more shadow models**: Edit `N_SHADOW_MODELS` in `src/attack.py` (default: 3).
+- **Change model sizes**: `--widths 16,32,64,128,256,512`
+- **Change repeats**: `--n-repeats 5`
+- **Change shadow model count**: `--n-shadow 6`
+- **Change synthetic data scale**: `--n-samples 1000 --n-features 20 --n-classes 10`
+- **Change train/test split**: `--train-fraction 0.6`
+- **Write outputs to separate runs**: `--output-dir results_variant_a`
 - **Change attack classifier**: Replace `LogisticRegression` in `src/attack.py:train_attack_classifier()` with any sklearn classifier.
 - **Use real data**: Replace `generate_gaussian_clusters()` in `src/data.py` with a real dataset loader (ensure same return signature: X, y arrays).
-- **Change number of repeats**: Edit `n_repeats` parameter in `run_attack_for_width()` calls in `run.py`.
