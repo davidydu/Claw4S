@@ -75,6 +75,7 @@ strong-dp           5.0        3.4 0.709+/-0.118 0.518+/-0.004 0.521+/-0.017
 
 **Generated files:**
 - `results/results.json` — all per-trial and aggregated metrics
+  - Includes reproducibility metadata: seeds, dataset shape, model/training hyperparameters, DP accounting parameters (`max_grad_norm`, `delta`)
 - `results/summary.txt` — human-readable summary table
 - `results/attack_auc_vs_privacy.png` — bar chart of attack AUC per privacy level
 - `results/privacy_utility_leakage.png` — three-panel privacy-utility-leakage triad
@@ -94,6 +95,7 @@ Total runs: 12 (expected 12)
 Non-private attack AUC:  0.664
 Strong-DP attack AUC:    0.518
 AUC reduction:           0.146
+DP epsilon means: weak=53.46, moderate=9.43, strong=3.38
 Non-private test accuracy: 0.792
 Plot exists: results/attack_auc_vs_privacy.png
 Plot exists: results/privacy_utility_leakage.png

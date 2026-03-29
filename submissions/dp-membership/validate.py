@@ -28,6 +28,28 @@ warnings = []
 
 # --- Check metadata ---
 meta = data.get("metadata", {})
+required_meta_keys = [
+    "n_privacy_levels",
+    "n_seeds",
+    "seeds",
+    "n_samples",
+    "n_features",
+    "n_classes",
+    "hidden_dim",
+    "epochs",
+    "batch_size",
+    "lr",
+    "n_shadows",
+    "max_grad_norm",
+    "cluster_std",
+    "delta",
+    "total_runs",
+    "elapsed_seconds",
+]
+for key in required_meta_keys:
+    if key not in meta:
+        errors.append(f"Missing metadata key: {key}")
+
 n_levels = meta.get("n_privacy_levels", 0)
 n_seeds = meta.get("n_seeds", 0)
 n_runs = meta.get("total_runs", 0)
@@ -48,7 +70,17 @@ per_trial = data.get("per_trial", [])
 if len(per_trial) != n_runs:
     errors.append(f"Expected {n_runs} trial results, got {len(per_trial)}")
 
+seen_pairs = set()
+level_to_seeds: dict[str, set[int]] = {}
 for trial in per_trial:
+    level = trial.get("privacy_level")
+    seed = trial.get("seed")
+    pair = (level, seed)
+    if pair in seen_pairs:
+        errors.append(f"Duplicate trial for level={level}, seed={seed}")
+    seen_pairs.add(pair)
+    level_to_seeds.setdefault(level, set()).add(seed)
+
     auc = trial.get("attack_auc", -1)
     if not (0.0 <= auc <= 1.0):
         errors.append(f"Invalid attack AUC {auc} for {trial['privacy_level']} seed={trial['seed']}")
@@ -63,6 +95,23 @@ expected_levels = ["non-private", "weak-dp", "moderate-dp", "strong-dp"]
 for level in expected_levels:
     if level not in agg:
         errors.append(f"Missing aggregated results for {level}")
+    seeds_for_level = level_to_seeds.get(level, set())
+    if len(seeds_for_level) != n_seeds:
+        errors.append(
+            f"Expected {n_seeds} unique seeds for {level}, got {len(seeds_for_level)}"
+        )
+
+# --- Check epsilon ordering consistency ---
+if all(level in agg for level in ["weak-dp", "moderate-dp", "strong-dp"]):
+    weak_eps = agg["weak-dp"]["metrics"]["epsilon"]["mean"]
+    moderate_eps = agg["moderate-dp"]["metrics"]["epsilon"]["mean"]
+    strong_eps = agg["strong-dp"]["metrics"]["epsilon"]["mean"]
+    print(f"DP epsilon means: weak={weak_eps:.2f}, moderate={moderate_eps:.2f}, strong={strong_eps:.2f}")
+    if not (weak_eps > moderate_eps > strong_eps):
+        errors.append(
+            "Expected epsilon ordering weak-dp > moderate-dp > strong-dp, "
+            f"got weak={weak_eps:.2f}, moderate={moderate_eps:.2f}, strong={strong_eps:.2f}"
+        )
 
 # --- Check thesis: strong DP should reduce AUC toward 0.5 ---
 if "non-private" in agg and "strong-dp" in agg:
@@ -73,7 +122,7 @@ if "non-private" in agg and "strong-dp" in agg:
     print(f"AUC reduction:           {np_auc - sd_auc:.3f}")
 
     if sd_auc >= np_auc:
-        warnings.append(f"Strong DP AUC ({sd_auc:.3f}) >= non-private AUC ({np_auc:.3f}); expected reduction")
+        errors.append(f"Strong DP AUC ({sd_auc:.3f}) >= non-private AUC ({np_auc:.3f}); expected reduction")
 
     if sd_auc > 0.65:
         warnings.append(f"Strong DP AUC ({sd_auc:.3f}) is above 0.65; expected closer to 0.5")

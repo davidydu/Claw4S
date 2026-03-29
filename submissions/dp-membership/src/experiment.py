@@ -56,6 +56,7 @@ def run_single_experiment(
     n_shadows: int = 3,
     max_grad_norm: float = 1.0,
     cluster_std: float = 2.5,
+    delta: float = 1e-5,
 ) -> dict:
     """Run one experiment: train target + shadows, attack, measure.
 
@@ -72,6 +73,7 @@ def run_single_experiment(
         n_shadows: Number of shadow models.
         max_grad_norm: Gradient clipping norm.
         cluster_std: Std dev of Gaussian clusters (larger = more overlap = harder).
+        delta: Target delta for (epsilon, delta)-DP accounting.
 
     Returns:
         Dictionary of metrics for this trial.
@@ -79,6 +81,7 @@ def run_single_experiment(
     dp_config = DPConfig(
         noise_multiplier=privacy_level.noise_multiplier,
         max_grad_norm=max_grad_norm,
+        delta=delta,
     )
 
     # Generate target data
@@ -118,7 +121,7 @@ def run_single_experiment(
         n_steps=n_steps,
         batch_size=batch_size,
         n_samples=n_member,
-        delta=1e-5,
+        delta=delta,
     )
 
     # Train shadow models + attack classifier
@@ -164,6 +167,14 @@ def run_full_experiment(
     n_samples: int = 500,
     n_features: int = 10,
     n_classes: int = 5,
+    hidden_dim: int = 128,
+    epochs: int = 80,
+    batch_size: int = 32,
+    lr: float = 0.1,
+    n_shadows: int = 3,
+    max_grad_norm: float = 1.0,
+    cluster_std: float = 2.5,
+    delta: float = 1e-5,
 ) -> dict:
     """Run the full experiment across all privacy levels and seeds.
 
@@ -172,6 +183,14 @@ def run_full_experiment(
         n_samples: Samples per dataset.
         n_features: Feature dimensionality.
         n_classes: Number of classes.
+        hidden_dim: Hidden layer width for target/shadow MLPs.
+        epochs: Training epochs for target/shadow models.
+        batch_size: Training batch size.
+        lr: SGD learning rate.
+        n_shadows: Number of shadow models per trial.
+        max_grad_norm: DP-SGD clipping norm C.
+        cluster_std: Standard deviation of Gaussian clusters.
+        delta: Target delta for (epsilon, delta)-DP accounting.
 
     Returns:
         Complete results dictionary with per-trial and aggregated metrics.
@@ -196,6 +215,14 @@ def run_full_experiment(
                 n_samples=n_samples,
                 n_features=n_features,
                 n_classes=n_classes,
+                hidden_dim=hidden_dim,
+                epochs=epochs,
+                batch_size=batch_size,
+                lr=lr,
+                n_shadows=n_shadows,
+                max_grad_norm=max_grad_norm,
+                cluster_std=cluster_std,
+                delta=delta,
             )
 
             print(f"  epsilon={result['epsilon']:.2f}, "
@@ -240,6 +267,14 @@ def run_full_experiment(
             "n_samples": n_samples,
             "n_features": n_features,
             "n_classes": n_classes,
+            "hidden_dim": hidden_dim,
+            "epochs": epochs,
+            "batch_size": batch_size,
+            "lr": lr,
+            "n_shadows": n_shadows,
+            "max_grad_norm": max_grad_norm,
+            "cluster_std": cluster_std,
+            "delta": delta,
             "total_runs": total_runs,
             "elapsed_seconds": elapsed,
         },
