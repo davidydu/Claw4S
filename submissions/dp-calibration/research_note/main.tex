@@ -1,0 +1,106 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{enumitem}
+
+\title{Comparative Analysis of Differential Privacy Accounting\\Methods for Gaussian Mechanism Noise Calibration}
+\author{Yun Du \and Lina Ji \and Claw\thanks{AI agent, \texttt{the-mad-lobster}}}
+\date{March 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+We present a systematic comparison of four differential privacy (DP) accounting methods for calibrating noise in the Gaussian mechanism: naive composition, advanced composition, R\'enyi DP (RDP), and Gaussian DP (GDP/f-DP). Across 72 parameter configurations spanning noise multipliers $\sigma \in [0.1, 10]$, composition steps $T \in [10, 10{,}000]$, and failure probabilities $\delta \in [10^{-7}, 10^{-5}]$, we find that GDP accounting yields the tightest $\varepsilon$-bounds in 90.3\% of configurations, with RDP as a consistent runner-up (average tightness ratio 1.45$\times$, median 1.28$\times$). Naive and advanced composition are 10$\times$ and 9.9$\times$ looser on average, respectively. Advanced composition improves over naive only in the highest-noise, largest-$T$ corner of our grid ($\sigma=10$, $T \ge 1000$), a limitation underappreciated in practice. To improve independent reproducibility, each run emits a deterministic SHA256 digest of the full result tensor and runtime package-version metadata.
+\end{abstract}
+
+\section{Introduction}
+
+A central challenge in deploying differential privacy is \emph{noise calibration}: given a target privacy budget $(\varepsilon, \delta)$, what noise multiplier $\sigma$ suffices for the Gaussian mechanism over $T$ composition steps? The answer depends critically on the \emph{accounting method} used to track cumulative privacy loss.
+
+Four major accounting frameworks exist, each with different tightness--complexity tradeoffs:
+\begin{enumerate}[nosep]
+    \item \textbf{Naive composition}: $\varepsilon_{\text{total}} = T \cdot \varepsilon_{\text{step}}$ \cite{dwork2006calibrating}
+    \item \textbf{Advanced composition}: $\varepsilon_{\text{total}} = \sqrt{2T \ln(1/\delta')} \cdot \varepsilon_{\text{step}} + T \varepsilon_{\text{step}}(e^{\varepsilon_{\text{step}}} - 1)$ \cite{dwork2010boosting}
+    \item \textbf{R\'enyi DP (RDP)}: compose via R\'enyi divergence, optimize over order $\alpha$ \cite{mironov2017renyi}
+    \item \textbf{Gaussian DP (GDP/f-DP)}: CLT-based composition with $\mu_{\text{total}} = \sqrt{T}/\sigma$ \cite{dong2019gaussian}
+\end{enumerate}
+
+While prior work has compared subsets of these methods, no systematic grid-based comparison quantifies the \emph{tightness ratio} (method $\varepsilon$ / best $\varepsilon$) across the full practically-relevant parameter space. We provide this comparison as a pure mathematical analysis requiring no model training.
+
+\section{Methods}
+
+\subsection{Parameter Grid}
+We evaluate all combinations of:
+\begin{itemize}[nosep]
+    \item Noise multiplier: $\sigma \in \{0.1, 0.5, 1.0, 2.0, 5.0, 10.0\}$
+    \item Composition steps: $T \in \{10, 100, 1{,}000, 10{,}000\}$
+    \item Failure probability: $\delta \in \{10^{-5}, 10^{-6}, 10^{-7}\}$
+\end{itemize}
+yielding 72 configurations $\times$ 4 methods = 288 total computations.
+
+\subsection{Implementation Details}
+\textbf{Naive:} $\varepsilon_{\text{step}} = \sqrt{2\ln(1.25/\delta)}/\sigma$, linearly composed.
+
+\textbf{Advanced:} We optimize over the allocation of $\delta$ between per-step budget and composition slack, taking $\min(\varepsilon_{\text{adv}}, \varepsilon_{\text{naive}})$ since the naive bound always holds.
+
+\textbf{RDP:} We compute RDP at orders $\alpha \in \{2, 4, 8, 16, 32, 64, 128, 256\}$ using Proposition~3 of~\cite{mironov2017renyi}, compose linearly in the R\'enyi domain, and convert using the tight conversion of~\cite{balle2020hypothesis}.
+
+\textbf{GDP:} Each step is $\mu$-GDP with $\mu = 1/\sigma$. After $T$ compositions, $\mu_{\text{total}} = \sqrt{T}/\sigma$ by the CLT. We numerically solve $\delta(\varepsilon) = \Phi(-\varepsilon/\mu + \mu/2) - e^{\varepsilon}\Phi(-\varepsilon/\mu - \mu/2)$ for $\varepsilon$ via binary search with log-space arithmetic to handle large arguments.
+
+\textbf{Reproducibility manifest:} Each run records Python/library versions and a deterministic SHA256 digest over all per-configuration outputs (method $\varepsilon$, best method, and tightness ratios). On the pinned grid in this note, the digest is \texttt{1d93cec82a3e3e76bb62a347d178fc25ca1a609b9329b1843ebe533b21c70217}.
+
+\section{Results}
+
+\subsection{Overall Method Ranking}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lrrr}
+\toprule
+\textbf{Method} & \textbf{Wins} & \textbf{Win \%} & \textbf{Avg Tightness} \\
+\midrule
+GDP (f-DP)  & 65 & 90.3\% & 1.01$\times$ \\
+Naive       &  7 &  9.7\% & 10.6$\times$ \\
+RDP         &  0 &  0.0\% & 1.45$\times$ \\
+Advanced    &  0 &  0.0\% & 9.93$\times$ \\
+\bottomrule
+\end{tabular}
+\caption{Method win counts and average tightness ratios across 72 configurations. Tightness ratio = method $\varepsilon$ / best $\varepsilon$; lower is better (1.0 = optimal).}
+\label{tab:wins}
+\end{table}
+
+GDP is the tightest method in 90.3\% of configurations (Table~\ref{tab:wins}). RDP is never the outright winner but is consistently close (1.45$\times$ mean, 1.28$\times$ median, 2.02$\times$ 95th percentile), making it a good practical choice when GDP implementation is unavailable.
+
+\subsection{When Does Naive Win?}
+
+Naive composition wins only when $\sigma = 0.1$ (7 out of 72 configs). At very low noise ($\sigma \ll 1$), the per-step $\varepsilon$ is extremely large ($\varepsilon_{\text{step}} \approx 48$), and the asymptotic tightness of RDP and GDP breaks down. In this regime, the Gaussian mechanism provides essentially no privacy, and all methods converge.
+
+\subsection{Advanced Composition Limitations}
+
+A key finding is that advanced composition improves over naive in only 6 of 72 configurations, all at $\sigma = 10$ and $T \ge 1000$. The theorem requires $\varepsilon_{\text{step}} \ll 1$ for the $\sqrt{T}$ improvement to manifest; with $\sigma = 1.0$, the per-step $\varepsilon \approx 4.84$, and the $T \cdot \varepsilon(e^{\varepsilon} - 1)$ term dominates. At the top of our tested noise range, where $\sigma = 10$ gives $\varepsilon_{\text{step}} \approx 0.48$, advanced composition finally becomes meaningfully better than naive.
+
+\subsection{RDP vs GDP Tightness}
+
+GDP uniformly outperforms RDP across all configurations, with the gap widening as $T$ increases: at $T = 100$, RDP is 1.1--1.2$\times$ GDP; at $T = 10{,}000$, the ratio reaches 1.4--1.8$\times$. This advantage stems from GDP's exact CLT-based composition versus RDP's order-optimized but still approximate bound.
+
+\section{Discussion}
+
+\textbf{Practical implications.} For practitioners choosing an accounting method: (1) GDP should be the default for Gaussian mechanisms, especially at large $T$; (2) RDP remains competitive and is easier to extend to non-Gaussian mechanisms; (3) advanced composition only becomes meaningfully better than naive at the top of the tested noise range ($\sigma=10$, $T \ge 1000$); (4) the choice of accounting method can affect the required noise by 2--10$\times$; (5) digest-based run fingerprints help detect silent implementation drift during reproducibility checks.
+
+\textbf{Limitations.} Our analysis assumes (a) the Gaussian mechanism with unit sensitivity, (b) full-batch composition without subsampling, and (c) homogeneous steps. With Poisson subsampling, privacy amplification would tighten all bounds, and the relative ranking might shift. The GDP CLT guarantee is also asymptotic and may be loose for very small $T$.
+
+\begin{thebibliography}{9}
+\bibitem{dwork2006calibrating} C.~Dwork, F.~McSherry, K.~Nissim, A.~Smith. Calibrating noise to sensitivity in private data analysis. \emph{TCC}, 2006.
+\bibitem{dwork2010boosting} C.~Dwork, G.~Rothblum, S.~Vadhan. Boosting and differential privacy. \emph{FOCS}, 2010.
+\bibitem{mironov2017renyi} I.~Mironov. R\'enyi differential privacy. \emph{CSF}, 2017.
+\bibitem{dong2019gaussian} J.~Dong, A.~Roth, W.~Su. Gaussian differential privacy. \emph{JRSS-B}, 2019.
+\bibitem{balle2020hypothesis} B.~Balle, G.~Gaboardi, M.~Zanella-Beguelin. Privacy profiles and amplification by subsampling. \emph{JMLR}, 2020.
+\end{thebibliography}
+
+\end{document}
