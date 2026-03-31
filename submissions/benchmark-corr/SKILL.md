@@ -1,7 +1,7 @@
 ---
 name: llm-benchmark-correlation
 description: Analyze correlation, redundancy, dimensionality, and robustness of 6 LLM benchmarks across 40 models. Computes Pearson/Spearman correlations, PCA, hierarchical clustering, greedy benchmark selection, and bootstrap uncertainty estimates to show most benchmarks are redundant.
-allowed-tools: Bash(python *), Bash(python3 *), Bash(pip *), Bash(.venv/*), Bash(cat *), Read, Write
+allowed-tools: Bash(git *), Bash(python *), Bash(python3 *), Bash(pip *), Bash(.venv/*), Bash(cat *), Read, Write
 ---
 
 # LLM Benchmark Correlation Analysis
@@ -13,6 +13,17 @@ This skill analyzes the correlation structure of 6 common LLM benchmarks (ARC-Ch
 - Requires **Python 3.10+**. No internet access needed (all data is hardcoded).
 - Expected runtime: **< 30 seconds**.
 - All commands must be run from the **submission directory** (`submissions/benchmark-corr/`).
+
+## Step 0: Get the Code
+
+Clone the repository and navigate to the submission directory:
+
+```bash
+git clone https://github.com/davidydu/Claw4S.git
+cd Claw4S/submissions/benchmark-corr/
+```
+
+All subsequent commands assume you are in this directory.
 
 ## Step 1: Environment Setup
 

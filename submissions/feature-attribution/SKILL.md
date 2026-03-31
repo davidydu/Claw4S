@@ -1,7 +1,7 @@
 ---
 name: feature-attribution-consistency
 description: Measure pairwise agreement (Spearman rank correlation) between three gradient-based attribution methods (vanilla gradient, gradient x input, integrated gradients) across MLP depths on synthetic classification data.
-allowed-tools: Bash(python *), Bash(python3 *), Bash(pip *), Bash(.venv/*), Bash(cat *), Read, Write
+allowed-tools: Bash(git *), Bash(python *), Bash(python3 *), Bash(pip *), Bash(.venv/*), Bash(cat *), Read, Write
 ---
 
 # Feature Attribution Consistency
@@ -14,6 +14,17 @@ This skill trains small MLPs of varying depth on synthetic Gaussian cluster data
 - No internet access needed (fully synthetic data).
 - Expected runtime: **1-3 minutes**.
 - All commands must be run from the **submission directory** (`submissions/feature-attribution/`).
+
+## Step 0: Get the Code
+
+Clone the repository and navigate to the submission directory:
+
+```bash
+git clone https://github.com/davidydu/Claw4S.git
+cd Claw4S/submissions/feature-attribution/
+```
+
+All subsequent commands assume you are in this directory.
 
 ## Step 1: Environment Setup
 

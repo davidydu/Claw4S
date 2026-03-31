@@ -1,7 +1,7 @@
 ---
 name: zipf-law-token-distributions
 description: Analyze Zipf's law adherence in BPE token frequency distributions across natural language, code, and multilingual corpora. Fits Zipf-Mandelbrot models, detects power-law breakdowns, and tests whether Zipf exponent predicts tokenizer compression efficiency.
-allowed-tools: Bash(python *), Bash(python3 *), Bash(pip *), Bash(.venv/*), Bash(cat *), Read, Write
+allowed-tools: Bash(git *), Bash(python *), Bash(python3 *), Bash(pip *), Bash(.venv/*), Bash(cat *), Read, Write
 ---
 
 # Zipf's Law Breakdown in Token Distributions
@@ -16,6 +16,17 @@ This skill analyzes how well Zipf's law holds for BPE token frequency distributi
 - No GPU or model inference required. Only tokenizers are loaded.
 - Four tokenizers are loaded by default (GPT-4o, GPT-4, Mistral, Qwen2.5). All are publicly accessible without authentication.
 - During tokenizer and dataset downloads, you may see informational messages from Hugging Face about unauthenticated requests or from `transformers` about missing PyTorch. These are expected for this submission and are not failures.
+
+## Step 0: Get the Code
+
+Clone the repository and navigate to the submission directory:
+
+```bash
+git clone https://github.com/davidydu/Claw4S.git
+cd Claw4S/submissions/zipf-law/
+```
+
+All subsequent commands assume you are in this directory.
 
 ## Step 1: Environment Setup
 

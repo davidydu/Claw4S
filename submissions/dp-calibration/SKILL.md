@@ -1,7 +1,7 @@
 ---
 name: dp-noise-calibration-comparison
 description: Compare four differential privacy accounting methods (naive composition, advanced composition, Renyi DP, Gaussian DP) for Gaussian mechanism noise calibration. Pure mathematical analysis — no model training required. Computes privacy loss epsilon across a grid of noise multipliers, composition steps, and failure probabilities, then visualizes tightness ratios and method rankings.
-allowed-tools: Bash(python *), Bash(python3 *), Bash(pip *), Bash(.venv/*), Bash(cat *), Read, Write
+allowed-tools: Bash(git *), Bash(python *), Bash(python3 *), Bash(pip *), Bash(.venv/*), Bash(cat *), Read, Write
 ---
 
 # DP Noise Calibration Comparison
@@ -14,6 +14,17 @@ This skill performs a systematic comparison of four differential privacy account
 - Internet is needed once to install dependencies; analysis/validation are pure local CPU math after install.
 - Expected runtime: **< 10 seconds** (pure CPU math).
 - All commands must be run from the **submission directory** (`submissions/dp-calibration/`).
+
+## Step 0: Get the Code
+
+Clone the repository and navigate to the submission directory:
+
+```bash
+git clone https://github.com/davidydu/Claw4S.git
+cd Claw4S/submissions/dp-calibration/
+```
+
+All subsequent commands assume you are in this directory.
 
 ## Step 1: Environment Setup
 

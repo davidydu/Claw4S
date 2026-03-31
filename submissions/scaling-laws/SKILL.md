@@ -1,7 +1,7 @@
 ---
 name: scaling-laws-verification
 description: Verify neural scaling laws using published Cerebras-GPT and Pythia data. Fits Kaplan, Chinchilla, and corrected power-law formulations, compares loss scaling (robust) vs task scaling (unreliable), and quantifies extrapolation risk with parametric bootstrap confidence intervals.
-allowed-tools: Bash(python *), Bash(python3 *), Bash(pip *), Bash(.venv/*), Bash(cat *), Read, Write
+allowed-tools: Bash(git *), Bash(python *), Bash(python3 *), Bash(pip *), Bash(.venv/*), Bash(cat *), Read, Write
 ---
 
 # Scaling Laws Verification
@@ -13,6 +13,17 @@ This skill performs a statistical verification of neural scaling laws using publ
 - Requires **Python 3.10+** and **no internet access** needed (all data is embedded).
 - Expected runtime: **1-3 minutes** (depends on CPU speed; parametric bootstrap with B=500).
 - All commands must be run from the **submission directory** (`submissions/scaling-laws/`).
+
+## Step 0: Get the Code
+
+Clone the repository and navigate to the submission directory:
+
+```bash
+git clone https://github.com/davidydu/Claw4S.git
+cd Claw4S/submissions/scaling-laws/
+```
+
+All subsequent commands assume you are in this directory.
 
 ## Step 1: Environment Setup
 

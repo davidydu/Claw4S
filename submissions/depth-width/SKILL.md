@@ -1,7 +1,7 @@
 ---
 name: depth-vs-width-tradeoff
 description: Systematically compare deep-narrow vs shallow-wide MLPs under fixed parameter budgets. Sweeps depth (1-8 layers) vs width across sparse parity (compositional) and smooth regression tasks to determine which architectural dimension matters more for different task types.
-allowed-tools: Bash(python *), Bash(python3 *), Bash(pip *), Bash(.venv/*), Bash(cat *), Read, Write
+allowed-tools: Bash(git *), Bash(python *), Bash(python3 *), Bash(pip *), Bash(.venv/*), Bash(cat *), Read, Write
 ---
 
 # Depth vs Width Tradeoff in MLPs
@@ -18,6 +18,17 @@ This skill runs a controlled experiment comparing deep-narrow vs shallow-wide ML
 ```bash
 rm -rf .venv results
 ```
+
+## Step 0: Get the Code
+
+Clone the repository and navigate to the submission directory:
+
+```bash
+git clone https://github.com/davidydu/Claw4S.git
+cd Claw4S/submissions/depth-width/
+```
+
+All subsequent commands assume you are in this directory.
 
 ## Step 1: Environment Setup
 

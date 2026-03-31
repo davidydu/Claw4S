@@ -1,7 +1,7 @@
 ---
 name: benford-law-neural-networks
 description: Analyze whether the leading digits of trained neural network weight values follow Benford's Law. Trains tiny MLPs on modular arithmetic and sine regression, saves weight snapshots across training, and tests conformity using chi-squared and MAD statistics.
-allowed-tools: Bash(python *), Bash(python3 *), Bash(pip *), Bash(.venv/*), Bash(cat *), Read, Write
+allowed-tools: Bash(git *), Bash(python *), Bash(python3 *), Bash(pip *), Bash(.venv/*), Bash(cat *), Read, Write
 ---
 
 # Benford's Law in Trained Neural Networks
@@ -16,6 +16,17 @@ This skill investigates whether trained neural network weights obey Benford's La
 - Expected runtime (default full run): **~2-3 minutes** on a modern machine.
 - Optional smoke test runtime (`--quick --skip-plots`): **~5-15 seconds**.
 - All commands must be run from the **submission directory** (`submissions/benford/`).
+
+## Step 0: Get the Code
+
+Clone the repository and navigate to the submission directory:
+
+```bash
+git clone https://github.com/davidydu/Claw4S.git
+cd Claw4S/submissions/benford/
+```
+
+All subsequent commands assume you are in this directory.
 
 ## Step 1: Environment Setup
 

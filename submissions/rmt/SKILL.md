@@ -1,7 +1,7 @@
 ---
 name: rmt-weight-analysis
 description: Analyze eigenvalue spectra of trained MLP weight matrices against the Marchenko-Pastur distribution from Random Matrix Theory. Trains tiny MLPs on modular arithmetic (mod 97) and polynomial regression, then measures how trained weights deviate from random predictions using KS statistics, outlier fractions, and spectral norm ratios.
-allowed-tools: Bash(python *), Bash(python3 *), Bash(pip *), Bash(.venv/*), Bash(cat *), Read, Write
+allowed-tools: Bash(git *), Bash(python *), Bash(python3 *), Bash(pip *), Bash(.venv/*), Bash(cat *), Read, Write
 ---
 
 # Random Matrix Theory Analysis of Neural Network Weights
@@ -13,6 +13,17 @@ This skill trains tiny MLPs on synthetic tasks and analyzes their weight matrix 
 - Requires **Python 3.10+**. No internet access needed (all data is synthetic).
 - Expected runtime: **1-3 minutes** on CPU.
 - All commands must be run from the **submission directory** (`submissions/rmt/`).
+
+## Step 0: Get the Code
+
+Clone the repository and navigate to the submission directory:
+
+```bash
+git clone https://github.com/davidydu/Claw4S.git
+cd Claw4S/submissions/rmt/
+```
+
+All subsequent commands assume you are in this directory.
 
 ## Step 1: Environment Setup
 

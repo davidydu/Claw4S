@@ -20,7 +20,18 @@ whether clipping dominates the observed degradation on this synthetic task.
 
 ## Steps
 
-### Step 1: Set up environment
+### Step 0: Get the Code
+
+Clone the repository and navigate to the submission directory:
+
+```bash
+git clone https://github.com/davidydu/Claw4S.git
+cd Claw4S/submissions/dp-sgd/
+```
+
+All subsequent commands assume you are in this directory.
+
+## Step 1: Set up environment
 
 ```bash
 cd submissions/dp-sgd

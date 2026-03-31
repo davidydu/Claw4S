@@ -1,7 +1,7 @@
 ---
 name: optimizer-grokking-landscape
 description: Map the grokking landscape across optimizers (SGD, SGD+momentum, Adam, AdamW) on modular arithmetic (addition mod 97). Sweeps optimizer x learning_rate x weight_decay (36 configs, 750 epochs each) to identify delayed grokking, direct generalization, memorization, and failure modes. Produces heatmaps, training curves, and a summary report.
-allowed-tools: Bash(python *), Bash(python3 *), Bash(pip *), Bash(.venv/*), Bash(cat *), Read, Write
+allowed-tools: Bash(git *), Bash(python *), Bash(python3 *), Bash(pip *), Bash(.venv/*), Bash(cat *), Read, Write
 ---
 
 # Optimizer Grokking Landscape
@@ -13,6 +13,17 @@ This skill reproduces the grokking phenomenon (Power et al., 2022) and maps whic
 - Requires **Python 3.10+**. No internet access needed (all data is generated synthetically).
 - Expected runtime: **4-15 minutes** (CPU only, no GPU required). Runtime depends on CPU speed and machine load.
 - All commands must be run from the **submission directory** (`submissions/optimizer-grokking/`).
+
+## Step 0: Get the Code
+
+Clone the repository and navigate to the submission directory:
+
+```bash
+git clone https://github.com/davidydu/Claw4S.git
+cd Claw4S/submissions/optimizer-grokking/
+```
+
+All subsequent commands assume you are in this directory.
 
 ## Step 1: Environment Setup
 

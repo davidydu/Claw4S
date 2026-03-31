@@ -1,7 +1,7 @@
 ---
 name: symmetry-breaking-neural-networks
 description: Study how identical incoming hidden weights evolve during neural network training. Initialize 2-layer ReLU MLPs with symmetric first-layer rows, keep the readout layer on seeded Kaiming initialization, add controlled perturbations (epsilon sweep from 0 to 0.1), train on modular addition mod 97 with SGD, and measure symmetry decay via pairwise cosine similarity. Reveals that mini-batch SGD rapidly amplifies this asymmetry, breaking speed scales with network width, and only large perturbations (epsilon = 0.1) yield task-useful representations.
-allowed-tools: Bash(python *), Bash(python3 *), Bash(pip *), Bash(.venv/*), Bash(cat *), Read, Write
+allowed-tools: Bash(git *), Bash(python *), Bash(python3 *), Bash(pip *), Bash(.venv/*), Bash(cat *), Read, Write
 ---
 
 # Symmetry Breaking in Neural Network Training
@@ -13,6 +13,17 @@ This skill trains 2-layer ReLU MLPs whose incoming hidden weights start symmetri
 - Requires **Python 3.10+**. No internet access needed (all data is generated synthetically).
 - Verified runtime: **about 10 minutes** on CPU for the full 20-run sweep (`run.py`) and about **24 seconds** for the unit tests on the March 28, 2026 audit machine.
 - All commands must be run from the **submission directory** (`submissions/symmetry-breaking/`).
+
+## Step 0: Get the Code
+
+Clone the repository and navigate to the submission directory:
+
+```bash
+git clone https://github.com/davidydu/Claw4S.git
+cd Claw4S/submissions/symmetry-breaking/
+```
+
+All subsequent commands assume you are in this directory.
 
 ## Step 1: Environment Setup
 

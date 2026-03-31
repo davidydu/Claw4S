@@ -11,6 +11,17 @@ Map how adversarial example transferability between neural networks depends on t
 - CPU only; no GPU required
 - Runtime: ~20-25 seconds total on verified CPU runs
 
+## Step 0: Get the Code
+
+Clone the repository and navigate to the submission directory:
+
+```bash
+git clone https://github.com/davidydu/Claw4S.git
+cd Claw4S/submissions/transferability/
+```
+
+All subsequent commands assume you are in this directory.
+
 ## Step 1: Create virtual environment
 
 ```bash

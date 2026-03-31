@@ -1,7 +1,7 @@
 ---
 name: membership-inference-scaling
 description: Measure how membership inference attack success scales with model size and overfitting gap. Trains tiny MLPs (16-256 hidden units), applies the Shokri et al. (2017) shadow model attack, and analyzes whether attack AUC correlates more strongly with generalization gap or raw model capacity.
-allowed-tools: Bash(python *), Bash(python3 *), Bash(pip *), Bash(.venv/*), Bash(cat *), Read, Write
+allowed-tools: Bash(git *), Bash(python *), Bash(python3 *), Bash(pip *), Bash(.venv/*), Bash(cat *), Read, Write
 ---
 
 # Membership Inference Scaling Analysis
@@ -16,6 +16,17 @@ model approach from Shokri et al. (2017).
 - Expected runtime: **under 30 seconds** (excluding venv setup).
 - All commands must be run from the **submission directory** (`submissions/membership-inference/`).
 - No internet access or API keys required (uses synthetic data).
+
+## Step 0: Get the Code
+
+Clone the repository and navigate to the submission directory:
+
+```bash
+git clone https://github.com/davidydu/Claw4S.git
+cd Claw4S/submissions/membership-inference/
+```
+
+All subsequent commands assume you are in this directory.
 
 ## Step 1: Environment Setup
 

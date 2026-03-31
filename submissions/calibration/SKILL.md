@@ -1,7 +1,7 @@
 ---
 name: calibration-under-distribution-shift
 description: Train 2-layer MLPs of varying widths on synthetic Gaussian clusters and measure Expected Calibration Error (ECE), Brier score, and overconfidence gaps on in-distribution vs shifted test sets. Produces a reproducible empirical comparison of how calibration changes with model width under covariate shift.
-allowed-tools: Bash(python *), Bash(python3 *), Bash(pip *), Bash(.venv/*), Bash(cat *), Read, Write
+allowed-tools: Bash(git *), Bash(python *), Bash(python3 *), Bash(pip *), Bash(.venv/*), Bash(cat *), Read, Write
 ---
 
 # Calibration Under Distribution Shift
@@ -15,6 +15,17 @@ This skill investigates how neural network calibration changes under distributio
   The core experiment is CPU-only and typically finishes in seconds
   (15 training runs, 75 width-shift-seed evaluations).
 - All commands must be run from the **submission directory** (`submissions/calibration/`).
+
+## Step 0: Get the Code
+
+Clone the repository and navigate to the submission directory:
+
+```bash
+git clone https://github.com/davidydu/Claw4S.git
+cd Claw4S/submissions/calibration/
+```
+
+All subsequent commands assume you are in this directory.
 
 ## Step 1: Environment Setup
 

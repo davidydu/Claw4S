@@ -1,7 +1,7 @@
 ---
 name: grokking-phase-diagrams
 description: Train tiny MLPs on modular arithmetic (addition mod 97) and map the grokking phase diagram as a function of weight decay, dataset fraction, and model width. Classifies each training run into four phases (confusion, memorization, grokking, comprehension) and generates heatmap visualizations.
-allowed-tools: Bash(python *), Bash(python3 *), Bash(pip *), Bash(.venv/*), Bash(cat *), Read, Write
+allowed-tools: Bash(git *), Bash(python *), Bash(python3 *), Bash(pip *), Bash(.venv/*), Bash(cat *), Read, Write
 ---
 
 # Grokking Phase Diagrams
@@ -15,6 +15,17 @@ This skill trains tiny neural networks on modular arithmetic and studies the "gr
 - **No GPU needed** — models are tiny (<20K parameters), trained on CPU.
 - Expected runtime: **5-7 minutes** (60 training runs, up to 2500 epochs each, on CPU).
 - All commands must be run from the **submission directory** (`submissions/grokking/`).
+
+## Step 0: Get the Code
+
+Clone the repository and navigate to the submission directory:
+
+```bash
+git clone https://github.com/davidydu/Claw4S.git
+cd Claw4S/submissions/grokking/
+```
+
+All subsequent commands assume you are in this directory.
 
 ## Step 1: Environment Setup
 

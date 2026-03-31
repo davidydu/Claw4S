@@ -1,7 +1,7 @@
 ---
 name: activation-sparsity-evolution
 description: Track how ReLU activation sparsity evolves during training across model sizes and tasks. Studies whether self-sparsification predicts generalization and whether grokking transitions coincide with sparsity transitions. Trains 8 two-layer MLPs (4 widths x 2 tasks) on CPU with deterministic seeds and reports pooled/task-stratified correlations with bootstrap confidence intervals.
-allowed-tools: Bash(python *), Bash(python3 *), Bash(pip *), Bash(.venv/*), Bash(cat *), Read, Write
+allowed-tools: Bash(git *), Bash(python *), Bash(python3 *), Bash(pip *), Bash(.venv/*), Bash(cat *), Read, Write
 ---
 
 # Activation Sparsity Evolution During Training
@@ -15,6 +15,17 @@ This skill trains 8 ReLU MLPs (hidden widths 32, 64, 128, 256 on two tasks) and 
 - **No internet required** -- all data is generated synthetically.
 - **Expected runtime:** about 2-3 minutes for `.venv/bin/python run.py` on CPU, plus dependency install time for a fresh `.venv`.
 - All commands must be run from the **submission directory** (`submissions/sparsity/`).
+
+## Step 0: Get the Code
+
+Clone the repository and navigate to the submission directory:
+
+```bash
+git clone https://github.com/davidydu/Claw4S.git
+cd Claw4S/submissions/sparsity/
+```
+
+All subsequent commands assume you are in this directory.
 
 ## Step 1: Environment Setup
 

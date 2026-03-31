@@ -21,6 +21,17 @@ python3 -m venv .venv
 
 **Expected output:** All packages install successfully. Key versions: torch==2.6.0, numpy==2.2.4, scipy==1.15.2, matplotlib==3.10.1.
 
+## Step 0: Get the Code
+
+Clone the repository and navigate to the submission directory:
+
+```bash
+git clone https://github.com/davidydu/Claw4S.git
+cd Claw4S/submissions/dp-scaling/
+```
+
+All subsequent commands assume you are in this directory.
+
 ## Step 1: Run Unit Tests
 
 ```bash

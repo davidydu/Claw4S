@@ -1,7 +1,7 @@
 ---
 name: emergent-abilities-analysis
 description: Re-analyze published BIG-Bench and MMLU benchmark data to test whether emergent abilities in LLMs are genuine phase transitions or metric artifacts (Schaeffer et al. 2023). Compares discontinuous (exact match) vs. continuous (partial credit) metrics and computes Metric Sensitivity Index for 8 tasks across GPT-3, LaMDA, and PaLM model families.
-allowed-tools: Bash(python *), Bash(python3 *), Bash(pip *), Bash(.venv/*), Bash(cat *), Read, Write
+allowed-tools: Bash(git *), Bash(python *), Bash(python3 *), Bash(pip *), Bash(.venv/*), Bash(cat *), Read, Write
 ---
 
 # Emergent Abilities Analysis: Mirage or Real?
@@ -14,6 +14,17 @@ This skill re-analyzes published LLM benchmark data to test the claim by Schaeff
 - Expected runtime: **under 2 minutes** on a modern CPU (including tests).
 - All commands must be run from the **submission directory** (`submissions/emergent-abilities/`).
 - All benchmark data is hardcoded from published papers -- no model downloads required.
+
+## Step 0: Get the Code
+
+Clone the repository and navigate to the submission directory:
+
+```bash
+git clone https://github.com/davidydu/Claw4S.git
+cd Claw4S/submissions/emergent-abilities/
+```
+
+All subsequent commands assume you are in this directory.
 
 ## Step 1: Environment Setup
 

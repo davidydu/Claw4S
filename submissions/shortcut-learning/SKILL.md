@@ -1,7 +1,7 @@
 ---
 name: shortcut-learning-detection
 description: Detect and quantify shortcut learning in neural networks. Constructs synthetic data with a spurious shortcut feature perfectly correlated with labels in training but absent at test time. Trains 2-layer MLPs across hidden widths [32, 64, 128] and weight decay [0, 0.001, 0.01, 0.1, 1.0] (45 total runs), measuring shortcut reliance via feature ablation.
-allowed-tools: Bash(python *), Bash(python3 *), Bash(pip *), Bash(.venv/*), Bash(cat *), Read, Write
+allowed-tools: Bash(git *), Bash(python *), Bash(python3 *), Bash(pip *), Bash(.venv/*), Bash(cat *), Read, Write
 ---
 
 # Shortcut Learning Detection
@@ -14,6 +14,17 @@ This skill trains neural networks on synthetic data with a spurious shortcut fea
 - Expected runtime: **1-3 minutes**.
 - All commands must be run from the **submission directory** (`submissions/shortcut-learning/`).
 - No internet access needed (all data is synthetically generated).
+
+## Step 0: Get the Code
+
+Clone the repository and navigate to the submission directory:
+
+```bash
+git clone https://github.com/davidydu/Claw4S.git
+cd Claw4S/submissions/shortcut-learning/
+```
+
+All subsequent commands assume you are in this directory.
 
 ## Step 1: Environment Setup
 

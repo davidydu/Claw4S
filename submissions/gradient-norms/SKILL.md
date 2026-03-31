@@ -1,7 +1,7 @@
 ---
 name: gradient-norm-phase-transitions
 description: Train tiny MLPs on modular addition and regression, tracking per-layer gradient L2 norms throughout training. Test whether gradient norm phase transitions predict generalization transitions (grokking onset) before test accuracy does. Sweep 3 dataset fractions x 2 tasks = 6 runs. Compute cross-correlation lag analysis.
-allowed-tools: Bash(python *), Bash(python3 *), Bash(pip *), Bash(.venv/*), Bash(cat *), Read, Write
+allowed-tools: Bash(git *), Bash(python *), Bash(python3 *), Bash(pip *), Bash(.venv/*), Bash(cat *), Read, Write
 ---
 
 # Gradient Norm Phase Transitions Predict Generalization
@@ -14,6 +14,17 @@ This skill trains 2-layer MLPs on grokking-prone (modular addition mod 97) and s
 - No internet access required (all data is generated synthetically).
 - Expected runtime: **about 4-6 minutes** on a modern CPU (observed: ~5.2 minutes on Apple Silicon with Python 3.13 / PyTorch 2.6.0).
 - All commands must be run from the **submission directory** (`submissions/gradient-norms/`).
+
+## Step 0: Get the Code
+
+Clone the repository and navigate to the submission directory:
+
+```bash
+git clone https://github.com/davidydu/Claw4S.git
+cd Claw4S/submissions/gradient-norms/
+```
+
+All subsequent commands assume you are in this directory.
 
 ## Step 1: Environment Setup
 

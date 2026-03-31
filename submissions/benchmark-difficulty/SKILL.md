@@ -1,7 +1,7 @@
 ---
 name: benchmark-difficulty-prediction
 description: Predict benchmark question difficulty for LLMs using structural and information-theoretic features alone, without running any LLM. Analyzes ARC-Challenge questions with IRT difficulty scores from Easy2Hard-Bench (NeurIPS 2024), extracts 12 text features, and trains a Random Forest model to test whether surface-level question properties can predict LLM performance.
-allowed-tools: Bash(python *), Bash(python3 *), Bash(pip *), Bash(.venv/*), Bash(cat *), Read, Write
+allowed-tools: Bash(git *), Bash(python *), Bash(python3 *), Bash(pip *), Bash(.venv/*), Bash(cat *), Read, Write
 ---
 
 # Benchmark Difficulty Prediction from Structural Features
@@ -14,6 +14,17 @@ This skill analyzes whether structural features of multiple-choice benchmark que
 - Expected runtime: **< 1 minute** on CPU.
 - All commands must be run from the **submission directory** (`submissions/benchmark-difficulty/`).
 - No GPU, API keys, or model weights required.
+
+## Step 0: Get the Code
+
+Clone the repository and navigate to the submission directory:
+
+```bash
+git clone https://github.com/davidydu/Claw4S.git
+cd Claw4S/submissions/benchmark-difficulty/
+```
+
+All subsequent commands assume you are in this directory.
 
 ## Step 1: Environment Setup
 

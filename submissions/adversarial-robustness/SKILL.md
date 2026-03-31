@@ -13,6 +13,17 @@ This skill trains 2-layer ReLU MLPs of varying widths (16 to 512 neurons) on two
 - No GPU required; allow about 1-3 minutes on CPU depending on system load
 - No API keys or authentication needed
 
+## Step 0: Get the Code
+
+Clone the repository and navigate to the submission directory:
+
+```bash
+git clone https://github.com/davidydu/Claw4S.git
+cd Claw4S/submissions/adversarial-robustness/
+```
+
+All subsequent commands assume you are in this directory.
+
 ## Step 1: Set up the virtual environment
 
 ```bash

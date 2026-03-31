@@ -1,7 +1,7 @@
 ---
 name: backdoor-detection-spectral-signatures
 description: Detect backdoor (trojan) attacks in neural networks using spectral signatures of penultimate-layer activations. Trains clean and backdoored MLPs on synthetic Gaussian cluster data, then applies eigenvalue decomposition of the activation covariance matrix to identify poisoned samples (Tran et al. 2018). Sweeps over poison fraction, trigger strength, and model size (36 experiments).
-allowed-tools: Bash(python *), Bash(python3 *), Bash(pip *), Bash(.venv/*), Bash(cat *), Read, Write
+allowed-tools: Bash(git *), Bash(python *), Bash(python3 *), Bash(pip *), Bash(.venv/*), Bash(cat *), Read, Write
 ---
 
 # Backdoor Detection via Spectral Signatures
@@ -15,6 +15,17 @@ This skill reproduces and extends the spectral signature method for neural netwo
 - All commands must be run from the **submission directory** (`submissions/backdoor-detection/`).
 - No internet access required (all data is synthetically generated).
 - No API keys or authentication needed.
+
+## Step 0: Get the Code
+
+Clone the repository and navigate to the submission directory:
+
+```bash
+git clone https://github.com/davidydu/Claw4S.git
+cd Claw4S/submissions/backdoor-detection/
+```
+
+All subsequent commands assume you are in this directory.
 
 ## Step 1: Environment Setup
 

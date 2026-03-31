@@ -12,6 +12,17 @@ Reproduce an experiment showing that DP-SGD empirically reduces membership infer
 - No API keys or authentication needed
 - Runtime: about 35 seconds wall-clock on a modern laptop CPU; budget up to 1 minute on slower machines
 
+## Step 0: Get the Code
+
+Clone the repository and navigate to the submission directory:
+
+```bash
+git clone https://github.com/davidydu/Claw4S.git
+cd Claw4S/submissions/dp-membership/
+```
+
+All subsequent commands assume you are in this directory.
+
 ## Step 1: Set Up Virtual Environment
 
 ```bash

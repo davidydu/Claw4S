@@ -1,7 +1,7 @@
 ---
 name: loss-curve-universality
 description: Fit parameterized functions (power law, exponential, stretched exponential, log-power) to training loss curves of tiny MLPs across 4 tasks and 3 model sizes. Tests whether training curves follow universal functional forms with task-dependent exponents using AIC/BIC model selection.
-allowed-tools: Bash(python *), Bash(python3 *), Bash(pip *), Bash(.venv/*), Bash(cat *), Read, Write
+allowed-tools: Bash(git *), Bash(python *), Bash(python3 *), Bash(pip *), Bash(.venv/*), Bash(cat *), Read, Write
 ---
 
 # Loss Curve Universality Analysis
@@ -14,6 +14,17 @@ This skill trains tiny MLPs on 4 tasks (modular addition mod 97, modular multipl
 - Expected runtime: **3-7 minutes** on CPU-only machines. The modular arithmetic runs are the slowest, and heavily shared machines can take longer.
 - The analysis is **checkpointed** to `results/checkpoint.json` after each completed run. If interrupted, re-running `run.py` resumes from completed runs.
 - All commands must be run from the **submission directory** (`submissions/loss-curves/`).
+
+## Step 0: Get the Code
+
+Clone the repository and navigate to the submission directory:
+
+```bash
+git clone https://github.com/davidydu/Claw4S.git
+cd Claw4S/submissions/loss-curves/
+```
+
+All subsequent commands assume you are in this directory.
 
 ## Step 1: Environment Setup
 

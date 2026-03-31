@@ -12,6 +12,17 @@ This skill sweeps poison fraction (0%--50%) on 2-layer MLP classifiers trained o
 - No API keys or authentication needed
 - Runtime: `run.py` completes in about 1-2 minutes on CPU in the verification environment used for this PR
 
+## Step 0: Get the Code
+
+Clone the repository and navigate to the submission directory:
+
+```bash
+git clone https://github.com/davidydu/Claw4S.git
+cd Claw4S/submissions/data-poisoning/
+```
+
+All subsequent commands assume you are in this directory.
+
 ## Step 1: Create virtual environment and install dependencies
 
 ```bash

@@ -1,7 +1,7 @@
 ---
 name: lottery-tickets-at-birth
 description: Reproduce a pruning-at-initialization study on tiny 2-layer ReLU MLPs. Sweeps 8 sparsity levels, 3 pruning strategies, 2 tasks, and 3 seeds on modular arithmetic and regression. In the verified default run, structured pruning is the strongest strategy, while global magnitude pruning collapses early on both tasks.
-allowed-tools: Bash(python *), Bash(python3 *), Bash(pip *), Bash(.venv/*), Bash(cat *), Read, Write
+allowed-tools: Bash(git *), Bash(python *), Bash(python3 *), Bash(pip *), Bash(.venv/*), Bash(cat *), Read, Write
 ---
 
 # Lottery Tickets at Birth
@@ -16,6 +16,17 @@ This skill reproduces a pruning-at-initialization study on tiny neural networks.
 - All commands must be run from the **submission directory** (`submissions/lottery-ticket/`).
 - Training uses a **10% validation split** from the training set for early stopping, and restores the best validation checkpoint before final test evaluation.
 - Experiments enable deterministic PyTorch algorithms and record environment provenance (`python_version`, `torch_version`, `numpy_version`, `platform`, `device`) in `results/results.json`.
+
+## Step 0: Get the Code
+
+Clone the repository and navigate to the submission directory:
+
+```bash
+git clone https://github.com/davidydu/Claw4S.git
+cd Claw4S/submissions/lottery-ticket/
+```
+
+All subsequent commands assume you are in this directory.
 
 ## Step 1: Environment Setup
 

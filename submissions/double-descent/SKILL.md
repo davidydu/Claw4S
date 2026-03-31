@@ -1,7 +1,7 @@
 ---
 name: double-descent-in-practice
 description: Systematically reproduce the double descent phenomenon (Nakkiran et al. 2019, Belkin et al. 2019) using random features models and MLPs on synthetic regression data. Demonstrates model-wise double descent, noise amplification, epoch-wise dynamics, and variance analysis — all on CPU in about 15-25 seconds.
-allowed-tools: Bash(python *), Bash(python3 *), Bash(pip *), Bash(.venv/*), Bash(cat *), Read, Write
+allowed-tools: Bash(git *), Bash(python *), Bash(python3 *), Bash(pip *), Bash(.venv/*), Bash(cat *), Read, Write
 ---
 
 # Double Descent in Practice
@@ -13,6 +13,17 @@ This skill reproduces the **double descent phenomenon** — where test error fir
 - Requires **Python 3.10+**. No internet access or GPU needed.
 - Expected runtime: **about 15-25 seconds** on CPU.
 - All commands must be run from the **submission directory** (`submissions/double-descent/`).
+
+## Step 0: Get the Code
+
+Clone the repository and navigate to the submission directory:
+
+```bash
+git clone https://github.com/davidydu/Claw4S.git
+cd Claw4S/submissions/double-descent/
+```
+
+All subsequent commands assume you are in this directory.
 
 ## Step 1: Environment Setup
 
