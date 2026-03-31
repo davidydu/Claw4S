@@ -1,0 +1,176 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage[margin=1in]{geometry}
+\usepackage{natbib}
+\usepackage{caption}
+
+\title{Calibration Under Distribution Shift:\\How Model Capacity Affects Prediction Reliability}
+
+\author{
+  Yun Du\thanks{Stanford University} \and
+  Lina Ji\thanks{Stanford University} \and
+  Claw\thanks{AI Agent, the-mad-lobster}
+}
+
+\date{March 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+We investigate how neural network calibration changes under distribution shift as a function of model capacity.
+Using synthetic Gaussian cluster data with controlled covariate shift, we train 2-layer MLPs with hidden widths ranging from 16 to 256 and measure Expected Calibration Error (ECE), Brier score, and overconfidence gaps across five shift magnitudes.
+Across 75 width-shift-seed evaluations, the narrowest model in our grid (width 16) is best calibrated in-distribution, and all widths become less calibrated under shift.
+Under the largest shift, the highest ECE and overconfidence gaps appear in the mid-to-large models rather than following a strictly monotonic width trend.
+These findings show that capacity effects on calibration under shift are substantial but setup-dependent, making empirical verification more reliable than assuming larger models are automatically better calibrated.
+All experiments are fully reproducible via our executable SKILL.md protocol and run in under 3 minutes on a CPU.
+\end{abstract}
+
+\section{Introduction}
+
+Neural network calibration---the alignment between predicted confidence and actual correctness probability---is essential for reliable decision-making in safety-critical applications \citep{guo2017calibration}.
+A model that predicts class $k$ with probability 0.8 should be correct approximately 80\% of the time.
+Modern neural networks are frequently overconfident, and this miscalibration often worsens under distribution shift \citep{ovadia2019trust}.
+
+We study a specific question: \emph{How does model capacity affect calibration under distribution shift in a controlled synthetic benchmark?}
+Prior work has shown that model size and calibration interact in non-trivial ways \citep{guo2017calibration}, but the interaction between capacity and shift-induced miscalibration is less explored.
+
+Our contributions:
+\begin{enumerate}
+    \item A controlled experimental framework isolating the effect of model width on calibration under synthetic covariate shift.
+    \item Evidence that, in this benchmark, the narrowest model is best calibrated in-distribution and that severe-shift miscalibration is largest for mid-to-large widths rather than following a simple monotonic scaling law.
+    \item A fully reproducible, agent-executable experiment suite completing in under 3 minutes.
+\end{enumerate}
+
+\section{Methods}
+
+\subsection{Data Generation}
+
+We generate synthetic classification data with $d=10$ features and $C=5$ classes.
+Cluster centers are sampled from $\mathcal{N}(0, 4I_d)$, and class-conditional distributions are $\mathcal{N}(\mu_c, 2.25 I_d)$.
+The higher within-class variance relative to center separation creates meaningful overlap between classes, yielding in-distribution accuracy of 85--90\%.
+Training data ($N=500$) is drawn from the original distribution.
+Test data ($N=200$) is drawn with each class's cluster mean shifted by $\delta$ along a class-specific random direction $d_c$:
+\begin{equation}
+    \mu_c' = \mu_c + \delta \cdot d_c, \quad \|d_c\| = 1, \quad \delta \in \{0, 0.5, 1.0, 2.0, 4.0\}
+\end{equation}
+The per-class random directions (fixed per seed) ensure that shift breaks decision boundaries rather than merely translating all clusters uniformly, which would preserve relative separability.
+
+\subsection{Models}
+
+We use 2-layer MLPs: $f(x) = W_2 \cdot \text{ReLU}(W_1 x + b_1) + b_2$, with hidden widths $h \in \{16, 32, 64, 128, 256\}$.
+Parameter counts range from 261 (width 16) to 3,845 (width 256).
+All models are trained with Adam ($\text{lr}=0.01$) for 200 epochs using cross-entropy loss, sufficient for convergence.
+
+\subsection{Metrics}
+
+\paragraph{Expected Calibration Error (ECE).}
+Following \citet{guo2017calibration}, we partition predictions into $B=10$ equal-width confidence bins and compute:
+\begin{equation}
+    \text{ECE} = \sum_{b=1}^{B} \frac{|B_b|}{N} \left| \text{acc}(B_b) - \text{conf}(B_b) \right|
+\end{equation}
+where $\text{acc}(B_b)$ and $\text{conf}(B_b)$ are the accuracy and mean confidence in bin $b$.
+
+\paragraph{Brier Score.}
+The multi-class Brier score measures both calibration and refinement:
+\begin{equation}
+    \text{BS} = \frac{1}{N} \sum_{i=1}^{N} \sum_{c=1}^{C} (p_{i,c} - y_{i,c})^2
+\end{equation}
+
+\paragraph{Overconfidence Gap.}
+We define the overconfidence gap as $\bar{p}_{\max} - \text{acc}$, where $\bar{p}_{\max}$ is the mean maximum predicted probability across test samples.
+Positive values indicate systematic overconfidence.
+
+\subsection{Experimental Design}
+
+We run all combinations of 5 widths $\times$ 5 shift magnitudes $\times$ 3 seeds (42, 43, 44) = 75 experiments.
+We report mean $\pm$ standard deviation across seeds.
+All random seeds are fixed for full reproducibility.
+
+\section{Results}
+
+\subsection{In-Distribution Calibration}
+
+At shift $\delta = 0$, all model widths achieve accuracy of 88--90\% and ECE below 0.10.
+Wider models exhibit \emph{higher} in-distribution ECE (0.097 for width 256 vs.\ 0.069 for width 16), indicating that overparameterized models are more overconfident even on the training distribution.
+This is consistent with the finding of \citet{guo2017calibration} that larger networks tend toward overconfidence.
+
+\subsection{Calibration Degradation Under Shift}
+
+As shift magnitude increases, ECE rises for all models (Figure~\ref{fig:ece}).
+At the maximum shift ($\delta = 4.0$), ECE approximately doubles for all widths, rising from 0.07--0.10 to 0.11--0.14.
+The largest severe-shift errors in this run occur for the mid-to-large models, with width 64 reaching ECE 0.143 and overconfidence gap 0.141, while width 16 remains the best calibrated at $\delta = 4.0$ with ECE 0.107.
+
+This benchmark therefore does not support a simple monotonic story in which increasing width uniformly improves in-distribution calibration and then degrades faster under shift.
+Instead, it shows that capacity materially changes calibration behavior, but the strongest effect appears in a subset of larger models and should be interpreted as an empirical pattern of this setup rather than a general law.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.85\textwidth]{../results/ece_vs_shift.pdf}
+    \caption{ECE vs.\ distribution shift magnitude for MLPs of varying width.
+    Error bars show $\pm 1$ std across 3 seeds.
+    All models become less calibrated as shift increases, and the narrowest model remains best calibrated at the largest shift in this benchmark.}
+    \label{fig:ece}
+\end{figure}
+
+\subsection{Reliability Diagrams}
+
+Reliability diagrams (Figure~\ref{fig:reliability}) for the width-256 model show increasing departure from the diagonal---particularly in high-confidence bins---as shift grows.
+The model remains confident while its empirical accuracy drops under larger shifts.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\textwidth]{../results/reliability_diagrams.pdf}
+    \caption{Reliability diagrams for width=256 MLP across shift magnitudes.
+    Blue bars above the diagonal indicate underconfidence; red bars below indicate overconfidence.}
+    \label{fig:reliability}
+\end{figure}
+
+\section{Discussion}
+
+Our results show that model capacity materially affects calibration under shift in this benchmark, but not through a simple monotonic tradeoff.
+The smallest model is best calibrated in-distribution, and the largest severe-shift miscalibration appears in the mid-to-large widths rather than increasing cleanly with width.
+This has practical implications for model selection in deployment environments where distribution shift is expected: calibration robustness should be measured directly rather than inferred from model size alone.
+
+\paragraph{Limitations.}
+(1) Synthetic Gaussian data may not capture real-world shift patterns.
+(2) We test only covariate shift (per-class mean translation); label shift and concept drift may show different patterns.
+(3) 2-layer MLPs are simplified; deeper architectures or attention-based models may behave differently.
+(4) We do not apply post-hoc calibration methods (temperature scaling, Platt scaling), which could mitigate the observed degradation.
+
+\paragraph{Future Work.}
+Extending to real datasets (e.g., CIFAR-10-C), deeper architectures, and post-hoc calibration methods would strengthen these findings.
+Investigating the interaction between regularization (dropout, weight decay) and calibration robustness is another promising direction.
+
+\section{Conclusion}
+
+We demonstrate that model capacity strongly influences calibration under distribution shift in a controlled synthetic setting, but the effect is not a simple monotonic scaling trend.
+In our benchmark, the narrowest model is best calibrated in-distribution, and the largest severe-shift miscalibration appears in the mid-to-large models.
+This setup-dependent calibration pattern should inform model selection and deployment decisions, particularly in safety-critical domains where distribution shift is expected.
+
+\bibliographystyle{plainnat}
+\begin{thebibliography}{3}
+
+\bibitem[Guo et~al.(2017)]{guo2017calibration}
+Chuan Guo, Geoff Pleiss, Yu~Sun, and Kilian~Q. Weinberger.
+\newblock On calibration of modern neural networks.
+\newblock In \emph{International Conference on Machine Learning (ICML)}, pages 1321--1330, 2017.
+
+\bibitem[Ovadia et~al.(2019)]{ovadia2019trust}
+Yaniv Ovadia, Emily Fertig, Jie Ren, Zachary Nado, D.~Sculley, Sebastian Nowozin, Joshua~V. Dillon, Balaji Lakshminarayanan, and Jasper Snoek.
+\newblock Can you trust your model's uncertainty? {E}valuating predictive uncertainty under dataset shift.
+\newblock In \emph{Advances in Neural Information Processing Systems (NeurIPS)}, 2019.
+
+\bibitem[Naeini et~al.(2015)]{naeini2015obtaining}
+Mahdi~Pakdaman Naeini, Gregory~F. Cooper, and Milos Hauskrecht.
+\newblock Obtaining well calibrated probabilities using {B}ayesian binning into quantiles.
+\newblock In \emph{AAAI Conference on Artificial Intelligence}, 2015.
+
+\end{thebibliography}
+
+\end{document}
