@@ -1,0 +1,154 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{natbib}
+\usepackage{caption}
+
+\title{Label Noise Tolerance Curves: How Depth and Width\\Affect Neural Network Robustness to Noisy Labels}
+\author{Yun Du \and Lina Ji \and Claw\thanks{AI agent (\texttt{the-mad-lobster}), Claw4S 2026.}}
+\date{March 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+We systematically measure how MLP architecture—specifically depth and width—affects robustness to label noise in classification tasks.
+We sweep label noise from 0\% to 50\% across three architectures (shallow-wide, medium, deep-narrow) in the same small-model regime (3.2K--6.1K trainable parameters), plus a width sweep at fixed depth.
+Our 168 training runs on synthetic Gaussian cluster data reveal that (1)~depth severely hurts noise robustness, with a 4-layer network losing 0.31 test accuracy from 0\% to 50\% noise versus 0.06--0.09 for shallower alternatives; (2)~width substantially improves noise tolerance, with h=128 giving the strongest result (0.042 accuracy drop under 50\% noise) and h=256 remaining robust (0.064 drop); and (3)~noise creates characteristic negative generalization gaps where test accuracy exceeds training accuracy, since the model partially learns to ignore corrupted labels.
+All experiments are fully reproducible from a single \texttt{run.py} script in about 84 seconds on the verified CPU run in this repository.
+\end{abstract}
+
+\section{Introduction}
+
+Real-world datasets inevitably contain label noise—incorrect annotations arising from human error, ambiguous examples, or automated labeling pipelines.
+Understanding which architectural choices confer robustness to such noise is practically important: practitioners must choose between wider or deeper networks, and this choice interacts with data quality.
+
+Prior work has shown that deep neural networks can memorize arbitrary label assignments \citep{zhang2021understanding}, and that certain architectures and training procedures mitigate noise effects \citep{arpit2017closer}.
+However, controlled comparisons isolating the effect of depth versus width at fixed parameter count remain scarce.
+
+We address this gap with a systematic experiment: sweep label noise from 0\% to 50\% across architectures that vary in depth (1, 2, 4 hidden layers) and width (16--256 hidden units), all on the same synthetic classification task with known ground truth.
+
+\section{Experimental Setup}
+
+\paragraph{Data.}
+We generate 500 samples from 5 isotropic Gaussian clusters in $\mathbb{R}^{10}$, with centroids placed along orthogonal directions separated by $3\sigma$.
+We use a 70/30 train/test split.
+Label noise is injected by randomly flipping a fraction $\eta \in \{0\%, 5\%, 10\%, 20\%, 30\%, 40\%, 50\%\}$ of training labels to a uniformly random \emph{different} class.
+Test labels are always clean.
+
+\paragraph{Architectures.}
+We compare three MLP architectures in the same small-model regime, though not with an exactly matched parameter budget:
+\begin{itemize}
+    \item \textbf{Shallow-wide:} 1 hidden layer, width 200 (3,205 params)
+    \item \textbf{Medium:} 2 hidden layers, width 70 (6,095 params)
+    \item \textbf{Deep-narrow:} 4 hidden layers, width 35 (4,345 params)
+\end{itemize}
+All use ReLU activations with no regularization (no dropout, no weight decay), to isolate the architectural effect.
+
+For the width sweep, we fix depth at 2 hidden layers and vary width $h \in \{16, 32, 64, 128, 256\}$.
+
+\paragraph{Training.}
+SGD with learning rate 0.01, batch size 64, 100 epochs, cross-entropy loss.
+Each configuration is run with 3 seeds (42, 43, 44), yielding 168 total runs.
+The verified full run in this repository completed in 83.9 seconds on a CPU using Python 3.13.5; faster or slower CPUs may vary.
+
+\paragraph{Metrics.}
+We report test accuracy (on clean labels), training accuracy (on noisy labels), and the generalization gap (train accuracy $-$ test accuracy), all as mean $\pm$ standard deviation across seeds.
+
+\section{Results}
+
+\subsection{Architecture Sweep}
+
+\begin{table}[h]
+\centering
+\caption{Test accuracy (mean $\pm$ std across 3 seeds) at selected noise levels.}
+\label{tab:arch}
+\begin{tabular}{lccc}
+\toprule
+Architecture & 0\% noise & 20\% noise & 50\% noise \\
+\midrule
+Shallow-wide (1$\times$200) & $0.947 \pm 0.007$ & $0.920 \pm 0.007$ & $0.853 \pm 0.029$ \\
+Medium (2$\times$70)        & $0.942 \pm 0.010$ & $0.924 \pm 0.014$ & $0.884 \pm 0.015$ \\
+Deep-narrow (4$\times$35)   & $0.544 \pm 0.015$ & $0.400 \pm 0.093$ & $0.235 \pm 0.037$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Table~\ref{tab:arch} shows the central result.
+The shallow-wide and medium architectures maintain over 85\% test accuracy even at 50\% label noise—a drop of only 0.06--0.09 from their clean-data baselines.
+The deep-narrow architecture, by contrast, is weak even at 0\% noise (0.544) and collapses to near-chance (0.235) at 50\% noise, a drop of 0.31.
+
+The deep-narrow network's poor baseline performance likely reflects optimization difficulty: with 4 narrow layers and no skip connections, gradient signal degrades, and the network underfits even with clean labels.
+Under noise, this fragility compounds.
+
+\subsection{Width Sweep}
+
+\begin{table}[h]
+\centering
+\caption{Test accuracy drop from 0\% to 50\% noise (depth=2 fixed).}
+\label{tab:width}
+\begin{tabular}{lccl}
+\toprule
+Width & Acc at 0\% & Acc at 50\% & Drop \\
+\midrule
+16  & 0.851 & 0.558 & 0.293 \\
+32  & 0.924 & 0.731 & 0.193 \\
+64  & 0.929 & 0.838 & 0.091 \\
+128 & 0.936 & 0.893 & 0.042 \\
+256 & 0.944 & 0.880 & 0.064 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Table~\ref{tab:width} confirms that width monotonically improves noise tolerance up to h=128.
+Narrow networks (h=16) lose nearly 0.30 accuracy under 50\% noise, while wide networks (h=128) lose only 0.04.
+The widest configuration (h=256) shows a slight uptick in drop versus h=128, possibly due to increased capacity enabling some noise memorization, though both remain highly robust.
+
+\subsection{Generalization Gap Inversion}
+
+A striking pattern emerges at high noise: the generalization gap inverts.
+Under 50\% noise, the medium architecture achieves a gap of $-0.412$, meaning test accuracy (0.884 on clean labels) dramatically exceeds training accuracy (0.472 on noisy labels).
+This occurs because the model learns the true data structure despite noisy supervision—it cannot perfectly fit the corrupted labels, so training accuracy is low, while test accuracy on clean labels reveals the model's actual learned function.
+
+\section{Discussion}
+
+Our results support two main conclusions:
+
+\textbf{Depth hurts under noise.}
+In this small-model regime and without skip connections, deeper networks are both harder to optimize and more sensitive to label noise.
+The deep-narrow network's failure is primarily an optimization problem: it underfits clean data, and noise exacerbates this.
+This suggests that depth-based scaling is risky in low-data or noisy-label regimes unless paired with residual connections or normalization.
+
+\textbf{Width helps under noise.}
+Wider networks at fixed depth are consistently more noise-tolerant.
+The mechanism is likely that wider layers provide redundant representations—the network can ``route around'' corrupted gradient signals because it has more capacity to capture the true data structure even when some capacity is wasted fitting noise.
+
+\paragraph{Limitations.}
+Our study uses small synthetic data (500 samples, 10 features) and simple MLPs without regularization.
+The depth effect is confounded with optimization difficulty (no residual connections or batch normalization).
+Extension to real datasets (CIFAR-10, NLP benchmarks) and modern architectures (ResNets, Transformers) would strengthen these conclusions.
+
+\section{Reproducibility}
+
+All experiments run from a single command (\texttt{.venv/bin/python run.py}) in about 84 seconds on the verified Python 3.13.5 / CPU execution in this repository.
+Dependencies are pinned: PyTorch 2.6.0, NumPy 2.2.4, SciPy 1.15.2, Matplotlib 3.10.1.
+Random seeds are fixed throughout.
+The companion \texttt{SKILL.md} provides step-by-step instructions for full reproduction.
+
+\bibliographystyle{plainnat}
+\begin{thebibliography}{2}
+\bibitem[Arpit et~al.(2017)]{arpit2017closer}
+Devansh Arpit, Stanislaw Jastrzebski, Nicolas Ballas, David Krueger, Emmanuel Bengio, Maxinder~S. Kanwal, Tegan Maharaj, Asja Fischer, Aaron Courville, Yoshua Bengio, and Simon Lacoste-Julien.
+\newblock A closer look at memorization in deep networks.
+\newblock In \emph{ICML}, 2017.
+
+\bibitem[Zhang et~al.(2021)]{zhang2021understanding}
+Chiyuan Zhang, Samy Bengio, Moritz Hardt, Benjamin Recht, and Oriol Vinyals.
+\newblock Understanding deep learning (still) requires rethinking generalization.
+\newblock \emph{Communications of the ACM}, 64(3):107--115, 2021.
+\end{thebibliography}
+
+\end{document}
