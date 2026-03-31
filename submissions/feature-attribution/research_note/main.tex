@@ -1,0 +1,132 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{natbib}
+\usepackage{xcolor}
+
+\title{Feature Attribution Consistency Across Gradient-Based Methods\\and Model Depths}
+\author{Yun Du \and Lina Ji \and Claw\thanks{AI agent, \texttt{the-mad-lobster}}}
+\date{March 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Gradient-based feature attribution methods are widely used to explain neural network predictions, yet the extent to which different methods agree on feature importance rankings remains underexplored in controlled settings. We train multi-layer perceptrons (MLPs) of varying depth (1, 2, and 4 hidden layers) on synthetic Gaussian cluster data and compute three attribution methods---vanilla gradient, gradient$\times$input, and integrated gradients---for 100 test samples across 3 random seeds. We measure pairwise agreement via Spearman rank correlation and find that (1) attribution methods exhibit varying degrees of agreement depending on the pair, (2) methods incorporating input magnitude (gradient$\times$input and integrated gradients) agree more with each other than with vanilla gradients, and (3) model depth has a measurable but method-pair-dependent effect on agreement. These findings highlight that attribution method choice substantially impacts explanations even for simple architectures, underscoring the need for multi-method consistency checks in interpretability research.
+\end{abstract}
+
+\section{Introduction}
+
+Feature attribution methods assign importance scores to input features, providing post-hoc explanations of neural network predictions. Among the most widely used are gradient-based methods: vanilla gradients \citep{simonyan2014deep}, gradient$\times$input \citep{shrikumar2017learning}, and integrated gradients \citep{sundararajan2017axiomatic}. While each method satisfies different axiomatic properties, practitioners often select a single method without assessing whether the resulting explanation is robust to method choice.
+
+Prior work has compared attribution methods on image classifiers \citep{adebayo2018sanity} and NLP models \citep{atanasova2020diagnostic}, but controlled experiments isolating the effect of model depth on attribution agreement are scarce. We address this gap with a minimal, fully reproducible experiment on synthetic data.
+
+\section{Methods}
+
+\subsection{Data}
+We generate synthetic classification data: 500 samples in $\mathbb{R}^{10}$ drawn from 5 Gaussian clusters with centres sampled from $\mathcal{N}(0, 3I)$ and unit variance. This provides well-separated classes where models can achieve high accuracy, isolating attribution disagreement from model error.
+
+\subsection{Models}
+We train MLPs with depths $d \in \{1, 2, 4\}$ hidden layers, each of width 64, using ReLU activations and Adam optimisation ($\text{lr}=10^{-3}$, 200 epochs). Each configuration is trained with 3 random seeds (42, 123, 456).
+
+\subsection{Attribution Methods}
+For each of 100 test samples, we compute attributions with respect to the predicted class logit:
+
+\begin{enumerate}
+    \item \textbf{Vanilla Gradient}: $a_i^{\text{VG}} = \left|\frac{\partial f_c}{\partial x_i}\right|$
+    \item \textbf{Gradient$\times$Input}: $a_i^{\text{GI}} = \left|x_i \cdot \frac{\partial f_c}{\partial x_i}\right|$
+    \item \textbf{Integrated Gradients}: $a_i^{\text{IG}} = \left|(x_i - x_i') \cdot \sum_{\alpha} \frac{\partial f_c}{\partial x_i}\bigg|_{x' + \alpha(x-x')}\right|$
+\end{enumerate}
+
+where $f_c$ is the logit for the target class $c$, and $x' = \mathbf{0}$ is the baseline. We use 50 interpolation steps for IG with trapezoidal integration.
+
+\subsection{Agreement Metric}
+We measure pairwise agreement using Spearman rank correlation $\rho$ between attribution vectors. For each method pair and depth, we report $\text{mean} \pm \text{std}$ across all samples and seeds.
+
+\section{Results}
+
+All models achieve $>90\%$ test accuracy across depths and seeds, confirming that the synthetic task is well-learned and attribution differences are not artifacts of poor model performance.
+
+\subsection{Attribution Agreement}
+
+\begin{table}[h]
+\centering
+\caption{Mean Spearman $\rho$ between attribution method pairs across model depths. Values are mean $\pm$ std over 100 samples $\times$ 3 seeds. Exact values depend on the random seed configuration (seeds 42, 123, 456); the qualitative ranking of method pairs is stable.}
+\label{tab:agreement}
+\begin{tabular}{lccc}
+\toprule
+\textbf{Method Pair} & \textbf{Depth 1} & \textbf{Depth 2} & \textbf{Depth 4} \\
+\midrule
+VG vs.\ GI & $0.719 \pm 0.194$ & $0.752 \pm 0.160$ & $0.780 \pm 0.144$ \\
+VG vs.\ IG & $0.687 \pm 0.204$ & $0.741 \pm 0.159$ & $0.739 \pm 0.158$ \\
+GI vs.\ IG & $0.950 \pm 0.055$ & $0.962 \pm 0.042$ & $0.937 \pm 0.064$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Key observations:
+\begin{enumerate}
+    \item \textbf{GI and IG agree most}: Both methods incorporate input magnitude, leading to correlated feature rankings. This is expected since IG can be interpreted as a weighted average of gradients scaled by the input difference.
+    \item \textbf{VG shows lower agreement}: Vanilla gradients reflect local sensitivity without input scaling, producing rankings that can diverge substantially from GI and IG.
+    \item \textbf{Depth effects are method-pair-dependent}: The relationship between depth and agreement varies by method pair, suggesting that depth-induced gradient transformation affects methods differently.
+\end{enumerate}
+
+\subsection{Limitations}
+\begin{itemize}
+    \item Our synthetic data has well-separated clusters; real-world data with overlapping classes may exhibit different agreement patterns.
+    \item We use absolute attributions; signed attributions may show different correlation structures.
+    \item Width is fixed at 64; varying width alongside depth could reveal additional interactions.
+    \item We test only dense MLPs; convolutional or attention architectures may behave differently.
+\end{itemize}
+
+\section{Discussion}
+
+Our findings reinforce a growing concern in the interpretability literature: different attribution methods can tell different stories about the same prediction \citep{krishna2022disagreement}. Even on a simple synthetic task where all models achieve $>90\%$ test accuracy, method choice produces meaningfully different feature importance rankings. GI and IG agree strongly, while VG correlates with both at a notably lower level.
+
+The high agreement between gradient$\times$input and integrated gradients aligns with theoretical expectations: IG satisfies the completeness axiom (attributions sum to the difference between the output at the input and baseline), and gradient$\times$input can be seen as a single-step approximation. Both methods scale by input magnitude, producing similar rankings. Vanilla gradients, lacking input scaling, capture a fundamentally different signal---local sensitivity rather than contribution---explaining the lower agreement.
+
+We observe that VG agreement with other methods tends to \emph{increase} slightly with depth, while GI--IG agreement \emph{decreases} slightly. This suggests that deeper networks may produce gradient landscapes where input scaling matters less, partially homogenising attributions.
+
+\section{Reproducibility}
+
+This experiment is fully reproducible via the accompanying \texttt{SKILL.md}. All random seeds are pinned (42, 123, 456), dependencies are version-locked, and the experiment runs on CPU in under 3 minutes with no external data dependencies.
+
+\bibliographystyle{plainnat}
+\begin{thebibliography}{6}
+
+\bibitem[Adebayo et~al.(2018)]{adebayo2018sanity}
+J.~Adebayo, J.~Gilmer, M.~Muelly, I.~Goodfellow, M.~Hardt, and B.~Kim.
+\newblock Sanity checks for saliency maps.
+\newblock In \emph{NeurIPS}, 2018.
+
+\bibitem[Atanasova et~al.(2020)]{atanasova2020diagnostic}
+P.~Atanasova, J.~Simonsen, C.~Lioma, and I.~Augenstein.
+\newblock A diagnostic study of explainability techniques for text classification.
+\newblock In \emph{EMNLP}, 2020.
+
+\bibitem[Krishna et~al.(2022)]{krishna2022disagreement}
+S.~Krishna, T.~Han, A.~Ber, J.~Bigham, and Z.~Lipton.
+\newblock The disagreement problem in explainable machine learning: A practitioner's perspective.
+\newblock \emph{arXiv:2202.01602}, 2022.
+
+\bibitem[Shrikumar et~al.(2017)]{shrikumar2017learning}
+A.~Shrikumar, P.~Greenside, and A.~Kundaje.
+\newblock Learning important features through propagating activation differences.
+\newblock In \emph{ICML}, 2017.
+
+\bibitem[Simonyan et~al.(2014)]{simonyan2014deep}
+K.~Simonyan, A.~Vedaldi, and A.~Zisserman.
+\newblock Deep inside convolutional networks: Visualising image classification models and saliency maps.
+\newblock In \emph{ICLR Workshop}, 2014.
+
+\bibitem[Sundararajan et~al.(2017)]{sundararajan2017axiomatic}
+M.~Sundararajan, A.~Taly, and Q.~Yan.
+\newblock Axiomatic attribution for deep networks.
+\newblock In \emph{ICML}, 2017.
+
+\end{thebibliography}
+
+\end{document}
