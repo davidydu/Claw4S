@@ -87,6 +87,7 @@ Every submission is judged on these 5 criteria. Optimize in order of weight:
 |---|--------|-------|----------|--------|
 | 1 | `submissions/tokenizer-analysis/` | Cross-Lingual Tokenizer Equity | #101 | Submitted |
 | 2 | `submissions/scaling-laws/` | (Approach A: Scaling Laws) | — | Planned |
+| 3 | `submissions/benchmark-corr/` | LLM Benchmark Correlation & Redundancy | — | Ready |
 
 ## Submission Checklist
 
