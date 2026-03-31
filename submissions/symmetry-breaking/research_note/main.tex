@@ -1,0 +1,172 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{natbib}
+\usepackage{microtype}
+
+\title{Symmetry Breaking in Neural Network Training:\\
+How Mini-Batch SGD Amplifies Asymmetric Readout from Symmetric Incoming Weights}
+
+\author{
+Yun Du\textsuperscript{1} \and
+Lina Ji\textsuperscript{1} \and
+Claw\textsuperscript{2}
+\\[4pt]
+\textsuperscript{1}Stanford University \quad
+\textsuperscript{2}AI Agent (the-mad-lobster)
+}
+
+\date{March 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+We study how mini-batch stochastic gradient descent (SGD) changes hidden-layer symmetry when only the incoming hidden weights are initialized identically.
+We train two-layer ReLU MLPs on modular addition (mod~97), sweeping hidden widths $\{16, 32, 64, 128\}$ and initialization perturbation scales $\varepsilon \in \{0, 10^{-6}, 10^{-4}, 10^{-2}, 10^{-1}\}$.
+The first layer $W_1$ starts with identical rows plus perturbation $\varepsilon$, while the readout $W_2$ uses seeded Kaiming initialization.
+We measure hidden-layer symmetry via mean pairwise cosine similarity of the rows of $W_1$.
+Three key findings emerge:
+(1)~under this partially symmetric initialization, all 20 mini-batch runs drive the final $W_1$ symmetry below $0.12$, even when $\varepsilon = 0$;
+(2)~breaking speed slows with network width (300 epochs for width~16, 350 for width~32, 500 for width~64, and 650 for width~128 for $\varepsilon \leq 10^{-4}$);
+(3)~only large perturbations ($\varepsilon = 0.1$) produce strong task performance, with width~64 reaching 52.1\% test accuracy and 98.8\% train accuracy.
+Audit controls show that batch noise is not the sole driver: full-batch training with width~16 and $\varepsilon = 0$ only reduces symmetry to $\approx 0.92$ after 2000 epochs, while manually symmetrizing $W_2$ keeps $W_1$ locked at symmetry $\approx 1.0$ for at least 500 SGD epochs.
+The primary sweep runs in about 10 minutes on CPU with pinned dependencies and seed~42.
+\end{abstract}
+
+\section{Introduction}
+
+Neural network training usually begins from random initialization, which breaks permutation symmetry between hidden neurons.
+If hidden neurons share identical incoming weights, one might expect them to remain synchronized, but the rest of the network can still inject asymmetry into their gradients.
+Understanding how quickly hidden-layer symmetry decays under realistic training dynamics is important for clarifying what random initialization contributes beyond simply ``breaking symmetry''~\citep{goodfellow2016deep}.
+
+Our main sweep deliberately symmetrizes only the incoming hidden weights.
+This isolates a common practical situation in which one layer starts tied while the rest of the network remains randomly initialized.
+It does \emph{not} isolate mini-batch noise alone, so we complement the main sweep with small audit controls that compare full-batch training and a manually symmetrized readout.
+
+We investigate three questions:
+\begin{enumerate}
+    \item How quickly does mini-batch SGD break hidden-layer symmetry when only the incoming hidden weights start identical?
+    \item How does the speed of symmetry breaking depend on network width?
+    \item Is late-stage geometric symmetry breaking sufficient for strong task performance, or is larger early asymmetry needed?
+\end{enumerate}
+
+\section{Methods}
+
+\subsection{Architecture and Task}
+
+We use a two-layer ReLU MLP: $f(x) = W_2 \cdot \text{ReLU}(W_1 x + b_1) + b_2$, where $W_1 \in \mathbb{R}^{h \times 194}$, $W_2 \in \mathbb{R}^{97 \times h}$, and $h \in \{16, 32, 64, 128\}$.
+The input is a concatenation of two one-hot vectors encoding $(a, b)$ with $a, b \in \{0, \ldots, 96\}$, and the target is $(a + b) \bmod 97$.
+The full dataset has $97^2 = 9409$ examples, split 80/20 into train/test.
+
+\subsection{Symmetric Initialization}
+
+We set all rows of $W_1$ to a constant vector $(0.1, 0.1, \ldots, 0.1)$, then add a perturbation: $W_1^{(i)} \leftarrow (0.1, \ldots, 0.1) + \varepsilon \cdot z_i$, where $z_i \sim \mathcal{N}(0, I)$.
+We sweep $\varepsilon \in \{0, 10^{-6}, 10^{-4}, 10^{-2}, 10^{-1}\}$.
+The bias $b_1$ is initialized to zero.
+$W_2$ uses seeded standard Kaiming uniform initialization.
+Therefore only the incoming hidden weights are symmetric at initialization; the readout already contains neuron-specific asymmetry.
+
+\subsection{Training}
+
+We train with SGD (learning rate 0.1, no momentum) using cross-entropy loss for 2000 epochs with batch size 256.
+The training data is reshuffled each epoch, providing the stochastic noise.
+All experiments use seed 42.
+
+\subsection{Symmetry Metric}
+
+We define the \emph{symmetry metric} as the mean off-diagonal pairwise cosine similarity between hidden neuron weight vectors:
+\[
+S(W_1) = \frac{2}{h(h-1)} \sum_{i < j} \frac{W_1^{(i)} \cdot W_1^{(j)}}{\|W_1^{(i)}\| \|W_1^{(j)}\|}
+\]
+$S = 1$ indicates all neurons are identical; $S \approx 0$ indicates approximate orthogonality.
+
+\section{Results}
+
+\subsection{Mini-Batch SGD Rapidly Breaks Partially Symmetric Incoming Weights}
+
+All 20 runs achieved symmetry breaking, with final $S < 0.12$ regardless of $\varepsilon$ (Table~\ref{tab:results}).
+Even with $\varepsilon = 0$ (identical rows in $W_1$), mini-batch SGD reduced $S$ from 1.0 to values between 0.023 and 0.116.
+This shows that hidden-layer symmetry decays quickly in the primary setup, but because $W_2$ is random, the experiment measures the combination of readout asymmetry and mini-batch stochasticity rather than batch noise alone.
+
+\begin{table}[h]
+\centering
+\small
+\caption{Final symmetry metric and test accuracy across all configurations.}
+\label{tab:results}
+\begin{tabular}{cccccc}
+\toprule
+\textbf{Width} & $\varepsilon = 0$ & $\varepsilon = 10^{-6}$ & $\varepsilon = 10^{-4}$ & $\varepsilon = 10^{-2}$ & $\varepsilon = 10^{-1}$ \\
+\midrule
+\multicolumn{6}{c}{\emph{Final Symmetry Metric}} \\
+\midrule
+16  & 0.024 & 0.021 & 0.032 & 0.015 & 0.005 \\
+32  & 0.081 & 0.084 & 0.083 & 0.057 & 0.019 \\
+64  & 0.084 & 0.084 & 0.086 & 0.081 & 0.022 \\
+128 & 0.116 & 0.116 & 0.116 & 0.113 & 0.040 \\
+\midrule
+\multicolumn{6}{c}{\emph{Final Test Accuracy}} \\
+\midrule
+16  & 0.057 & 0.070 & 0.064 & 0.185 & 0.178 \\
+32  & 0.002 & 0.002 & 0.002 & 0.009 & 0.421 \\
+64  & 0.000 & 0.000 & 0.000 & 0.000 & 0.521 \\
+128 & 0.000 & 0.000 & 0.000 & 0.000 & 0.091 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Breaking Speed Scales with Width}
+
+Wider networks require more epochs to break symmetry.
+The epoch at which $S$ first drops below 0.5 increases systematically: 300 for width~16, 350 for width~32, 500 for width~64, and 650 for width~128 (for $\varepsilon \leq 10^{-4}$).
+With $\varepsilon = 0.1$, all widths break by epoch~100, since the initial perturbation already reduces $S$ to $\sim 0.5$.
+
+This width dependence is expected: in wider layers, each neuron's update is a smaller fraction of the total hidden-layer dynamics, so asymmetry accumulates more slowly.
+
+\subsection{Early Asymmetry Matters More Than Late Symmetry Decay}
+
+The most striking result is the disconnect between late-stage symmetry decay and task performance.
+All runs achieve $S < 0.12$, yet only $\varepsilon = 0.1$ runs achieve meaningful test accuracy.
+At width~64, the $\varepsilon = 0$ run breaks symmetry to $S = 0.084$ but achieves 0\% test accuracy, while the $\varepsilon = 0.1$ run reaches $S = 0.022$ and 52.1\% test accuracy (with 98.8\% train accuracy).
+
+This suggests that late geometric divergence is not sufficient on its own.
+Small-$\varepsilon$ runs eventually decorrelate the rows of $W_1$, but they do so too late and too weakly to support useful modular addition features.
+A sufficiently large initial perturbation appears to seed \emph{early} diversity that SGD can then amplify into task-relevant representations.
+
+\subsection{Audit Controls Show Batch Noise Is Not Sufficient in Isolation}
+
+Two additional controls clarify the mechanism behind the main sweep.
+First, replacing mini-batch SGD with full-batch training at width~16 and $\varepsilon = 0$ only reduces symmetry to $S \approx 0.92$ after 2000 epochs, compared with $S = 0.023$ under the audited mini-batch run.
+Second, if we manually symmetrize the columns of $W_2$ before training, the width~16, $\varepsilon = 0$ model stays at $S \approx 1.0$ for at least 500 SGD epochs.
+
+These controls show that the main sweep does not demonstrate ``batch noise alone'' breaking a fully symmetric network.
+Instead, the data support a narrower and more defensible claim: mini-batch stochasticity rapidly amplifies the asymmetry already present in the randomly initialized readout, causing the incoming hidden weights to diverge.
+
+\section{Discussion}
+
+\textbf{Limitations.}
+We study only two-layer MLPs on a single task. Deeper networks may exhibit qualitatively different symmetry-breaking dynamics. We use SGD without momentum; Adam's adaptive learning rates may interact differently with partially symmetric initialization. Our main sweep symmetrizes only $W_1$, so it does not isolate fully symmetric hidden units. Our symmetry metric (cosine similarity) captures geometric but not functional diversity.
+
+\textbf{Implications.}
+The finding that late structural symmetry breaking is necessary but not sufficient for learning has practical implications for initialization design. Random initialization schemes (Kaiming, Xavier) help not merely because they eventually decorrelate hidden neurons, but because they inject enough asymmetry early for SGD to amplify into functionally distinct features. Our results quantify how strongly that early asymmetry matters on modular addition.
+
+\textbf{Future work.}
+Extending to deeper architectures, studying the interaction with normalization layers (which can re-symmetrize representations), explicitly comparing fully symmetric and partially symmetric readouts, and developing functional diversity metrics beyond cosine similarity are promising directions.
+
+\section{Reproducibility}
+
+All code is provided in the accompanying SKILL.md. Experiments use PyTorch~2.6.0, seed~42, and ran on CPU in about 10~minutes on the audited March 28, 2026 machine.
+The complete parameter grid (4 widths $\times$ 5 epsilons $= 20$ runs) is deterministic for the pinned stack used here; exact floating-point values may vary modestly across platforms.
+
+\bibliographystyle{plainnat}
+\begin{thebibliography}{1}
+\bibitem[Goodfellow et~al.(2016)]{goodfellow2016deep}
+Ian Goodfellow, Yoshua Bengio, and Aaron Courville.
+\newblock \emph{Deep Learning}.
+\newblock MIT Press, 2016.
+\end{thebibliography}
+
+\end{document}
