@@ -1,0 +1,209 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{amsmath}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue!60!black,
+  citecolor=blue!60!black,
+  urlcolor=blue!60!black
+}
+
+\title{Benford's Law in Trained Neural Networks:\\An Agent-Executable Analysis of Weight Digit Distributions}
+\author{
+  Yun Du \\
+  Stanford University \\
+  \texttt{yundu27@stanford.edu}
+  \and
+  Lina Ji \\
+  Stanford University
+  \and
+  Claw \\
+  AI Agent \\
+  \texttt{claw@agent}
+}
+\date{March 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Benford's Law predicts that leading significant digits in naturally occurring datasets follow a logarithmic distribution, with digit 1 appearing approximately 30\% of the time.
+We investigate whether this law emerges in the weights of trained neural networks by training tiny MLPs on modular arithmetic and sine regression tasks, saving weight snapshots across 5{,}000 training epochs.
+Using chi-squared and Mean Absolute Deviation (MAD) tests with bootstrap confidence intervals, we find that \emph{training moves weight distributions toward Benford conformity overall}: the modular arithmetic model (hidden=64) reduces MAD by ${\sim}60\%$ from initialization (${\sim}0.031$) to near the ``marginal conformity'' threshold (${\sim}0.013$) after 5{,}000 epochs.
+Output-adjacent layers show stronger conformity than input-adjacent layers.
+All results are fully reproducible via an agent-executable \texttt{SKILL.md} requiring only CPU and no internet access.
+\end{abstract}
+
+\section{Introduction}
+
+Benford's Law~\cite{benford1938} states that in many naturally occurring collections of numbers, the leading significant digit $d$ ($1 \leq d \leq 9$) appears with probability
+\begin{equation}
+    P(d) = \log_{10}\!\left(1 + \frac{1}{d}\right),
+\end{equation}
+yielding approximately 30.1\% for digit 1, decreasing to 4.6\% for digit 9.
+This law applies to diverse datasets including population figures, physical constants, and financial data.
+
+Recent work has established a connection between Benford's Law and neural network weights.
+Sahu~\cite{sahu2021} introduced Model Enthalpy (MLH), measuring the closeness of weight distributions to Benford's Law, and demonstrated a strong correlation with generalization across architectures from AlexNet to Transformers.
+Toosi~\cite{toosi2025} confirmed these findings in RNNs and LSTMs, showing that higher-performing models exhibit stronger Benford conformity.
+
+However, prior studies focused on large models requiring GPUs, limiting reproducibility.
+We contribute an \textbf{agent-executable study} using tiny MLPs trainable on CPU in about two minutes on our machine, with rigorous statistical testing (chi-squared, MAD with Nigrini's thresholds~\cite{nigrini2012}, and bootstrap uncertainty bands).
+
+\section{Methodology}
+
+\subsection{Tasks and Models}
+We train two-hidden-layer MLPs (ReLU activations) on two tasks:
+\begin{itemize}
+    \item \textbf{Modular arithmetic:} Predict $(a + b) \bmod 97$ from normalized inputs $(a/(p{-}1),\, b/(p{-}1))$. Classification with 97 output classes. Known to exhibit ``grokking''~\cite{power2022}.
+    \item \textbf{Sine regression:} Predict $\sin(x)$ for $x \sim U(0, 2\pi)$. A smooth function approximation task.
+\end{itemize}
+
+For each task, we train models with hidden dimensions $h \in \{64, 128\}$, yielding four configurations. All models use Adam (lr=$10^{-3}$) for 5{,}000 epochs with seed 42.
+
+\subsection{Benford Analysis}
+At each snapshot epoch $\{0, 100, 500, 1000, 2000, 5000\}$, we:
+\begin{enumerate}
+    \item Extract all weight values (excluding biases), take absolute values, discard values $< 10^{-10}$.
+    \item Compute leading significant digit via $d = \lfloor 10^{\log_{10}|w| - \lfloor\log_{10}|w|\rfloor}\rfloor$.
+    \item Compare observed digit distribution to Benford's expected distribution.
+\end{enumerate}
+
+\subsection{Statistical Tests}
+\textbf{Chi-squared test:} $\chi^2 = \sum_{d=1}^{9} \frac{(O_d - E_d)^2}{E_d}$ with 8 degrees of freedom, where $O_d = n \cdot f_d^{\text{obs}}$ and $E_d = n \cdot P(d)$.
+
+\textbf{Mean Absolute Deviation (MAD):} $\text{MAD} = \frac{1}{9}\sum_{d=1}^{9} |f_d^{\text{obs}} - P(d)|$, classified per Nigrini~\cite{nigrini2012}: $< 0.006$ = close conformity, $0.006$--$0.012$ = acceptable, $0.012$--$0.015$ = marginal, $> 0.015$ = nonconformity.
+
+\textbf{Uncertainty quantification:} For each row in the aggregate/per-layer/control tables, we estimate a 95\% confidence interval for MAD by multinomial bootstrap (1{,}000 resamples) using the observed digit frequencies and sample size.
+
+\subsection{Controls}
+We generate 10{,}000 values from three distributions: Uniform $U(-1,1)$, Normal $N(0, 0.01)$, and Kaiming Uniform (simulating PyTorch default initialization). None are expected to conform to Benford's Law.
+
+\section{Results}
+
+\subsection{Training Dynamics}
+
+Table~\ref{tab:dynamics} shows that MAD falls substantially from initialization across all configurations, with the largest gains appearing early in training and small later fluctuations, indicating that gradient-based optimization drives weight distributions toward Benford conformity overall.
+
+\begin{table}[h]
+\centering
+\small
+\caption{MAD from Benford's Law over training epochs. All models start in nonconformity and finish below their initialization MAD. Values are from the deterministic seed-42 run reproduced by \texttt{run.py}; repeated reruns with the same seed in our environment produced identical MAD values.}
+\label{tab:dynamics}
+\begin{tabular}{lcccccc}
+\toprule
+\textbf{Model} & \textbf{Ep.\ 0} & \textbf{Ep.\ 100} & \textbf{Ep.\ 500} & \textbf{Ep.\ 1000} & \textbf{Ep.\ 2000} & \textbf{Ep.\ 5000} \\
+\midrule
+mod97\_h64  & 0.031 & 0.012 & 0.011 & 0.013 & 0.014 & 0.013 \\
+mod97\_h128 & 0.058 & 0.023 & 0.022 & 0.024 & 0.025 & 0.027 \\
+sine\_h64   & 0.031 & 0.027 & 0.025 & 0.024 & 0.024 & 0.025 \\
+sine\_h128  & 0.058 & 0.050 & 0.048 & 0.047 & 0.047 & 0.048 \\
+\bottomrule
+\multicolumn{7}{l}{\scriptsize mod97\_h64 reaches acceptable conformity at epoch 500 and remains near the marginal threshold thereafter.}
+\end{tabular}
+\end{table}
+
+The mod97\_h64 model shows the strongest trajectory, with MAD dropping by $\sim$60\% from initialization to its best value by epoch 500 and remaining near the ``marginal conformity'' threshold through epoch 5{,}000. The smaller model's stronger conformity suggests that the ratio of training signal to parameter count influences how structured weight distributions become.
+
+\subsection{Per-Layer Analysis}
+
+Table~\ref{tab:layers} shows per-layer MAD at epoch 5{,}000 for the mod97\_h64 model, revealing that output-adjacent layers tend to conform more closely than input-adjacent layers.
+
+\begin{table}[h]
+\centering
+\small
+\caption{Per-layer MAD at epoch 5{,}000 (mod97\_h64). Output layer shows best conformity.}
+\label{tab:layers}
+\begin{tabular}{lccc}
+\toprule
+\textbf{Layer} & \textbf{MAD} & \textbf{Classification} & \textbf{N weights} \\
+\midrule
+Input (net.0)  & 0.057 & Nonconformity & 128 \\
+Hidden (net.2) & 0.021 & Nonconformity & 4{,}096 \\
+Output (net.4) & \textbf{0.011} & Acceptable & 6{,}208 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The input layer's poor conformity is partly explained by its small size (128 weights), but the monotonic improvement from input to output is consistent across models. Note that layer size varies considerably, and the chi-squared test is sensitive to sample size~\cite{nigrini2012}; MAD provides a more robust comparison across layers.
+
+\subsection{Controls}
+
+\begin{table}[h]
+\centering
+\small
+\caption{Control distributions: all show nonconformity, as expected.}
+\label{tab:controls}
+\begin{tabular}{lcc}
+\toprule
+\textbf{Distribution} & \textbf{MAD} & \textbf{Classification} \\
+\midrule
+Uniform $U(-1,1)$    & 0.058 & Nonconformity \\
+Normal $N(0, 0.01)$  & 0.023 & Nonconformity \\
+Kaiming Uniform      & 0.056 & Nonconformity \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+All control distributions show nonconformity (Table~\ref{tab:controls}). Notably, the Normal distribution has lower MAD than Uniform or Kaiming, consistent with log-normal-like distributions partially approximating Benford's Law.
+
+\section{Discussion}
+
+\paragraph{Training drives Benford conformity.}
+Across all four model configurations, MAD from Benford's Law is lower at epoch 5{,}000 than at initialization, with reductions of 18--60\%. The largest gains occur early in training for the modular task, followed by modest later fluctuations. This corroborates Sahu~\cite{sahu2021}'s findings on large models, now demonstrated in a minimal, CPU-reproducible setting.
+
+\paragraph{Task and size effects.}
+The modular arithmetic task with $h=64$ achieves the strongest conformity, approaching the marginal/acceptable boundary. Larger models ($h=128$) show higher MAD throughout, possibly because they have more parameters relative to the training signal, leading to less structured weight distributions. The sine regression task shows weaker conformity overall, suggesting that task complexity influences how strongly Benford's Law emerges.
+
+\paragraph{Layer depth matters.}
+Output-adjacent layers consistently show better Benford conformity than input-adjacent layers. This may reflect the gradient structure: output layers receive more direct error signal, potentially imposing more structure on their weight distributions.
+
+\paragraph{Determinism and scope.}
+Repeated reruns with the fixed seed produced identical MAD trajectories and control statistics in our environment; only wall-clock runtime varied. The generated \texttt{results.json} records software versions (Python, PyTorch, NumPy, SciPy, Matplotlib) to support environment-level reproducibility audits. We did not run a multi-seed sweep in this submission, so our claims are limited to the seed-42 configuration documented in \texttt{run.py}.
+
+\paragraph{Limitations.}
+Our models are deliberately tiny (4K--29K parameters) for reproducibility. Larger models may show stronger effects. We analyze only weight matrices, not biases. The MAD thresholds (Nigrini) were developed for financial forensics and may not directly apply to neural network weights. The chi-squared test is known to be overly sensitive for large sample sizes~\cite{nigrini2012}, which is why we emphasize MAD.
+
+\paragraph{The skill as contribution.}
+This analysis runs entirely on CPU with no internet access, completing in roughly two minutes for the full profile and a few seconds for an optional quick profile. The \texttt{SKILL.md} enables any AI agent to reproduce all results, demonstrating that meaningful scientific analysis of neural network properties can be conducted in minimal, fully reproducible settings.
+
+\section{Conclusion}
+
+We presented an agent-executable study showing that training moves neural network weight distributions toward Benford's Law conformity overall. The mod-97 model with $h=64$ reduces MAD by ${\sim}60\%$ over 5{,}000 epochs, approaching marginal conformity. Output-adjacent layers conform more strongly than input-adjacent layers, and smaller models show better conformity than larger ones. These findings extend prior work on Benford's Law in neural networks to a minimal, CPU-reproducible setting, with all results reproducible via a single \texttt{SKILL.md} file.
+
+\begin{thebibliography}{9}
+\bibitem{benford1938}
+F.~Benford,
+``The law of anomalous numbers,''
+\emph{Proceedings of the American Philosophical Society}, vol.~78, no.~4, pp.~551--572, 1938.
+
+\bibitem{sahu2021}
+S.~K.~Sahu,
+``Rethinking Neural Networks with Benford's Law,''
+in \emph{NeurIPS Workshop on Machine Learning and the Physical Sciences}, 2021.
+
+\bibitem{toosi2025}
+R.~Toosi et al.,
+``Benford's Law in Basic RNN and Long Short-Term Memory and Their Associations,''
+\emph{Applied AI Letters}, 2025.
+
+\bibitem{nigrini2012}
+M.~J.~Nigrini,
+\emph{Benford's Law: Applications for Forensic Accounting, Auditing, and Fraud Detection}.
+Wiley, 2012.
+
+\bibitem{power2022}
+A.~Power et al.,
+``Grokking: Generalization Beyond Overfitting on Small Algorithmic Datasets,''
+in \emph{ICLR Workshop on Mathematics of Deep Learning}, 2022.
+\end{thebibliography}
+
+\end{document}
