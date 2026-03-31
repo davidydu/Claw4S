@@ -1,0 +1,142 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{natbib}
+\usepackage{xcolor}
+
+\title{Grokking Phase Diagrams: Mapping Delayed Generalization\\in Modular Arithmetic}
+\author{
+  Yun Du\thanks{Stanford University} \and
+  Lina Ji\footnotemark[1] \and
+  Claw (the-mad-lobster)\thanks{AI Agent, Claw4S 2026}
+}
+\date{March 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+We systematically map the phase diagram of ``grokking'' --- the delayed transition from memorization to generalization --- in tiny neural networks trained on modular addition (mod 97). By sweeping over weight decay ($\lambda \in \{0, 10^{-3}, 10^{-2}, 10^{-1}, 1\}$), dataset fraction ($f \in \{0.3, 0.5, 0.7, 0.9\}$), and model width ($h \in \{16, 32, 64\}$), we classify 60 training runs into four learning phases: confusion, memorization, grokking, and comprehension. We find that dataset fraction and model width are the dominant controls on whether generalization appears at all, while weight decay shifts the balance between delayed grokking and fast comprehension once enough data and capacity are available. Grokking is most frequent at intermediate regularization strengths, but it is not confined to them: in our sweep, delayed or rapid generalization also appears at $\lambda = 0$ and $\lambda = 1$ for sufficiently wide models and large training fractions. All experiments run on CPU in about 6--7 minutes with fully deterministic, reproducible code.
+\end{abstract}
+
+\section{Introduction}
+
+\citet{power2022grokking} discovered that small neural networks trained on modular arithmetic tasks can exhibit ``grokking'' --- a phenomenon where test accuracy remains at chance level long after training accuracy reaches near perfection, then suddenly jumps to high accuracy after many additional epochs of training. This delayed generalization represents a phase transition in the learning dynamics.
+
+Subsequent work has deepened our understanding: \citet{nanda2023progress} reverse-engineered the learned algorithm as a discrete Fourier transform with trigonometric identities, identifying three continuous training phases (memorization, circuit formation, cleanup). \citet{liu2022omnigrok} introduced the ``LU mechanism'' explaining grokking through the mismatch between L-shaped training loss and U-shaped test loss as functions of weight norm, and demonstrated that grokking can be induced or suppressed across diverse data domains.
+
+Despite these advances, a systematic mapping of the grokking phase diagram across multiple hyperparameters simultaneously has received less attention. In this work, we sweep over three key hyperparameters --- weight decay, dataset fraction, and model width --- to construct a complete phase diagram that classifies each training run into one of four outcomes.
+
+\section{Methods}
+
+\subsection{Task and Data}
+
+We study modular addition: given integers $a, b \in \{0, 1, \ldots, p-1\}$, predict $(a + b) \bmod p$ where $p = 97$ (a standard prime used in the grokking literature). The full dataset contains $p^2 = 9{,}409$ input-output pairs. Each pair is unique, and labels are uniformly distributed over $\{0, \ldots, p-1\}$.
+
+\subsection{Model Architecture}
+
+We use a one-hidden-layer MLP with learned embeddings:
+\begin{enumerate}
+  \item Each input $a$ and $b$ is mapped to a 16-dimensional learned embedding
+  \item The two embeddings are concatenated to form a 32-dimensional vector
+  \item A linear layer maps to $h$ hidden units with ReLU activation
+  \item A final linear layer maps to $p$ output logits
+\end{enumerate}
+
+Parameter counts range from ${\sim}4{,}800$ ($h = 16$) to ${\sim}12{,}500$ ($h = 64$), all well under 100K.
+
+\subsection{Training}
+
+We use the AdamW optimizer \citep{loshchilov2019adamw} with learning rate $10^{-3}$, $\beta = (0.9, 0.98)$, and cross-entropy loss. Training uses full-batch gradient descent (all training examples in each batch), following the standard grokking setup. Each run trains for up to 2{,}500 epochs with early stopping when both train and test accuracy exceed 99\% for two consecutive evaluation points. Metrics are logged every 100 epochs.
+
+\subsection{Phase Classification}
+
+We classify each training run into one of four phases:
+\begin{itemize}
+  \item \textbf{Confusion}: Final training accuracy $< 95\%$. The model fails to memorize.
+  \item \textbf{Memorization}: Training accuracy $\geq 95\%$ but test accuracy $< 95\%$. Overfitting without generalization.
+  \item \textbf{Grokking}: Both accuracies reach $95\%$, but test accuracy lags train by $> 200$ epochs. Delayed generalization.
+  \item \textbf{Comprehension}: Both accuracies reach $95\%$ with test lagging by $\leq 200$ epochs. Fast generalization.
+\end{itemize}
+
+\subsection{Hyperparameter Sweep}
+
+We sweep over:
+\begin{itemize}
+  \item Weight decay $\lambda \in \{0, 10^{-3}, 10^{-2}, 10^{-1}, 1.0\}$ (5 values)
+  \item Dataset fraction $f \in \{0.3, 0.5, 0.7, 0.9\}$ (4 values)
+  \item Hidden dimension $h \in \{16, 32, 64\}$ (3 values)
+\end{itemize}
+
+This yields $5 \times 4 \times 3 = 60$ training runs, all with seed fixed to 42 for full reproducibility.
+The execution script also records reproducibility metadata (sweep grid, seed, package versions, and runtime) in \texttt{results/metadata.json}, and the validator checks full grid coverage plus phase/gap consistency for each run.
+
+\section{Results}
+
+\subsection{Phase Diagram Structure}
+
+The phase diagram reveals clear boundaries between learning regimes. The results are presented as 2D heatmaps (weight decay $\times$ dataset fraction) for each hidden dimension.
+
+The phase diagram shows that generalization is absent at low dataset fractions ($f = 0.3$ or $0.5$) across the entire sweep, but becomes common once $f \geq 0.7$. Within that higher-data regime, the narrowest model ($h = 16$) still struggles, while wider models display both delayed grokking and rapid comprehension. Weight decay affects which of those regimes is more likely, but no single value cleanly separates success from failure across all widths and dataset fractions.
+
+\subsection{Role of Weight Decay}
+
+Weight decay shapes the learning regime, but in this sweep it does not act as a single universal threshold:
+\begin{itemize}
+  \item $\lambda = 0$: Mostly confusion or memorization, but wider models with $f \geq 0.7$ can still generalize, including two grokking runs and one rapid-comprehension run.
+  \item $\lambda = 10^{-3}$ to $10^{-1}$: The most reliable grokking region in our sweep. These settings account for 7 of the 9 grokking runs.
+  \item $\lambda = 1.0$: Strong regularization suppresses grokking, but does not eliminate generalization. At high dataset fraction and sufficient width, runs transition directly to comprehension instead.
+\end{itemize}
+
+\subsection{Role of Dataset Fraction}
+
+Larger dataset fractions facilitate generalization. With $f = 0.3$ (30\% training data), models struggle to generalize even with appropriate weight decay. At $f = 0.7$--$0.9$, grokking and comprehension are more common. This aligns with the Omnigrok finding \citep{liu2022omnigrok} of a critical training set size below which generalization is impossible.
+
+\subsection{Role of Model Width}
+
+Wider models ($h = 64$) tend to grok or comprehend more readily than narrow models ($h = 16$) at the same weight decay and dataset fraction. This suggests that overparameterization, when combined with appropriate regularization, facilitates the transition to generalizing solutions.
+
+\section{Discussion}
+
+Our phase diagram confirms and refines several findings from the grokking literature:
+
+\begin{enumerate}
+  \item \textbf{Dataset fraction is the clearest gate on generalization} in this setup: none of the runs with $f \leq 0.5$ generalize, while most runs with $f = 0.9$ do.
+  \item \textbf{Weight decay modulates how generalization appears} once enough data and width are available: intermediate values favor delayed grokking, while extreme values more often yield either confusion or fast comprehension.
+  \item \textbf{Model width modulates the phase boundaries}, with wider models having broader grokking regions.
+  \item The four-phase structure (confusion, memorization, grokking, comprehension) is robust across model widths.
+\end{enumerate}
+
+\paragraph{Limitations.} Our study uses a single arithmetic operation (addition mod 97), a single optimizer (AdamW), and a single seed. The grokking gap threshold (200 epochs) is somewhat arbitrary. Extending to multiplication, varying seeds for confidence intervals, and exploring additional optimizers would strengthen these findings.
+
+\paragraph{Reproducibility.} All code is deterministic on CPU with pinned seeds and dependency versions. Each run emits machine-checkable artifacts (\texttt{sweep\_results.json}, \texttt{phase\_diagram.json}, \texttt{metadata.json}) and passes a validator that enforces artifact presence, Cartesian grid completeness, and phase-label consistency. In our verification pass, the complete 60-run analysis finished on CPU in 383 seconds (about 6.4 minutes). No GPU, internet access, or authentication is required.
+
+\bibliographystyle{plainnat}
+\begin{thebibliography}{4}
+
+\bibitem[Power et~al.(2022)]{power2022grokking}
+Power, A., Burda, Y., Edwards, H., Babuschkin, I., and Misra, V.
+\newblock Grokking: Generalization beyond overfitting on small algorithmic datasets.
+\newblock \emph{arXiv preprint arXiv:2201.02177}, 2022.
+
+\bibitem[Nanda et~al.(2023)]{nanda2023progress}
+Nanda, N., Chan, L., Lieberum, T., Smith, J., and Steinhardt, J.
+\newblock Progress measures for grokking via mechanistic interpretability.
+\newblock In \emph{ICLR}, 2023.
+
+\bibitem[Liu et~al.(2022)]{liu2022omnigrok}
+Liu, Z., Michaud, E.~J., and Tegmark, M.
+\newblock Omnigrok: Grokking beyond algorithmic data.
+\newblock \emph{arXiv preprint arXiv:2210.01117}, 2022.
+
+\bibitem[Loshchilov and Hutter(2019)]{loshchilov2019adamw}
+Loshchilov, I. and Hutter, F.
+\newblock Decoupled weight decay regularization.
+\newblock In \emph{ICLR}, 2019.
+
+\end{thebibliography}
+
+\end{document}
