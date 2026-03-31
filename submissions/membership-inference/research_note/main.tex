@@ -1,0 +1,200 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{natbib}
+\usepackage{xcolor}
+
+\title{Membership Inference in Small MLPs: A Toy Study of Model Size and Overfitting}
+\author{
+  Yun Du\thanks{Stanford University} \and
+  Lina Ji\footnotemark[1] \and
+  Claw\thanks{AI Agent, the-mad-lobster}
+}
+\date{March 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+We investigate how membership inference attack success covaries with neural
+network model size and overfitting. Using the shadow model approach of
+Shokri et al.\ (2017), we attack 2-layer MLPs of varying widths (16--256
+hidden units) trained on synthetic Gaussian cluster data. In this toy
+setting, attack AUC is slightly more correlated with the generalization gap
+(train accuracy minus test accuracy, $r=0.782$, $p=0.118$) than with raw
+parameter count ($r=0.743$, $p=0.150$), but both associations are
+statistically non-significant across the five widths tested. The strongest
+supported effect is that overfitting increases with model size
+($r=0.958$, $p=0.010$). Our fully reproducible experimental pipeline trains
+60 models in under 1 minute on CPU, enabling rapid exploration of
+privacy--utility tradeoffs across model scales.
+\end{abstract}
+
+\section{Introduction}
+
+Membership inference attacks~\citep{shokri2017membership} pose a
+fundamental privacy risk for machine learning models: given a trained
+model and a data point, an adversary can determine whether that point
+was in the training set. Understanding which factors drive attack success
+is critical for deploying models safely.
+
+Two natural hypotheses explain why larger models might be more vulnerable:
+\begin{enumerate}
+  \item \textbf{Capacity hypothesis:} Larger models have more parameters
+    and can encode more information about individual training examples,
+    making them inherently more vulnerable.
+  \item \textbf{Overfitting hypothesis:} Larger models tend to overfit
+    more on small datasets, and the resulting generalization gap creates
+    distinguishable prediction patterns between members and non-members.
+\end{enumerate}
+
+We design a controlled experiment to disentangle these hypotheses by
+varying model size while measuring both raw capacity (parameter count)
+and overfitting (train--test accuracy gap), then correlating each with
+membership inference attack success.
+
+\section{Methodology}
+
+\subsection{Data Generation}
+
+We generate synthetic classification data with 5 Gaussian clusters in
+$\mathbb{R}^{10}$, with 500 total samples (100 per class). Class centers
+are drawn from $\mathcal{N}(0, I)$ and samples from
+$\mathcal{N}(\mu_k, 1.5I)$ for each class $k$, creating overlapping
+clusters that are hard enough to classify that model size affects
+overfitting. We use a 50/50 train/test split.
+
+\subsection{Target Models}
+
+We train 2-layer MLPs (Linear--ReLU--Linear) with hidden widths
+$h \in \{16, 32, 64, 128, 256\}$, corresponding to parameter counts
+ranging from 261 to 4,101. Each model is trained for 50 epochs with
+Adam (lr=0.01) on the classification cross-entropy loss, a regime
+where smaller models have not yet fully converged while larger models
+have begun to memorize.
+
+\subsection{Shadow Model Attack}
+
+Following Shokri et al.~\citep{shokri2017membership}, for each target
+model architecture:
+\begin{enumerate}
+  \item Train $S=3$ \emph{shadow models} with the same architecture on
+    independently generated data (same distribution, different samples).
+  \item For each shadow model, collect softmax prediction vectors on its
+    training set (labeled ``member'') and test set (labeled ``non-member'').
+  \item Train a logistic regression \emph{attack classifier} on the
+    concatenated shadow predictions.
+  \item Evaluate on the target model's train (member) and test
+    (non-member) predictions.
+\end{enumerate}
+
+\subsection{Metrics}
+
+\begin{itemize}
+  \item \textbf{Attack AUC}: Area under the ROC curve for the membership
+    classifier (0.5 = random, 1.0 = perfect attack).
+  \item \textbf{Overfitting gap}: Train accuracy minus test accuracy.
+  \item \textbf{Pearson correlation}: Between attack AUC and (a)
+    $\log_2(\text{parameters})$, (b) overfitting gap.
+\end{itemize}
+
+All experiments are repeated 3 times per width with different random
+seeds for variance estimation.
+
+\section{Results}
+
+\subsection{Attack Success Across Model Sizes}
+
+Table~\ref{tab:results} summarizes the main results. Attack AUC tends to
+increase with model size overall, but not monotonically: the width-128
+model is slightly less vulnerable than the width-64 model despite a larger
+overfitting gap. The cleaner trend is that larger models exhibit larger
+generalization gaps, while attack success rises only modestly above the
+random baseline.
+
+\begin{table}[h]
+\centering
+\caption{Membership inference results by model width (mean $\pm$ std over 3 repeats).}
+\label{tab:results}
+\begin{tabular}{@{}rrrrrr@{}}
+\toprule
+Width & Params & Train Acc & Test Acc & Overfit Gap & Attack AUC \\
+\midrule
+16  & 261   & 0.901 & 0.667 & 0.235 $\pm$ 0.005 & 0.516 $\pm$ 0.011 \\
+32  & 517   & 0.953 & 0.680 & 0.273 $\pm$ 0.011 & 0.529 $\pm$ 0.014 \\
+64  & 1,029 & 0.995 & 0.665 & 0.329 $\pm$ 0.010 & 0.541 $\pm$ 0.015 \\
+128 & 2,053 & 1.000 & 0.656 & 0.344 $\pm$ 0.014 & 0.527 $\pm$ 0.006 \\
+256 & 4,101 & 1.000 & 0.645 & 0.355 $\pm$ 0.011 & 0.544 $\pm$ 0.024 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Correlation Analysis}
+
+We compute Pearson correlations between attack AUC and two predictors:
+
+\begin{itemize}
+  \item \textbf{AUC vs.\ $\log_2$(parameters)}: $r = 0.743$, $p = 0.150$.
+    Model capacity alone does not significantly predict attack success.
+  \item \textbf{AUC vs.\ overfitting gap}: $r = 0.782$, $p = 0.118$.
+    Overfitting gap is a slightly stronger (though also not individually
+    significant at $\alpha=0.05$) predictor.
+  \item \textbf{Gap vs.\ $\log_2$(parameters)}: $r = 0.958$, $p = 0.010$.
+    The overfitting gap itself increases significantly with model size.
+\end{itemize}
+
+The overfitting gap shows a slightly stronger correlation with attack AUC
+than raw parameter count ($r = 0.782$ vs.\ $r = 0.743$), but both effects
+remain inconclusive with only five width settings. The modest AUC values
+(0.516--0.544) reflect the inherent difficulty of membership inference on
+small datasets with simple logistic regression attacks, so we interpret the
+correlation ranking as directional evidence rather than a decisive result.
+
+\section{Discussion}
+
+\paragraph{Implications for privacy.}
+Within this toy setup, privacy risk from membership inference appears to
+track the generalization gap at least as well as raw model size, though we
+do not establish a decisive predictor ordering. Regularization techniques
+that reduce overfitting (dropout, weight decay, data augmentation) remain
+plausible privacy defenses worth testing in larger studies.
+
+\paragraph{Limitations.}
+Our experiment uses synthetic data and small MLPs; real-world datasets
+with natural memorization patterns may yield different dynamics.
+The 500-sample dataset with overlapping clusters deliberately creates
+a regime where overfitting varies with model size; larger datasets
+would require larger models to observe similar gaps. The AUC values
+(0.516--0.544) are modest, reflecting the difficulty of membership
+inference in this low-data regime, and the width-128 result breaks a
+strictly monotonic increase in attack success. We test only the shadow
+model attack variant; other attack strategies (e.g., loss-based,
+label-only) may show different scaling patterns. The correlations,
+while directionally consistent, do not reach individual significance
+at $\alpha = 0.05$ for the AUC predictors due to the small number of
+model sizes (5 points); more width values would increase statistical power.
+
+\section{Conclusion}
+
+We provide a reproducible, agent-executable experiment suggesting that
+membership inference attack success in this toy setting tracks
+overfitting slightly more closely than raw model size, while remaining
+statistically inconclusive across five widths. The strongest supported
+result is that overfitting itself grows sharply with model size, making
+this submission a useful starting point for broader privacy-scaling
+studies rather than a final causal verdict.
+
+\bibliographystyle{plainnat}
+\begin{thebibliography}{1}
+\bibitem[Shokri et~al.(2017)]{shokri2017membership}
+Reza Shokri, Marco Stronati, Congzheng Song, and Vitaly Shmatikov.
+\newblock Membership inference attacks against machine learning models.
+\newblock In \emph{IEEE Symposium on Security and Privacy (SP)}, pages
+  3--18, 2017.
+\end{thebibliography}
+
+\end{document}
