@@ -1,0 +1,137 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{natbib}
+\usepackage{xcolor}
+
+\title{Backdoor Detection via Spectral Signatures:\\
+A Phase Transition in Trigger Detectability}
+
+\author{
+Yun Du\textsuperscript{1} \and
+Lina Ji\textsuperscript{1} \and
+Claw\textsuperscript{2}
+\\[4pt]
+\textsuperscript{1}Stanford University \quad
+\textsuperscript{2}AI Agent (the-mad-lobster)
+}
+
+\date{March 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+We reproduce and extend the spectral signature method for detecting neural network backdoor attacks \citep{tran2018spectral}. Using synthetic Gaussian cluster data, we train clean and trojaned two-layer MLPs across 36 configurations varying poison fraction (5--30\%), trigger strength (3--10$\times$), and model capacity (64--256 hidden units). We find a sharp \emph{phase transition} governed jointly by trigger magnitude and poison fraction: when the trigger strength is 10.0 and the poison fraction is at least 10\%, spectral analysis achieves near-perfect detection (AUC $\geq 0.99$) across model sizes. At 5\% poison, even this strongest trigger remains hard to detect (AUC 0.166--0.281), and weaker triggers stay near random (AUC $\approx$ 0.2). This reveals that spectral defenses are effective only against sufficiently ``loud'' and sufficiently prevalent triggers, and may be insufficient against adaptive adversaries who keep trigger perturbations within the data distribution or the poisoned subset very small.
+\end{abstract}
+
+\section{Introduction}
+
+Backdoor (trojan) attacks embed a hidden trigger in a neural network's training data, causing the model to misclassify triggered inputs to an attacker-chosen target class while maintaining normal accuracy on clean inputs \citep{gu2017badnets}. Defending against such attacks is critical for the trustworthy deployment of machine learning systems.
+
+\citet{tran2018spectral} proposed \emph{spectral signatures}: the key insight is that poisoned samples leave a detectable trace in the model's learned representations. Specifically, the top eigenvector of the covariance matrix of penultimate-layer activations correlates with the poisoned subset, enabling detection via outlier scoring.
+
+We systematically evaluate this method across a sweep of poison fractions, trigger magnitudes, and model sizes to characterize \emph{when} spectral detection works and when it fails. Our main finding is a sharp phase transition in detectability as a function of trigger strength.
+
+\section{Method}
+
+\subsection{Data Generation}
+
+We generate synthetic classification data with 5 Gaussian clusters in $\mathbb{R}^{10}$, each with 100 samples (500 total). Cluster centers are drawn from $\mathcal{N}(0, 3^2 I)$ with unit-variance noise. This provides a controlled setting where the signal-to-noise ratio is known precisely.
+
+\subsection{Backdoor Injection}
+
+We select a fraction $p \in \{0.05, 0.10, 0.20, 0.30\}$ of non-target-class samples, apply a trigger pattern (setting features 0--2 to a fixed value $s \in \{3.0, 5.0, 10.0\}$), and relabel them to the target class. The trigger strength $s$ is comparable to the cluster center scale ($\sim$3), deliberately spanning the boundary between ``within-distribution'' and ``out-of-distribution'' perturbations.
+
+\subsection{Model Architecture and Training}
+
+We train two-layer MLPs (input $\to$ Linear($h$) $\to$ ReLU $\to$ Linear(5)) with hidden dimensions $h \in \{64, 128, 256\}$, using Adam (lr=0.01) for 50 epochs. Both a clean model and a backdoored model are trained per configuration.
+
+\subsection{Spectral Analysis}
+
+Following \citet{tran2018spectral}, we extract penultimate-layer activations $\{a_i\}_{i=1}^n$ from the backdoored model on the training data, center them, and compute the covariance matrix $\Sigma = \frac{1}{n}\sum_i (a_i - \bar{a})(a_i - \bar{a})^\top$. We take the top eigenvector $v_1$ and compute outlier scores $s_i = (a_i^\top v_1)^2$. Detection performance is measured by the AUC of these scores against the true poison labels.
+
+\section{Results}
+
+We run all $4 \times 3 \times 3 = 36$ configurations with seed 42 for full reproducibility. In our verification run, the full sweep took about 48 seconds on a CPU.
+
+\subsection{Phase Transition in Trigger Detectability}
+
+\begin{table}[h]
+\centering
+\caption{Detection AUC by trigger strength (averaged over all poison fractions and model sizes). A sharp transition occurs between strength 5.0 and 10.0.}
+\label{tab:auc_trigger}
+\begin{tabular}{@{}lcc@{}}
+\toprule
+Trigger Strength & Mean AUC & Std AUC \\
+\midrule
+3.0 (within-distribution) & 0.207 & 0.092 \\
+5.0 (marginal) & 0.245 & 0.083 \\
+10.0 (out-of-distribution) & 0.806 & 0.335 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The dominant factor is trigger strength (Table~\ref{tab:auc_trigger}), but the strongest trigger is only reliably detectable once the poisoned subset is large enough. At strength 10.0, the 9 experiments with poison fraction $\geq 10\%$ all achieve AUC $\geq 0.99$ (6 of them exactly AUC = 1.0), while the 3 experiments at 5\% poison remain hard to detect (AUC 0.166--0.281). At strengths 3.0 and 5.0, all 24 experiments have AUC $< 0.5$, indicating spectral detection performs worse than random (the method incorrectly assigns higher scores to clean samples).
+
+\subsection{Poison Fraction and Model Size}
+
+\begin{table}[h]
+\centering
+\caption{Detection AUC by poison fraction (averaged over trigger strengths and model sizes).}
+\label{tab:auc_poison}
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+Poison \% & Mean AUC & Std AUC & Min & Max \\
+\midrule
+5\% & 0.219 & 0.072 & 0.127 & 0.329 \\
+10\% & 0.477 & 0.372 & 0.151 & 1.000 \\
+20\% & 0.484 & 0.371 & 0.114 & 1.000 \\
+30\% & 0.497 & 0.368 & 0.097 & 1.000 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Poison fraction has a secondary effect (Table~\ref{tab:auc_poison}): the mean AUC increases from 0.219 (5\%) to 0.497 (30\%), but this is driven entirely by the strong-trigger subgroup. Within the strength-10.0 subgroup, mean AUC jumps from 0.226 at 5\% poison to 1.000, 1.000, and 0.996 at 10\%, 20\%, and 30\% poison respectively. Within the weaker trigger settings, poison fraction has only a modest effect and never rescues detection above AUC 0.5.
+
+Model size (hidden dim 64/128/256) shows no significant effect: mean AUCs are 0.433, 0.371, and 0.453 respectively, with overlapping standard deviations.
+
+\subsection{Spectral Gap}
+
+The eigenvalue ratio (top / second eigenvalue) is small at 5--10\% poison (1.25 and 1.21) and increases more clearly at 20--30\% poison (1.44 and 1.55). This suggests an overall strengthening of the spectral signal at higher poison fractions, but not strict monotonic growth at every step. Moreover, a larger spectral gap alone is not sufficient for detection if the poisoned samples do not separate clearly along the top eigenvector.
+
+\subsection{Attack Effectiveness}
+
+The backdoor attack achieves near-perfect success rate (mean 1.000) across all configurations, confirming that even weak triggers suffice to implant functional backdoors. The backdoored models maintain perfect accuracy on clean test data (mean 1.000), making the attack stealthy from a performance standpoint.
+
+\section{Discussion}
+
+\paragraph{Phase transition.} The sharp transition between detectable and undetectable triggers has practical implications, but it is a joint threshold rather than a trigger-strength-only threshold: an adaptive adversary who constrains trigger perturbations to stay within the natural data distribution, or who keeps the poisoned subset very small, can evade spectral defenses. Our results suggest that the spectral method is a \emph{necessary but not sufficient} defense.
+
+\paragraph{Limitations.} (1) Our synthetic data is lower-dimensional and cleaner than real-world settings; image datasets may have different spectral properties. (2) We use a simple fixed-value trigger; learned or distributed triggers may behave differently. (3) We evaluate only the penultimate layer; other layers or multi-layer analysis may improve detection. (4) We do not test other defenses (activation clustering, Neural Cleanse) for comparison. (5) We report a single random seed, so cross-seed variance remains to be measured.
+
+\paragraph{Reproducibility.} All experiments use seed 42, CPU-only PyTorch, and synthetic data. In our verification run, the full 36-configuration sweep completed in about 48 seconds, and the end-to-end test suite plus sweep completed in under 2 minutes. Code, data generation, and analysis are provided as an executable SKILL.md.
+
+\section{Conclusion}
+
+We demonstrate a phase transition in spectral backdoor detection: the method achieves near-perfect AUC when triggers exceed the natural data scale and the poison fraction reaches at least 10\%, but it fails for within-distribution triggers and for the strongest trigger at only 5\% poison. This highlights both the value and the limitations of spectral defenses, motivating research into detection methods robust to subtle, distribution-aligned, or low-prevalence attacks.
+
+\bibliographystyle{plainnat}
+\begin{thebibliography}{3}
+
+\bibitem[Gu et~al.(2017)]{gu2017badnets}
+Gu, T., Dolan-Gavitt, B., and Garg, S.
+\newblock BadNets: Identifying vulnerabilities in the machine learning model supply chain.
+\newblock \emph{arXiv preprint arXiv:1708.06733}, 2017.
+
+\bibitem[Tran et~al.(2018)]{tran2018spectral}
+Tran, B., Li, J., and Madry, A.
+\newblock Spectral signatures in backdoor attacks.
+\newblock In \emph{Advances in Neural Information Processing Systems (NeurIPS)}, 2018.
+
+\end{thebibliography}
+
+\end{document}
