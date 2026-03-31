@@ -1,0 +1,116 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{authblk}
+\usepackage{caption}
+
+\title{Pruning at Initialization in Tiny Neural Networks:\\Structured Pruning Beats Magnitude}
+
+\author[1]{Yun Du}
+\author[1]{Lina Ji}
+\author[1]{Claw}
+\affil[1]{Claw4S 2026, Stanford \& Princeton AI4Science Catalyst Institute}
+
+\date{March 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+We study pruning at initialization in tiny 2-layer ReLU MLPs on two synthetic tasks: modular arithmetic (mod~97) and random-features regression. The model size depends on the task (about 37.5K parameters for modular arithmetic and 2.8K for regression), and we sweep 8 sparsity levels (0--95\%) across 3 pruning strategies (magnitude, random, structured) with 3 seeds each. Contrary to the standard ``winning tickets at birth'' narrative, global magnitude pruning collapses quickly: its critical sparsity is 0\% on modular arithmetic and 30\% on regression. Structured pruning is the strongest strategy in this setting, improving modular accuracy from 0.29 (dense) to 0.71 at 70\% sparsity and preserving $>$95\% of dense regression performance through 90\% sparsity. Random pruning is intermediate on regression and weak on modular arithmetic. The full 144-run sweep completes in a few minutes on CPU with pinned dependencies, deterministic execution settings, validation-based early stopping, and seed-level uncertainty reporting (95\% confidence intervals).
+\end{abstract}
+
+\section{Introduction}
+
+The lottery ticket hypothesis (LTH), introduced by Frankle \& Carbin~\cite{frankle2019lottery}, posits that dense neural networks contain sparse subnetworks that, when trained in isolation from their original initialization, can match the full network's accuracy. The original work focused on moderate-scale networks and used iterative magnitude pruning (IMP), which requires training-pruning-resetting cycles.
+
+A natural question is whether useful subnetworks can be identified \emph{before any training}---i.e., by pruning at initialization. Prior work on pruning at initialization~\cite{lee2019snip,wang2020picking} suggests this is possible for large networks, but the phenomenon's behavior in the minimal-parameter regime ($<$50K parameters) is less explored.
+
+We study this question on two synthetic tasks chosen for their distinct learning dynamics: (1)~modular addition mod~97, a discrete classification problem requiring compositional generalization, and (2)~random-features linear regression, a continuous task where the optimal solution is linear but the network can overfit. By sweeping sparsity from 0\% to 95\%, we identify the \emph{critical sparsity}---the highest sparsity that maintains at least 95\% of dense performance.
+
+\section{Methods}
+
+\subsection{Model Architecture}
+
+We use a 2-layer ReLU MLP: $f(x) = W_2 \, \text{ReLU}(W_1 x + b_1) + b_2$, with hidden dimension $h = 128$. For modular arithmetic, input dimension is $2 \times 97 = 194$ (one-hot encoded), output dimension is 97, for a total of 37,473 parameters. For regression, input is $\mathbb{R}^{20}$, output is $\mathbb{R}$, for a total of 2,817 parameters.
+
+\subsection{Tasks}
+
+\textbf{Modular arithmetic.} Given one-hot encodings of $a$ and $b$, predict $(a + b) \bmod 97$. All $97^2 = 9{,}409$ pairs are generated; 80\% train, 20\% test. This task requires learning a highly structured mapping.
+
+\textbf{Regression.} Generate $y = Xw^* + \epsilon$ where $X \in \mathbb{R}^{200 \times 20}$, $w^* \sim \mathcal{N}(0, I)$, $\epsilon \sim \mathcal{N}(0, 0.01 I)$. Split 80/20. Metric: $R^2$.
+
+\subsection{Pruning Strategies}
+
+All pruning is applied \emph{at initialization}, before any training. Pruned weights are held at zero throughout training.
+
+\begin{itemize}
+    \item \textbf{Magnitude pruning}: Remove the smallest-magnitude weights globally across all weight matrices. Biases are not pruned.
+    \item \textbf{Random pruning}: Remove weights uniformly at random (seed-controlled).
+    \item \textbf{Structured pruning}: Remove entire hidden neurons by L2 norm of incoming weights, zeroing corresponding rows in $W_1$ and columns in $W_2$.
+\end{itemize}
+
+\subsection{Experimental Setup}
+
+Sparsity levels: $\{0\%, 10\%, 30\%, 50\%, 70\%, 80\%, 90\%, 95\%\}$. Each configuration is run with 3 seeds (42, 123, 7) for variance estimation. Training uses Adam with $\text{lr} = 10^{-2}$ (classification) or $10^{-3}$ (regression), max 500 epochs, and early stopping with patience 100 on a deterministic 10\% validation split carved from the training data; the best validation checkpoint is restored before test evaluation. We enable deterministic PyTorch algorithms and log a reproducibility manifest (Python/Torch/NumPy versions, platform, device, and sweep configuration) in the output metadata. Total: 144 runs.
+
+\section{Results}
+
+\subsection{Accuracy vs.\ Sparsity}
+
+Figure~\ref{fig:sparsity} shows test performance as a function of sparsity for both tasks.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\textwidth]{../results/accuracy_vs_sparsity.png}
+    \caption{Test accuracy (modular) and $R^2$ (regression) vs.\ sparsity for three pruning strategies. Error bars show $\pm 1$ standard deviation over 3 seeds. Dashed line: critical sparsity (95\% of dense performance) for magnitude pruning.}
+    \label{fig:sparsity}
+\end{figure}
+
+\textbf{Modular arithmetic.} The dense baseline reaches only 0.29 test accuracy. Unstructured pruning performs poorly: both magnitude and random pruning collapse by 30\% sparsity and never recover. In contrast, structured pruning improves over the dense baseline across a broad sparsity range, peaking at 0.71 mean test accuracy at 70\% sparsity and retaining the highest critical sparsity (90\%). With only 3 seeds, confidence intervals are non-trivial in width, but the separation between structured and unstructured pruning remains large at high sparsity.
+
+\textbf{Regression.} The regression task is robust to structured and mildly robust to random pruning, but not to magnitude pruning. Structured pruning stays above 0.95 of dense $R^2$ through 90\% sparsity. Random pruning remains competitive through 50\% sparsity and then degrades gradually. Magnitude pruning collapses sharply from 50\% sparsity onward; this collapse is visible even after accounting for seed-level uncertainty.
+
+\subsection{Strategy Comparison}
+
+The verified ordering is the opposite of the original hypothesis. Structured pruning is the strongest strategy on both tasks, random pruning is intermediate on regression, and magnitude pruning is consistently weakest once sparsity exceeds modest levels. This suggests that, in tiny networks, pruning entire low-norm neurons acts more like useful architecture selection or regularization than discovering magnitude-based winning tickets.
+
+\subsection{Training Dynamics}
+
+Collapsed unstructured models stop early because the validation metric plateaus quickly, while the strongest structured-pruned models usually train for the full 500 epochs. In this submission, shorter training is therefore mostly a sign of failure, not of more efficient learning.
+
+\section{Discussion}
+
+\textbf{Magnitude-based tickets at initialization are not supported here.} In these tiny networks, global magnitude pruning does not preserve dense performance on modular arithmetic and fails beyond 30\% sparsity on regression. The strongest results come from structured pruning, not from magnitude pruning.
+
+\textbf{Task structure still matters.} Regression is more forgiving than modular arithmetic for unstructured pruning, but both tasks benefit from structured pruning that reduces width while preserving coherent hidden units.
+
+\textbf{Structured pruning behaves like architecture selection.} The fact that structured pruning can outperform the dense baseline, especially on modular arithmetic, suggests that the dense width is not ideal for this task and that removing weak hidden units improves inductive bias or optimization.
+
+\textbf{Limitations.} We study only 2-layer MLPs on synthetic tasks. The dense modular baseline is modest, so we should not interpret these results as broad evidence about large-network lottery tickets. Extension to deeper networks, real-world data, and iterative magnitude pruning (the original LTH protocol) would strengthen the conclusions. Our structured pruning is coarse (entire neurons); finer-grained structured pruning may perform better. We also use only 3 seeds per configuration, so interval estimates are necessarily wide and should be interpreted as coarse uncertainty bounds rather than tight confidence claims.
+
+\section{Conclusion}
+
+In this tiny-network setting, pruning at initialization does \emph{not} support the classic claim that magnitude-based winning tickets are easy to identify at birth. Instead, structured pruning is the strongest and most robust strategy, outperforming the dense baseline on modular arithmetic and preserving dense-level regression performance through high sparsity. The main lesson is therefore about the interaction between pruning structure and small-model inductive bias, not about universal superiority of magnitude pruning.
+
+\begin{thebibliography}{9}
+\bibitem{frankle2019lottery}
+J.~Frankle and M.~Carbin.
+\newblock The lottery ticket hypothesis: Finding sparse, trainable neural networks.
+\newblock In \emph{ICLR}, 2019.
+
+\bibitem{lee2019snip}
+N.~Lee, T.~Ajanthan, and P.~Torr.
+\newblock SNIP: Single-shot network pruning based on connection sensitivity.
+\newblock In \emph{ICLR}, 2019.
+
+\bibitem{wang2020picking}
+C.~Wang, G.~Zhang, and R.~Grosse.
+\newblock Picking winning tickets before training by preserving gradient flow.
+\newblock In \emph{ICLR}, 2020.
+\end{thebibliography}
+
+\end{document}
