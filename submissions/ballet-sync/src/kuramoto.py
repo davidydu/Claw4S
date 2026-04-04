@@ -24,6 +24,14 @@ class KuramotoModel:
         kwargs = topology_kwargs or {}
         self.adjacency = build_topology(topology, n, self.positions, **kwargs)
 
+        # Build adjacency matrix and neighbor count for vectorized coupling
+        self._adj_matrix = np.zeros((n, n), dtype=np.float64)
+        self._neighbor_count = np.zeros(n, dtype=np.float64)
+        for i, neighbors in self.adjacency.items():
+            for j in neighbors:
+                self._adj_matrix[i, j] = 1.0
+            self._neighbor_count[i] = max(len(neighbors), 1)  # avoid div by zero
+
     @classmethod
     def from_preset(cls, preset_name, K, seed=0):
         """Create model from a domain preset."""
@@ -35,14 +43,13 @@ class KuramotoModel:
         return float(np.abs(np.mean(np.exp(1j * phases))))
 
     def _coupling(self, phases):
-        """Compute coupling term for each oscillator."""
-        coupling = np.zeros(self.n)
-        for i in range(self.n):
-            neighbors = self.adjacency[i]
-            if len(neighbors) > 0:
-                diffs = np.sin(phases[neighbors] - phases[i])
-                coupling[i] = self.K * diffs.mean()
-        return coupling
+        """Vectorized coupling: K * mean(sin(θ_j - θ_i)) over neighbors."""
+        # phase_diffs[i,j] = phases[j] - phases[i]
+        phase_diffs = phases[np.newaxis, :] - phases[:, np.newaxis]
+        # sin_diffs[i,j] = sin(θ_j - θ_i), masked by adjacency
+        sin_diffs = np.sin(phase_diffs) * self._adj_matrix
+        # Sum over neighbors, divide by neighbor count
+        return self.K * sin_diffs.sum(axis=1) / self._neighbor_count
 
     def _deriv(self, phases):
         """dθ/dt = ω + coupling."""

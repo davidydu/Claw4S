@@ -1,0 +1,290 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{amsmath}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{array}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{CJKutf8}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue!60!black,
+  citecolor=blue!60!black,
+  urlcolor=blue!60!black
+}
+
+\title{Cross-System Consistency in Chinese Computational Cosmology:\\
+A Multi-Agent Information-Theoretic Analysis}
+\author{
+  Lina Ji \\
+  Stanford University
+  \and
+  Yun Du \\
+  Stanford University \\
+  \texttt{yundu27@stanford.edu}
+  \and
+  Claw \\
+  AI Agent (the-mad-lobster) \\
+  \texttt{claw@agent}
+}
+\date{March 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Traditional Chinese metaphysical systems encode complex algorithmic knowledge refined over millennia.
+Rather than evaluating predictive validity, this work applies computational cultural analytics to study the \emph{mathematical structure} of three such systems as objects of scientific inquiry.
+We present an agent-executable framework that runs BaZi (八字, Eight Characters), Zi Wei Dou Shu (紫微斗数, Purple Star Astrology), and Wu Xing Dynamics (五行, Five Element dynamics) on 263,000 birth charts spanning a full 60-year 甲子 cycle.
+Each system scores five life domains on a $[0, 1]$ scale; a four-evaluator consistency panel then measures cross-system agreement via Pearson correlation, mutual information, domain agreement rates, and Wu Xing predictiveness.
+Results show very small cross-system effects (mean $|r| = 0.0047$ across 5 domains), mean mutual information of only $\approx 0.0012$ nats, and domain agreement rates that are near chance for most domains (0.52--0.54) with a notable below-chance health agreement (0.374).
+After Bonferroni correction over 15 comparisons, only career and health correlations remain statistically non-zero, but all effect sizes remain practically tiny ($|r| \le 0.0124$).
+The primary contribution is an open, reproducible testbed encoded as an executable \texttt{SKILL.md} that any AI agent can re-run to study cross-system consistency in Chinese cosmological traditions.
+\end{abstract}
+
+\section{Introduction}
+
+Traditional knowledge systems worldwide encode centuries of empirical observation in algorithmic form.
+Chinese metaphysical systems in particular represent a sophisticated computational tradition: BaZi converts a birth datetime into a structured eight-character representation through a precise stem-branch calendar, then derives life domain assessments through a system of ten gods and element interactions.
+Zi Wei Dou Shu independently positions a set of 14 major stars across 12 palaces based on the same birth information, then scores palaces through a brightness-weighting scheme.
+These two systems were developed by distinct schools over separate centuries, yet both accept the same input and produce assessments on the same five life domains.
+
+The scientific question is not whether these systems \emph{predict} real-world outcomes---that is a separate empirical question outside our scope---but whether they agree with \emph{each other}.
+Agreement between independently-developed systems would suggest they encode partially shared information about the mathematical structure of the 天干地支 (heavenly stems and earthly branches) calendar.
+Disagreement, conversely, would reveal that the mapping from calendar to life-domain assessment is underdetermined, with different schools having made different arbitrary commitments.
+This is the approach of computational cultural analytics~\cite{underwood2019distant,moretti2005graphs}: treating cultural artifacts as data objects amenable to formal analysis.
+
+We make three contributions:
+\begin{enumerate}
+  \item A fully deterministic computation engine covering all three systems with embedded lookup tables, requiring no external data and producing bitwise-reproducible results.
+  \item A \emph{multi-agent evaluation panel} with four complementary consistency metrics plus Fisher-$z$ confidence intervals and Bonferroni-corrected p-values for correlation estimates.
+  \item An \emph{agent-executable skill} (\texttt{SKILL.md}) encoding the full experimental pipeline so that any AI coding agent can reproduce all 263,000 chart analyses and statistical tests from scratch.
+\end{enumerate}
+
+\section{Systems}
+
+\subsection{BaZi Agent (八字)}
+
+BaZi converts a birth datetime to four stem-branch pillars (year, month, day, hour) using the sexagenary cycle and solar-term-based month boundaries.
+Month boundaries follow 节气 (solar terms) rather than the lunar calendar; the 节气 dates are hardcoded from Hong Kong Observatory data for 1984--2044, ensuring bitwise reproducibility without astronomical floating-point approximation.
+
+\paragraph{Element composition.}
+The eight characters (four stems + four branches) contribute element counts.
+Branches carry hidden stems (藏干) with fractional weights; for example, the branch 子 contributes 100\% Water while 辰 contributes Earth (60\%), Wood (20\%), and Water (20\%).
+
+\paragraph{Day master strength.}
+Two factors determine the day stem's strength: (a) seasonal alignment---Wood is strongest in spring (寅卯 months), Fire in summer, Metal in autumn, Water in winter, Earth in transitional months---scored as 旺=1.0, 相=0.75, 休=0.5, 囚=0.25, 死=0.0; and (b) support ratio: fraction of the chart's elements that generate or share polarity with the day stem.
+Combined strength $= 0.5 \times \text{seasonal} + 0.5 \times \text{support\_ratio}$.
+
+\paragraph{Domain scoring.}
+The ten-gods framework (十神) classifies each stem relative to the day master by element relationship and yin-yang polarity, yielding five classes of supporting gods (比肩, 劫财, 印绶, 偏印) and five classes of challenging gods (食神, 伤官, 偏财, 正财, 官杀).
+Career is driven by 官星 strength, wealth by 财星 strength, relationships by the combined presence of 正财 and 正官, and health by overall element balance.
+All scores are normalized to $[0, 1]$.
+
+\subsection{Zi Wei Dou Shu Agent (紫微斗数)}
+
+Zi Wei Dou Shu (ZWDS) places 14 major stars across 12 life palaces based on three derived quantities.
+
+\paragraph{Life palace (命宫).}
+The palace branch index is computed as $(m + 1 - h) \bmod 12$, where $m$ is the birth month number (寅=1) and $h$ is the hour branch index (子=0, \ldots, 亥=11).
+The palace stem is derived via the Five Tigers method (五虎遁), which maps the year stem to the 寅 month stem and counts forward.
+
+\paragraph{Five-element bureau (五行局).}
+The life palace's stem-branch pair maps to a Nayin element via a standard 60-entry lookup table (e.g., 甲子→海中金=Metal, 丙寅→炉中火=Fire).
+The Nayin element determines the bureau number: Water=2, Wood=3, Metal=4, Earth=5, Fire=6.
+
+\paragraph{Star placement and brightness.}
+The Purple Star (紫微) palace is determined by a $30 \times 5$ lookup table (birth day $\times$ bureau number).
+The remaining 13 major stars are placed at fixed offsets from 紫微.
+Each star's brightness in its palace---庙 (exalted), 旺 (strong), 利 (beneficial), 陷 (weak)---is drawn from standard reference tables.
+
+\paragraph{Domain scoring.}
+Palace raw scores are:
+\begin{equation}
+  \text{raw}_p = \sum_{\text{stars in } p} \text{base\_value} \times \text{brightness\_weight},
+\end{equation}
+where auspicious stars contribute positive base values and inauspicious stars negative values, scaled by brightness weights (庙=1.0, 旺=0.75, 利=0.5, 陷=0.25).
+Palace scores are then normalized via sigmoid: $\text{score}_p = 1/(1+e^{-\text{raw}_p})$.
+Career maps to the 事业宫, wealth to 财帛宫, relationships to 夫妻宫, health to 疾厄宫, and overall to 命宫.
+
+\subsection{Wu Xing Dynamics Agent (五行)}
+
+Wu Xing treats the element counts from BaZi as initial conditions for a coupled dynamical system.
+Each element's energy evolves as:
+\begin{equation}
+  \frac{dE_i}{dt} = \alpha \, E_{\text{parent}(i)} - \beta \, E_{\text{ctrl}(i)} - \gamma \, E_i,
+\end{equation}
+where the parent is the generating element and the controller is the overcoming element.
+Fixed parameters: $\alpha=0.3$ (generating coefficient), $\beta=0.2$ (overcoming coefficient), $\gamma=0.5$ (decay), integrated with RK4 on the probability simplex at $\Delta t=0.05$ for exactly 500 steps (simplex projection at each step clamps negative values to 0 and renormalizes to sum=1).
+The equilibrium entropy (normalized Shannon entropy of the final distribution) proxies overall balance; convergence speed proxies stability.
+These map to life domains via element-domain associations: Wood=career growth, Fire=recognition, Earth=stability, Metal=wealth, Water=relationships.
+
+\section{Methodology}
+
+\subsection{Experimental Design}
+
+We generate all valid birth datetimes at 时辰 (2-hour) resolution across one full 甲子 cycle: 1984-01-01 to 2043-12-31, yielding approximately 263,000 charts.
+Each chart produces 15 domain scores (3 systems $\times$ 5 domains).
+
+\subsection{Consistency Evaluators}
+
+A four-evaluator panel measures cross-system agreement:
+
+\paragraph{Evaluator 1: Pearson Correlation.}
+Computes Pearson $r$ between BaZi and Zi Wei domain scores across all charts, per domain and overall.
+Score $= |r|$.
+P-values and 95\% confidence intervals via Fisher's $z$-transform.
+Bonferroni correction applied for 15 comparisons (5 domains $\times$ 3 system pairs).
+
+\paragraph{Evaluator 2: Mutual Information.}
+Estimates $I(\text{BaZi};\text{ZiWei})$ in nats via 10-bin histogram discretization.
+We report per-domain point estimates from the full chart set.
+
+\paragraph{Evaluator 3: Domain Agreement.}
+Fraction of charts where BaZi and Zi Wei agree on favorability (both $> 0.5$ or both $\leq 0.5$) per domain.
+
+\paragraph{Evaluator 4: Wu Xing Predictiveness.}
+Linear regression $R^2$ of Wu Xing domain scores predicting Zi Wei domain scores, computed separately per domain.
+
+\subsection{Null Model}
+
+As a lightweight calibration check in \texttt{validate.py}, we shuffle Zi Wei career scores (100 permutations, RANDOM\_SEED=42) on a 500-record sample and compare mean null $|r|$ with observed $|r|$.
+This is used as a sanity check against accidental metric inflation, not as a full multi-domain hypothesis-testing framework.
+
+\section{Results}
+
+\subsection{Cross-System Correlation}
+
+\begin{table}[h]
+\centering
+\small
+\caption{Pearson $r$ between BaZi and Zi Wei Dou Shu domain scores (262,980 charts).}
+\label{tab:correlation}
+\begin{tabular}{lcc}
+\toprule
+\textbf{Domain} & \textbf{Pearson $r$} & \textbf{$p$-value} \\
+\midrule
+Career (事业)              & $-0.0061$ & $0.0018$ \\
+Wealth (财富)              & $+0.0025$ & $0.202$ \\
+Relationships (感情)       & $-0.0002$ & $0.922$ \\
+Health (健康)              & $-0.0124$ & $1.7\times 10^{-10}$ \\
+Overall (综合)             & $-0.0001$ & $0.942$ \\
+\midrule
+\textbf{Mean $|r|$} & $0.0047$ & --- \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Domain Agreement and Mutual Information}
+
+\begin{table}[h]
+\centering
+\small
+\caption{Domain agreement rates (BaZi vs.\ Zi Wei Dou Shu) and mutual information.}
+\label{tab:mi}
+\begin{tabular}{lcc}
+\toprule
+\textbf{Domain} & \textbf{Agreement rate} & \textbf{MI (nats)} \\
+\midrule
+Career        & $0.5304$ & $0.0004$ \\
+Wealth        & $0.5226$ & $0.0005$ \\
+Relationships & $0.5372$ & $0.0041$ \\
+Health        & $0.3741$ & $0.0003$ \\
+Overall       & $0.5324$ & $0.0008$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Wu Xing Predictiveness}
+
+Wu Xing domain scores (derived from the evolved simplex state) explain essentially none of the variance in Zi Wei Dou Shu ratings ($R^2 \approx 0.0000$ across all five domains). This near-zero $R^2$ confirms that Wu Xing dynamics, despite sharing BaZi element counts as input, produce domain scores that are effectively uncorrelated with Zi Wei Dou Shu ratings in this setup.
+
+\subsection{Temporal Patterns}
+
+Agreement rates vary across the 60-year 甲子 cycle.
+Career agreement ranges from $0.5053$ (2015) to $0.5519$ (1988), with mean $0.5304$ across the cycle. Year-level variation is small (range $\approx 0.047$) and shows no clear trend with 天干 year stem cycles (10-year period) or 地支 branch cycles (12-year period), consistent with weak cross-system effect sizes.
+
+\section{Discussion}
+
+\paragraph{What agreement reveals.}
+In our run, statistically detectable BaZi--Zi Wei correlations are very small and mixed-sign.
+This pattern suggests that large sample size can detect tiny effects that are unlikely to carry substantive practical agreement.
+Any residual non-zero correlation could arise from (a) shared input structure: both systems operate on the same 天干地支 calendar, so weak dependencies may reflect shared input variation; (b) limited cultural transmission between schools; or (c) mathematical coincidence in a discrete input space.
+Disentangling these requires explicit regression controls for calendar structure, which we flag as future work.
+
+\paragraph{What disagreement reveals.}
+Domains with low cross-system agreement (low $r$ and agreement rate near 0.5) reveal that the mapping from calendar structure to life domain is underdetermined---different systematic choices produce qualitatively different results for a substantial fraction of charts.
+This is itself informative: it bounds how much of the assessment space is jointly constrained by the shared calendar input.
+
+\paragraph{Limitations.}
+The current ZWDS implementation scores only the 14 major stars; auxiliary stars (辅助星 such as 左辅右弼 and 火星铃星) are deferred to a future version.
+The BaZi scoring uses a simplified ten-gods formula without luck pillars (大运) or annual pillars (流年), which are central to practitioner assessments.
+Domain boundary definitions (e.g., the threshold of 0.5 for ``favorable'') are operationalization choices that could be varied in sensitivity analyses.
+Finally, the Wu Xing dynamics model uses fixed interaction coefficients rather than calibrated values.
+
+\paragraph{Future work.}
+Natural extensions include: (i) incorporating auxiliary ZWDS stars and BaZi luck pillars, (ii) calibrating Wu Xing dynamics parameters against practitioner consensus, (iii) extending to a comparative study of Chinese and Western astrological systems, (iv) sensitivity analysis over domain boundary thresholds, and (v) clustering the 60-year chart space to identify archetypes on which the systems most/least agree.
+
+\section*{Reproducibility}
+
+All code, lookup tables, and results are packaged as an executable \texttt{SKILL.md}.
+Any AI coding agent can reproduce the full 263,000-chart analysis by following the skill steps: set up the virtual environment, run unit tests, execute \texttt{run.py}, and validate with \texttt{validate.py}.
+No API keys, GPU, or external data downloads are required.
+All lookup tables (节气 dates, 纳音 table, 紫微 placement, 庙旺利陷 ratings) are embedded directly in the source code.
+\texttt{RANDOM\_SEED = 42} is used throughout all stochastic operations via \texttt{numpy.random.default\_rng(42)}.
+
+\begin{thebibliography}{9}
+
+\bibitem{ho1985chinese}
+P.~Y.-L.~Ho,
+\emph{The Astronomical Chapters of the Chin Shu}.
+Mouton, The Hague, 1966.
+
+\bibitem{liu2008bazi}
+Liu Ming,
+\emph{The Art of Chinese Astrology: BaZi Four Pillars of Destiny}.
+Asiapac Books, 2008.
+
+\bibitem{zhao2009ziwei}
+Zhao Jieming,
+\emph{Zi Wei Dou Shu: The Complete Guide to Purple Star Astrology}.
+AstroLogic Press, 2009.
+
+\bibitem{needham1956science}
+J.~Needham,
+\emph{Science and Civilisation in China, Volume 2: History of Scientific Thought}.
+Cambridge University Press, 1956.
+
+\bibitem{shannon1948mathematical}
+C.~E.~Shannon,
+``A Mathematical Theory of Communication,''
+\emph{Bell System Technical Journal}, vol.~27, pp.~379--423, 1948.
+
+\bibitem{cover2006elements}
+T.~M.~Cover and J.~A.~Thomas,
+\emph{Elements of Information Theory}, 2nd ed.
+Wiley, 2006.
+
+\bibitem{underwood2019distant}
+T.~Underwood,
+\emph{Distant Horizons: Digital Evidence and Literary Change}.
+University of Chicago Press, 2019.
+
+\bibitem{moretti2005graphs}
+F.~Moretti,
+\emph{Graphs, Maps, Trees: Abstract Models for a Literary History}.
+Verso, 2005.
+
+\bibitem{pearson1895notes}
+K.~Pearson,
+``Notes on Regression and Inheritance in the Case of Two Parents,''
+\emph{Proceedings of the Royal Society of London}, vol.~58, pp.~240--242, 1895.
+
+\end{thebibliography}
+
+\end{document}

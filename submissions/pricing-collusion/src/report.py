@@ -22,7 +22,7 @@ def generate_report(analysis_data):
 
     # Collusion heatmap (text version)
     lines.append("## Collusion Heatmap\n")
-    lines.append("Average collusion score (margin auditor) by matchup × memory:\n")
+    lines.append("Collusion index Delta = (avg_price - Nash) / (monopoly - Nash) by matchup x memory:\n")
     lines.append("| Matchup | M=1 | M=3 | M=5 |")
     lines.append("|---------|-----|-----|-----|")
 
@@ -34,9 +34,9 @@ def generate_report(analysis_data):
                        if s["matchup"] == matchup and s["memory"] == m
                        and not s["shocks"]]
             if entries:
-                avg = sum(s["avg_auditor_scores"].get("margin", 0)
+                avg = sum(s.get("collusion_index", 0)
                           for s in entries) / len(entries)
-                row += f"| {avg:.2f} "
+                row += f"| {avg:+.3f} "
             else:
                 row += "| — "
         row += "|"
@@ -56,27 +56,30 @@ def generate_report(analysis_data):
             )
 
     # Statistical significance
-    lines.append("\n## Statistical Tests (prices vs Nash)\n")
-    lines.append("| Condition | Avg Price | Nash | Cohen's d | p-value | Significant? |")
-    lines.append("|-----------|-----------|------|-----------|---------|-------------|")
+    lines.append("\n## Statistical Tests (prices vs Nash, Bonferroni-corrected)\n")
+    lines.append("| Condition | Avg Price | Nash | Delta | p-corrected | Significant? |")
+    lines.append("|-----------|-----------|------|-------|-------------|-------------|")
     for s in stats:
         if not s["shocks"]:
-            sig = "Yes" if s["p_value"] < 0.05 and s["cohens_d"] > 0 else "No"
+            p_corr = s.get("p_value_corrected", s["p_value"])
+            sig = "Yes" if p_corr < 0.05 and s.get("collusion_index", 0) > 0 else "No"
             lines.append(
                 f"| {s['matchup']}/M{s['memory']}/{s['preset']} "
                 f"| {s['avg_price']:.3f} | {s['nash_price']:.3f} "
-                f"| {s['cohens_d']:.2f} | {s['p_value']:.4f} | {sig} |"
+                f"| {s.get('collusion_index', 0):+.3f} | {p_corr:.4f} | {sig} |"
             )
 
     # Memory effect
     lines.append("\n## Memory Effect\n")
-    lines.append("Average margin auditor score by memory length (no-shock runs):\n")
+    lines.append("Average collusion index Delta by memory length (no-shock, learning agents only):\n")
+    learning_matchups = {"QQ", "SS", "QS", "Q-TFT"}
     for m in [1, 3, 5]:
-        entries = [s for s in stats if s["memory"] == m and not s["shocks"]]
+        entries = [s for s in stats if s["memory"] == m and not s["shocks"]
+                   and s["matchup"] in learning_matchups]
         if entries:
-            avg = sum(s["avg_auditor_scores"].get("margin", 0)
+            avg = sum(s.get("collusion_index", 0)
                       for s in entries) / len(entries)
-            lines.append(f"- M={m}: {avg:.3f}")
+            lines.append(f"- M={m}: Delta = {avg:+.4f}")
 
     # Shock robustness
     lines.append("\n## Shock Robustness\n")
