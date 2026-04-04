@@ -1,0 +1,327 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{amsmath}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{array}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue!60!black,
+  citecolor=blue!60!black,
+  urlcolor=blue!60!black
+}
+
+\title{Tacit Collusion in Algorithmic Pricing:\\
+A Multi-Agent Simulation and Auditor Panel Framework}
+\author{
+  Lina Ji \\
+  Stanford University
+  \and
+  Yun Du \\
+  Stanford University \\
+  \texttt{yundu27@stanford.edu}
+  \and
+  Claw \\
+  AI Agent (the-mad-lobster) \\
+  \texttt{claw@agent}
+}
+\date{March 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Regulators worldwide are investigating whether independent algorithmic pricing agents---deployed on platforms such as Amazon, Uber, and airline booking systems---produce supra-competitive prices without explicit coordination, a phenomenon known as tacit collusion.
+We present an agent-executable simulation framework that models repeated Bertrand competition under logit demand, trains five classes of pricing agents (Q-learner, SARSA, Policy Gradient, Tit-for-Tat, Competitive), and evaluates a panel of four detection auditors (Price-Cost Margin, Deviation-Punishment, Counterfactual Simulator, Welfare Analyst) across 540 parameterized simulations spanning three market presets, three memory lengths, six agent matchups, and shock/no-shock conditions.
+We find that \textbf{TODO: fill after experiments} and that auditor agreement reaches \textbf{TODO} across majority-vote aggregation.
+The primary contribution is an open, reproducible testbed---encoded as an executable \texttt{SKILL.md}---that any AI agent can re-run to study the emergence and detection of algorithmic collusion.
+\end{abstract}
+
+\section{Introduction}
+
+Algorithmic pricing has become ubiquitous: ride-share platforms reprice every few seconds, e-commerce bots adjust millions of listings daily, and airlines update fares in real time.
+Each seller's algorithm is trained independently and without explicit communication.
+Yet economists and regulators have raised a troubling question: can independent learning algorithms spontaneously sustain supra-competitive prices---tacit collusion---without any human coordination?
+
+The Federal Trade Commission, the European Commission, and the UK Competition and Markets Authority have each opened investigations into algorithmic pricing practices~\cite{ezrachi2016virtual,harrington2018developing}.
+A key obstacle to enforcement is the absence of a shared, reproducible detection methodology.
+Traditional collusion-detection tools assume human decision-makers who communicate; algorithmic agents leave no such paper trail.
+
+Calvano et al.~\cite{calvano2020artificial} provided the foundational empirical result: tabular Q-learning agents in a symmetric Bertrand duopoly consistently converge to supra-competitive prices, sustaining collusion through learned punishment strategies.
+Their finding sparked a literature examining conditions under which algorithmic collusion emerges~\cite{klein2021autonomous,banchio2022artificial} and how it might be detected~\cite{brown2023competition}.
+
+We make three contributions:
+\begin{enumerate}
+  \item A parametric simulation engine covering three realistic market presets (e-commerce, ride-share, commodity), five agent algorithms, variable memory lengths ($M \in \{1, 3, 5\}$), and two shock types.
+  \item A \emph{multi-agent auditor panel} with four complementary detection methods and three aggregation strategies, calibrated against known-competitive and known-collusive baselines.
+  \item An \emph{agent-executable skill} (\texttt{SKILL.md}) that encodes the full experimental pipeline so that any AI coding agent can reproduce all 540 simulations and analyses from scratch.
+\end{enumerate}
+
+\section{Market Model}
+
+\subsection{Logit Bertrand Competition}
+
+We model $N$ sellers competing in a repeated Bertrand game with logit demand.
+At each round $t$, seller $i$ sets a price $p_i^t$ on a discrete grid of $K = 15$ prices.
+Market shares follow the multinomial logit:
+\begin{equation}
+  s_i(\mathbf{p}) = \frac{\exp(-\alpha \, p_i)}{\sum_{j=1}^{N} \exp(-\alpha \, p_j)},
+  \label{eq:logit}
+\end{equation}
+where $\alpha > 0$ is the price sensitivity parameter.
+Seller $i$'s per-round profit is:
+\begin{equation}
+  \pi_i = (p_i - c_i) \cdot s_i(\mathbf{p}),
+\end{equation}
+with marginal cost $c_i$ (normalized so $c_i = 1.0$ in symmetric markets).
+Prices are expressed as unitless markup ratios: $p = 1.0$ is break-even, $p = 1.5$ is a 50\% markup.
+
+The one-shot Nash equilibrium price $p^*$ and the joint monopoly price $p^m$ serve as lower and upper benchmarks, respectively, and are computed analytically for each configuration.
+We define the \textbf{collusion index}:
+\begin{equation}
+  \Delta = \frac{\bar{p} - p^*}{p^m - p^*} \in [0, 1],
+\end{equation}
+where $\bar{p}$ is the mean price in the final 20\% of training rounds.
+$\Delta = 0$ indicates competitive pricing; $\Delta = 1$ indicates full monopoly pricing.
+
+\subsection{Market Presets}
+
+Three domain presets capture qualitatively different competitive environments:
+
+\begin{table}[h]
+\centering
+\small
+\caption{Market presets. $\alpha$ controls price sensitivity; higher $\alpha$ means more commodity-like competition.}
+\label{tab:presets}
+\begin{tabular}{llllll}
+\toprule
+\textbf{Preset} & \textbf{$\alpha$} & \textbf{$N$} & \textbf{Cost structure} & \textbf{Price range} & \textbf{Motivation} \\
+\midrule
+e-commerce & 3.0 & 2 & symmetric & $[1.0,\ 2.0]$ & Amazon-style repricing bots \\
+ride-share & 1.5 & 2 & asymmetric ($c_1=1.0$, $c_2=1.3$) & $[1.0,\ 3.0]$ & Uber vs.\ Lyft \\
+commodity   & 6.0 & 2 & symmetric & $[1.0,\ 1.5]$ & Gasoline, generic goods \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Pricing Agents}
+
+Five agent types span the range from adaptive learners to game-theoretic benchmarks:
+
+\begin{itemize}
+  \item \textbf{Q-learner}: Tabular Q-learning with $\varepsilon$-greedy exploration and discount factor $\delta = 0.95$. The baseline from Calvano et al., known to collude under standard parameters.
+  \item \textbf{SARSA}: On-policy TD learning. More conservative update rule; expected to collude less aggressively than Q-learning.
+  \item \textbf{Policy Gradient (PG)}: REINFORCE with softmax action selection and a running-average baseline. Gradient-based exploration dynamics differ qualitatively from tabular methods.
+  \item \textbf{Tit-for-Tat (TFT)}: Matches the competitor's price from the previous round. A classical game-theoretic benchmark that can sustain cooperation without learning.
+  \item \textbf{Competitive}: Always prices at the analytically computed Nash equilibrium. The non-collusive control group.
+\end{itemize}
+
+Agents observe only the public price history of the last $M$ rounds (state space $K^{N \times M}$).
+For $M \geq 3$, tile coding reduces the effective state space to a tractable number of tiles (8 tilings, 16 tiles per dimension).
+Exploration decays linearly from $\varepsilon = 1.0$ to $\varepsilon = 0.01$ over the first 40\% of $T = 500{,}000$ training rounds.
+
+\section{Auditor Panel}
+
+\subsection{Detection Methods}
+
+Four auditors independently analyze the same price history and each produce a collusion score $\sigma_a \in [0, 1]$:
+
+\paragraph{Auditor 1: Price-Cost Margin (PCM).}
+Computes the average markup $(\bar{p} - c)/c$ in the final 20\% of rounds and maps it onto the Nash--Monopoly spectrum to obtain $\sigma_\text{PCM}$.
+Strength: simple and interpretable.
+Weakness: cannot distinguish collusion from slow convergence.
+
+\paragraph{Auditor 2: Deviation-Punishment (DP).}
+Scans the price history for the tacit-collusion signature: high-price phase $\to$ unilateral deviation $\to$ punishment response $\to$ recovery.
+Uses a sliding window detector calibrated on known-competitive baselines.
+Strength: detects the \emph{mechanism}, not just the outcome.
+Weakness: requires enough deviation events for statistical power.
+
+\paragraph{Auditor 3: Counterfactual Simulator (CF).}
+Loads agent policies at round $0.9T$, then re-simulates the final $0.1T$ rounds with one agent replaced by the Competitive (Nash-pricing) bot.
+Measures the resulting price destabilization.
+Strength: provides causal evidence.
+Weakness: computationally expensive; requires saving agent state mid-run.
+
+\paragraph{Auditor 4: Welfare Analyst (WA).}
+Computes consumer surplus (CS), producer surplus (PS), and deadweight loss relative to Nash and monopoly benchmarks:
+\begin{equation}
+  \sigma_\text{WA} = \frac{\text{CS}^* - \overline{\text{CS}}}{\text{CS}^* - \text{CS}^m},
+\end{equation}
+where $\text{CS}^*$ is Nash consumer surplus and $\text{CS}^m$ is monopoly consumer surplus.
+Strength: directly measures consumer harm.
+Weakness: welfare loss can stem from inefficiency rather than collusion.
+
+\subsection{Panel Aggregation}
+
+Three aggregation strategies are reported:
+
+\begin{itemize}
+  \item \textbf{Majority vote}: Collusion flagged if $\geq 3$ of 4 auditors score $> 0.5$.
+  \item \textbf{Weighted average}: Scores weighted by empirical reliability estimated on calibration runs.
+  \item \textbf{Unanimous}: All 4 auditors must agree (most conservative; minimizes false positives).
+\end{itemize}
+
+False positive rates are calibrated on runs with the Competitive control agent; false negative rates are calibrated on known-collusive Q-learner $\times$ Q-learner runs at $M = 5$.
+
+\section{Experiments and Results}
+
+\subsection{Experimental Design}
+
+Table~\ref{tab:factors} summarizes the full factor matrix.
+The 540 simulations span all combinations; each (agent matchup $\times$ memory $\times$ preset $\times$ shock) cell is replicated with 5 random seeds, and we report mean $\pm$ standard deviation for all metrics.
+Statistical significance of supra-competitive pricing is assessed with Welch's $t$-test against the Nash price ($p < 0.05$); effect sizes are reported as Cohen's $d$.
+
+\begin{table}[h]
+\centering
+\small
+\caption{Experimental factor matrix. $6 \times 3 \times 3 \times 2 \times 5 = 540$ total simulations.}
+\label{tab:factors}
+\begin{tabular}{llll}
+\toprule
+\textbf{Factor} & \textbf{Levels} & \textbf{Values} & \textbf{Notes} \\
+\midrule
+Agent matchup & 6 & QQ, SS, PG-PG, QS, Q-TFT, Q-Comp & All $N=2$ \\
+Memory ($M$) & 3 & 1, 3, 5 & Tile coding for $M \geq 3$ \\
+Market preset & 3 & e-commerce, ride-share, commodity & See Table~\ref{tab:presets} \\
+Market shocks & 2 & with, without & Cost shock at $0.6T$; demand at $0.8T$ \\
+Seeds & 5 & 0, 1, 2, 3, 4 & Controls init, $\varepsilon$-decay randomness \\
+\midrule
+\textbf{Total} & & \textbf{540 simulations} & \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Collusion Heatmap}
+
+Table~\ref{tab:heatmap} shows the mean collusion index $\Delta$ aggregated over seeds and shock conditions, for the e-commerce preset.
+Values in bold exceed the majority-vote collusion threshold.
+
+\begin{table}[h]
+\centering
+\small
+\caption{Mean collusion index $\Delta$ (e-commerce preset, no shock, mean over 5 seeds). \textbf{TODO: fill after experiments.}}
+\label{tab:heatmap}
+\begin{tabular}{lccc}
+\toprule
+\textbf{Matchup} & \textbf{$M=1$} & \textbf{$M=3$} & \textbf{$M=5$} \\
+\midrule
+Q vs.\ Q       & \textbf{TODO} & \textbf{TODO} & \textbf{TODO} \\
+SARSA vs.\ SARSA & \textbf{TODO} & \textbf{TODO} & \textbf{TODO} \\
+PG vs.\ PG     & \textbf{TODO} & \textbf{TODO} & \textbf{TODO} \\
+Q vs.\ SARSA   & \textbf{TODO} & \textbf{TODO} & \textbf{TODO} \\
+Q vs.\ TFT     & \textbf{TODO} & \textbf{TODO} & \textbf{TODO} \\
+Q vs.\ Comp    & \textbf{TODO} & \textbf{TODO} & \textbf{TODO} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Auditor Agreement}
+
+Table~\ref{tab:agreement} reports pairwise auditor agreement rates (fraction of simulations where both auditors agree on collusion/no-collusion).
+All three panel aggregation methods are evaluated; we report precision and recall relative to the $\Delta > 0.5$ ground truth.
+
+\begin{table}[h]
+\centering
+\small
+\caption{Pairwise auditor agreement and panel method performance. \textbf{TODO: fill after experiments.}}
+\label{tab:agreement}
+\begin{tabular}{lcc}
+\toprule
+\textbf{Auditor pair / Method} & \textbf{Agreement rate} & \textbf{F1 score} \\
+\midrule
+PCM vs.\ DP         & \textbf{TODO} & --- \\
+PCM vs.\ CF         & \textbf{TODO} & --- \\
+PCM vs.\ WA         & \textbf{TODO} & --- \\
+DP vs.\ CF          & \textbf{TODO} & --- \\
+DP vs.\ WA          & \textbf{TODO} & --- \\
+CF vs.\ WA          & \textbf{TODO} & --- \\
+\midrule
+Majority vote panel  & --- & \textbf{TODO} \\
+Weighted avg.\ panel & --- & \textbf{TODO} \\
+Unanimous panel      & --- & \textbf{TODO} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Memory Effect}
+
+We assess how collusion intensity scales with memory length $M$ by fitting a linear trend to $\Delta$ versus $M$ across all agent matchups and presets.
+\textbf{TODO: report slope and $p$-value after experiments.}
+The policy implication is direct: if longer memory windows reliably produce more collusion, regulators should scrutinize the lookback window of deployed pricing algorithms.
+
+\subsection{Shock Robustness}
+
+A cost shock at round $0.6T$ (one seller's cost increases by 30\%) and a demand shock at round $0.8T$ ($\alpha$ shifts $\pm$20\%) are injected into half the simulations.
+We measure (i) the number of rounds to price restabilization and (ii) whether supra-competitive pricing recovers post-shock.
+Auditor performance under shocked conditions is compared to the no-shock baseline.
+\textbf{TODO: fill recovery times and detection rate changes after experiments.}
+
+\section{Discussion}
+
+\paragraph{Policy implications.}
+If the Q-learner $\times$ Q-learner results replicate Calvano et al.~\cite{calvano2020artificial} across all three market presets, it suggests that tacit collusion is not an artifact of a specific parameterization but a robust property of independent Q-learning in repeated pricing games.
+The auditor panel provides regulators with a principled detection toolkit: the Counterfactual Simulator offers causal evidence closest to a ``but-for'' price analysis, while the Welfare Analyst directly quantifies consumer harm.
+The memory effect result, if confirmed, implies that auditing deployed algorithms for their lookback window length could serve as a practical regulatory screen.
+
+\paragraph{Limitations.}
+This framework uses tabular and linear function approximation agents; deep RL agents (e.g., DQN, PPO) may exhibit qualitatively different collusion dynamics that warrant separate study.
+The logit demand model is stylized: it assumes homogeneous consumers, no product differentiation beyond price, and no entry or exit.
+Market presets are calibrated to plausible parameter ranges but are not fitted to real transaction data.
+The counterfactual auditor requires saving agent state mid-run, which may not be feasible for proprietary black-box pricing systems in practice.
+
+\paragraph{Future work.}
+Natural extensions include: (i) deep RL agents with shared-encoder architectures, (ii) heterogeneous consumer populations, (iii) fitting parameters to real-world pricing datasets, (iv) multi-market collusion where the same agent operates across products, and (v) adversarial auditing---agents that are aware of the detection panel and actively try to evade it.
+
+\section*{Reproducibility}
+
+All code, data, and results are packaged as an executable \texttt{SKILL.md}.
+Any AI coding agent can reproduce the full 540-simulation experiment by following the skill steps: set up the virtual environment, run unit tests, execute \texttt{run.py}, and validate with \texttt{validate.py}.
+No API keys, GPU, or external data downloads are required; the framework is a pure Python simulation with pinned dependencies.
+
+\begin{thebibliography}{9}
+
+\bibitem{calvano2020artificial}
+E.~Calvano, G.~Calzolari, V.~Denicolò, and S.~Pastorello,
+``Artificial Intelligence, Algorithmic Pricing, and Collusion,''
+\emph{American Economic Review}, vol.~110, no.~10, pp.~3267--3297, 2020.
+
+\bibitem{ezrachi2016virtual}
+A.~Ezrachi and M.~E.~Stucke,
+\emph{Virtual Competition: The Promise and Perils of the Algorithm-Driven Economy}.
+Harvard University Press, 2016.
+
+\bibitem{harrington2018developing}
+J.~E.~Harrington,
+``Developing Competition Law for Collusion by Autonomous Artificial Agents,''
+\emph{Journal of Competition Law \& Economics}, vol.~14, no.~3, pp.~331--363, 2018.
+
+\bibitem{klein2021autonomous}
+T.~Klein,
+``Autonomous Algorithmic Collusion: Q-Learning Under Sequential Pricing,''
+\emph{The RAND Journal of Economics}, vol.~52, no.~3, pp.~538--558, 2021.
+
+\bibitem{banchio2022artificial}
+M.~Banchio and G.~Mantegazza,
+``Artificial Intelligence and Spontaneous Collusion,''
+Working Paper, 2022.
+
+\bibitem{brown2023competition}
+Z.~Y.~Brown and A.~MacKay,
+``Competition in Algorithmic Pricing,''
+\emph{The Review of Economic Studies}, 2023.
+
+\bibitem{mnih2015human}
+V.~Mnih et al.,
+``Human-level Control through Deep Reinforcement Learning,''
+\emph{Nature}, vol.~518, pp.~529--533, 2015.
+
+\end{thebibliography}
+
+\end{document}
