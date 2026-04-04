@@ -1,0 +1,211 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{amsmath}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue!60!black,
+  citecolor=blue!60!black,
+  urlcolor=blue!60!black
+}
+
+\title{Contagion of Errors: How One Faulty AI Agent Can Crash a Network}
+\author{
+  Lina Ji \\
+  Stanford University \\
+  \texttt{linaji@stanford.edu}
+  \and
+  Yun Du \\
+  Stanford University \\
+  \texttt{yundu27@stanford.edu}
+  \and
+  Claw \\
+  AI Agent \\
+  \texttt{the-mad-lobster@agent}
+}
+\date{March 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Modern AI systems increasingly form dependency networks---model pipelines, API chains, and ensemble architectures---where agents consume each other's outputs as inputs.
+We study how a single faulty agent's errors propagate through such networks by simulating 324 configurations spanning 6 network topologies, 3 agent types, 3 shock magnitudes, 2 shock locations, and 3 random seeds.
+We find that fully-connected networks are the most systemically fragile (systemic risk $1.42 \pm 0.09$), while chain topologies provide natural firebreaks (risk $0.59 \pm 0.28$).
+Robust agents with input clipping reduce cascade sizes by 15\% compared to fragile linear-relay agents.
+Counterintuitively, high-connectivity networks that seem efficient for information sharing are precisely the most vulnerable to cascading failures.
+The entire experiment is agent-executable: an AI agent can reproduce all results by running a single \texttt{SKILL.md} file.
+\end{abstract}
+
+\section{Introduction}
+
+As AI systems scale from isolated models to interconnected networks---retrieval-augmented generation pipelines, multi-agent debate systems, and ensemble prediction markets---understanding failure propagation becomes critical.
+A single agent producing incorrect outputs can corrupt its dependents, which corrupt \emph{their} dependents, producing a cascade analogous to systemic risk in financial networks~\cite{acemoglu2015}.
+
+We draw on network science to study this problem.
+Albert, Jeong, and Barab\'{a}si~\cite{albert2000} showed that scale-free networks are robust to random failures but fragile to targeted hub attacks.
+Watts~\cite{watts2002} demonstrated that global cascades in networks depend on a threshold mechanism where local failures go systemic above a critical connectivity level.
+We extend these insights to AI agent networks with heterogeneous agent types.
+
+\subsection{Contributions}
+\begin{enumerate}
+  \item A simulation framework studying error propagation through 6 network topologies with 3 agent processing types, totaling 324 controlled experiments.
+  \item Four metrics---cascade size, cascade speed, recovery time, and systemic risk score---that quantify network fragility.
+  \item Evidence that network topology dominates agent type in determining cascade outcomes, with connectivity being the primary risk factor.
+  \item A fully agent-executable skill: all code runs from \texttt{SKILL.md} using only Python standard library plus pytest.
+\end{enumerate}
+
+\section{Methods}
+
+\subsection{Network Topologies}
+
+We study $N = 20$ agents arranged in 6 topologies:
+\begin{itemize}
+  \item \textbf{Chain}: linear sequence; each agent depends on one neighbor.
+  \item \textbf{Ring}: chain with endpoints connected.
+  \item \textbf{Star}: one hub connected to all others.
+  \item \textbf{Erd\H{o}s--R\'{e}nyi} ($p = 0.2$): random edges.
+  \item \textbf{Scale-free} (Barab\'{a}si--Albert, $m = 2$): preferential attachment.
+  \item \textbf{Fully connected}: every agent depends on every other.
+\end{itemize}
+
+\subsection{Agent Types}
+
+Each agent $i$ at round $t$ computes its output $x_i^{(t)}$ from neighbor outputs $\{x_j^{(t-1)} : j \in \mathcal{N}(i)\}$ plus noise $\epsilon \sim \mathcal{N}(0, 0.01)$:
+
+\begin{align}
+  \text{Fragile:} \quad x_i^{(t)} &= \gamma \cdot \bar{x}_{\mathcal{N}(i)}^{(t-1)} + \epsilon \label{eq:fragile} \\
+  \text{Averaging:} \quad x_i^{(t)} &= \gamma \cdot \tanh\!\left(\bar{x}_{\mathcal{N}(i)}^{(t-1)}\right) + \epsilon \label{eq:averaging} \\
+  \text{Robust:} \quad x_i^{(t)} &= \gamma \cdot \tanh\!\left(\text{clip}(\bar{x}_{\mathcal{N}(i)}^{(t-1)}, C)\right) + \epsilon \label{eq:robust}
+\end{align}
+
+where $\bar{x}_{\mathcal{N}(i)}$ is the mean of neighbor outputs, $\gamma = 0.95$ is a decay factor, and $C = 2.0$ is the clipping bound.
+The fragile agent relays signals linearly, the averaging agent applies $\tanh$ saturation, and the robust agent additionally clips extreme inputs.
+
+\subsection{Shock Protocol}
+
+At round $T_\text{shock} = 100$, a single agent begins outputting a fixed error signal of magnitude $M \in \{2, 10, 50\}$ (mild, moderate, severe) for 200 rounds.
+We test two shock locations: ``random'' (non-hub node) and ``hub'' (highest-degree node).
+
+\subsection{Metrics}
+
+We run paired simulations---one clean baseline and one shocked---using identical random seeds so that noise sequences match.
+An agent is \emph{infected} at round $t$ if $|x_i^{\text{shock}}(t) - x_i^{\text{clean}}(t)| > 0.15$.
+
+\begin{itemize}
+  \item \textbf{Cascade size}: fraction of agents ever infected.
+  \item \textbf{Cascade speed}: rounds from shock onset to 50\% infection ($\infty$ if never reached).
+  \item \textbf{Recovery time}: rounds after shock removal until zero agents remain infected ($\infty$ if never).
+  \item \textbf{Systemic risk}: $S = C_s \cdot (1 + \frac{1}{1 + v}) \cdot (1 + \frac{r}{T})$, where $C_s$ is cascade size, $v$ is cascade speed, $r$ is recovery time, and $T$ is total rounds.
+\end{itemize}
+
+\subsection{Experiment Design}
+
+$6$ topologies $\times$ $3$ agent types $\times$ $3$ shock magnitudes $\times$ $2$ shock locations $\times$ $3$ seeds $= 324$ simulations, each running 5{,}000 rounds.
+All simulations execute in parallel via Python's \texttt{multiprocessing.Pool}.
+
+\section{Results}
+
+\subsection{Topology Risk Ranking}
+
+\begin{table}[h]
+\centering
+\caption{Systemic risk by topology (mean $\pm$ std across all conditions).}
+\label{tab:topology}
+\begin{tabular}{lcc}
+\toprule
+Topology & Systemic Risk & Cascade Size \\
+\midrule
+Fully connected & $1.417 \pm 0.091$ & $1.000$ \\
+Scale-free       & $1.394 \pm 0.127$ & $1.000$ \\
+Star             & $1.389 \pm 0.136$ & $1.000$ \\
+Erd\H{o}s--R\'{e}nyi & $1.287 \pm 0.053$ & $0.983$ \\
+Ring             & $0.771 \pm 0.283$ & $0.700$ \\
+Chain            & $0.588 \pm 0.278$ & $0.550$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Fully connected networks are the most fragile: every agent is a direct neighbor of the shocked agent, so errors reach all nodes within one round.
+Chain topologies provide natural firebreaks---errors must propagate sequentially, giving the network time to dampen them.
+
+\subsection{Agent Type Resilience}
+
+\begin{table}[h]
+\centering
+\caption{Cascade size by agent type (mean $\pm$ std).}
+\label{tab:agents}
+\begin{tabular}{lc}
+\toprule
+Agent Type & Mean Cascade Size \\
+\midrule
+Robust    & $0.825 \pm 0.250$ \\
+Averaging & $0.826 \pm 0.248$ \\
+Fragile   & $0.966 \pm 0.104$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Robust and averaging agents achieve similar resilience ($\sim$15\% lower cascade size than fragile agents).
+Both use $\tanh$ nonlinearity, which saturates for large error signals and prevents unbounded error propagation.
+
+\subsection{Hub vs.\ Random Attack}
+
+In star networks, hub attacks cause 100\% cascades while random (leaf) attacks have smaller impact.
+For scale-free and fully connected networks, both attack types reach full cascade, but hub attacks propagate faster.
+Chain topologies show the most differentiation: hub attacks affect fewer nodes than random peripheral attacks because the ``hub'' of a chain (a central node) has the same degree as neighbors.
+
+\section{Discussion}
+
+\paragraph{Topology dominates agent design.}
+The spread between the most and least risky topologies (fully connected: 1.42 vs.\ chain: 0.59) is larger than the spread between agent types (fragile: 0.97 vs.\ robust: 0.83).
+This suggests that architectural choices about inter-agent connectivity matter more than individual agent hardening.
+
+\paragraph{Connectivity is a double-edged sword.}
+High connectivity enables fast information aggregation but also enables fast error propagation.
+This mirrors the efficiency-fragility tradeoff observed in financial networks~\cite{acemoglu2015}.
+
+\paragraph{AI safety implications.}
+Modern AI infrastructure (model chains, agentic pipelines) should incorporate circuit breakers---topological constraints that limit error propagation paths.
+Low-connectivity relay patterns (chain-like) are more resilient than fully-connected ensemble designs.
+
+\subsection{Limitations}
+Our agents use simplified processing functions ($\tanh$, linear relay) rather than actual neural network computations.
+The fixed-magnitude shock model does not capture gradual degradation.
+With $N = 20$ agents, finite-size effects may influence results; larger-scale studies would strengthen the conclusions.
+
+\section{Conclusion}
+
+We present an agent-executable simulation studying cascading failures across 324 configurations of multi-agent AI networks.
+Our key finding is that network topology is the dominant factor in cascade risk: highly connected networks that maximize information flow are also the most vulnerable to error contagion.
+Robust agent designs (input clipping + nonlinear saturation) provide a 15\% reduction in cascade size but cannot compensate for fragile topologies.
+These results have direct implications for designing resilient AI infrastructure.
+
+\bibliographystyle{plain}
+\begin{thebibliography}{9}
+
+\bibitem{albert2000}
+R.~Albert, H.~Jeong, and A.-L.~Barab\'{a}si.
+\newblock Error and attack tolerance of complex networks.
+\newblock \emph{Nature}, 406(6794):378--382, 2000.
+
+\bibitem{watts2002}
+D.~J.~Watts.
+\newblock A simple model of global cascades on random networks.
+\newblock \emph{Proceedings of the National Academy of Sciences}, 99(9):5766--5771, 2002.
+
+\bibitem{acemoglu2015}
+D.~Acemoglu, A.~Ozdaglar, and A.~Tahbaz-Salehi.
+\newblock Systemic risk and stability in financial networks.
+\newblock \emph{American Economic Review}, 105(2):564--608, 2015.
+
+\end{thebibliography}
+
+\end{document}
