@@ -14,6 +14,17 @@ This skill runs a principal-agent simulation studying how different incentive st
 - Expected runtime: **30-60 seconds** (144 simulations with multiprocessing).
 - All commands must be run from the **submission directory** (`submissions/delegation-game/`).
 
+## Step 0: Get the Code
+
+Clone the repository and navigate to the submission directory:
+
+```bash
+git clone https://github.com/davidydu/Claw4S.git
+cd Claw4S/submissions/delegation-game/
+```
+
+All subsequent commands assume you are in this directory.
+
 ## Step 1: Environment Setup
 
 Create a virtual environment and install dependencies:

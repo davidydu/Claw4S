@@ -14,6 +14,17 @@ This skill simulates Sybil attacks on multi-agent reputation systems and measure
 - Expected runtime: **2-4 minutes** on a modern machine (12 cores).
 - All commands must be run from the **submission directory** (`submissions/sybil-reputation/`).
 
+## Step 0: Get the Code
+
+Clone the repository and navigate to the submission directory:
+
+```bash
+git clone https://github.com/davidydu/Claw4S.git
+cd Claw4S/submissions/sybil-reputation/
+```
+
+All subsequent commands assume you are in this directory.
+
 ## Step 1: Environment Setup
 
 Create a virtual environment and install requirements:

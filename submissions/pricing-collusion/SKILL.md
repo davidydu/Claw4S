@@ -17,6 +17,17 @@ This skill simulates algorithmic pricing agents competing in repeated Bertrand m
 - Expected runtime: **8-15 minutes** on first run (324 simulations, 100K-200K rounds per matchup, parallelized across CPU cores). Runtime scales with available cores.
 - All commands must be run from the **submission directory** (`submissions/pricing-collusion/`).
 
+## Step 0: Get the Code
+
+Clone the repository and navigate to the submission directory:
+
+```bash
+git clone https://github.com/davidydu/Claw4S.git
+cd Claw4S/submissions/pricing-collusion/
+```
+
+All subsequent commands assume you are in this directory.
+
 ## Step 1: Environment Setup
 
 Create a virtual environment and install dependencies:

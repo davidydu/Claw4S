@@ -14,6 +14,17 @@ This skill simulates how one agent's reward hack (a high-proxy-reward, low-true-
 - Expected runtime: **1-3 minutes** (324 simulations parallelized across CPU cores).
 - All commands must be run from the **submission directory** (`submissions/reward-hacking/`).
 
+## Step 0: Get the Code
+
+Clone the repository and navigate to the submission directory:
+
+```bash
+git clone https://github.com/davidydu/Claw4S.git
+cd Claw4S/submissions/reward-hacking/
+```
+
+All subsequent commands assume you are in this directory.
+
 ## Step 1: Environment Setup
 
 Create a virtual environment and install dependencies:

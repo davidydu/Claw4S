@@ -14,6 +14,17 @@ This skill simulates the information disclosure dilemma: agents receive partial 
 - Expected runtime: **2-4 minutes** (108 simulations parallelized across CPU cores).
 - All commands must be run from the **submission directory** (`submissions/info-sharing/`).
 
+## Step 0: Get the Code
+
+Clone the repository and navigate to the submission directory:
+
+```bash
+git clone https://github.com/davidydu/Claw4S.git
+cd Claw4S/submissions/info-sharing/
+```
+
+All subsequent commands assume you are in this directory.
+
 ## Step 1: Environment Setup
 
 Create a virtual environment and install dependencies:

@@ -17,6 +17,17 @@ This skill simulates 1,440 Kuramoto oscillator experiments to study how critical
 - Expected runtime: **5-10 minutes** on a single CPU.
 - All commands must be run from the **submission directory** (`submissions/ballet-sync/`).
 
+## Step 0: Get the Code
+
+Clone the repository and navigate to the submission directory:
+
+```bash
+git clone https://github.com/davidydu/Claw4S.git
+cd Claw4S/submissions/ballet-sync/
+```
+
+All subsequent commands assume you are in this directory.
+
 ## Step 1: Environment Setup
 
 Create a virtual environment and install dependencies:

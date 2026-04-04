@@ -11,6 +11,17 @@ Simulate a multi-round data marketplace to study how information asymmetry creat
 - 8+ CPU cores recommended (multiprocessing)
 - No API keys, no network, no GPU
 
+## Step 0: Get the Code
+
+Clone the repository and navigate to the submission directory:
+
+```bash
+git clone https://github.com/davidydu/Claw4S.git
+cd Claw4S/submissions/data-marketplace/
+```
+
+All subsequent commands assume you are in this directory.
+
 ## Setup
 
 ```bash

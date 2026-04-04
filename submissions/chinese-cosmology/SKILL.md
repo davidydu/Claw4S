@@ -18,6 +18,17 @@ This skill analyzes whether three independently-evolved Chinese metaphysical sys
 - Expected runtime: **~10–20 minutes** on a single CPU (no GPU required).
 - All commands must be run from the **submission directory** (`submissions/chinese-cosmology/`).
 
+## Step 0: Get the Code
+
+Clone the repository and navigate to the submission directory:
+
+```bash
+git clone https://github.com/davidydu/Claw4S.git
+cd Claw4S/submissions/chinese-cosmology/
+```
+
+All subsequent commands assume you are in this directory.
+
 ## Step 1: Environment Setup
 
 Create a virtual environment and install pinned dependencies:

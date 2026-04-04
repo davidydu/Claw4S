@@ -13,6 +13,17 @@ transitions, and generate a reproducible analysis report.
 
 ## Steps
 
+### Step 0 — Get the Code
+
+Clone the repository and navigate to the submission directory:
+
+```bash
+git clone https://github.com/davidydu/Claw4S.git
+cd Claw4S/submissions/world-model-consensus/
+```
+
+All subsequent commands assume you are in this directory.
+
 ### Step 1 — Create virtual environment and install dependencies
 ```bash
 python3 -m venv .venv

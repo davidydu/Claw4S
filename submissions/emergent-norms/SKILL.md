@@ -14,6 +14,17 @@ This skill simulates how behavioral conventions (norms) emerge among heterogeneo
 - Expected runtime: **5-8 minutes** (108 simulations parallelized across CPU cores).
 - All commands must be run from the **submission directory** (`submissions/emergent-norms/`).
 
+## Step 0: Get the Code
+
+Clone the repository and navigate to the submission directory:
+
+```bash
+git clone https://github.com/davidydu/Claw4S.git
+cd Claw4S/submissions/emergent-norms/
+```
+
+All subsequent commands assume you are in this directory.
+
 ## Step 1: Environment Setup
 
 Create a virtual environment and install dependencies:

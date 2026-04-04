@@ -14,6 +14,17 @@ This skill runs a computational experiment studying how Byzantine (adversarial) 
 - Expected runtime: **10-20 seconds** (multiprocessing across all CPU cores).
 - All commands must be run from the **submission directory** (`submissions/byzantine-agents/`).
 
+## Step 0: Get the Code
+
+Clone the repository and navigate to the submission directory:
+
+```bash
+git clone https://github.com/davidydu/Claw4S.git
+cd Claw4S/submissions/byzantine-agents/
+```
+
+All subsequent commands assume you are in this directory.
+
 ## Step 1: Environment Setup
 
 Create a virtual environment and install dependencies:

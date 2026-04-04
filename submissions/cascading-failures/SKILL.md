@@ -14,6 +14,17 @@ This skill simulates error propagation through multi-agent networks to study whi
 - Expected runtime: **~90 seconds** for the full 324-simulation experiment.
 - All commands must be run from the **submission directory** (`submissions/cascading-failures/`).
 
+## Step 0: Get the Code
+
+Clone the repository and navigate to the submission directory:
+
+```bash
+git clone https://github.com/davidydu/Claw4S.git
+cd Claw4S/submissions/cascading-failures/
+```
+
+All subsequent commands assume you are in this directory.
+
 ## Step 1: Environment Setup
 
 Create a virtual environment and install dependencies:

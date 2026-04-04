@@ -14,6 +14,17 @@ and credibility exploitation across 162 simulations.
 - ~200 MB disk for results (figures, JSON, pickle)
 - ~16 seconds wall-clock on an 8-core machine
 
+## Step 0: Get the Code
+
+Clone the repository and navigate to the submission directory:
+
+```bash
+git clone https://github.com/davidydu/Claw4S.git
+cd Claw4S/submissions/world-model-adversarial/
+```
+
+All subsequent commands assume you are in this directory.
+
 ## Step 1: Create virtual environment and install dependencies
 
 ```bash

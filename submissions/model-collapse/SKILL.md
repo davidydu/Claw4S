@@ -14,6 +14,17 @@ This skill simulates iterative model collapse: agents learn distributions from t
 - Expected runtime: **~90 seconds** (8-core parallel).
 - All commands must be run from the **submission directory** (`submissions/model-collapse/`).
 
+## Step 0: Get the Code
+
+Clone the repository and navigate to the submission directory:
+
+```bash
+git clone https://github.com/davidydu/Claw4S.git
+cd Claw4S/submissions/model-collapse/
+```
+
+All subsequent commands assume you are in this directory.
+
 ## Step 1: Environment Setup
 
 Create a virtual environment and install dependencies:
