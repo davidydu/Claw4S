@@ -1,0 +1,213 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{amsmath}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue!60!black,
+  citecolor=blue!60!black,
+  urlcolor=blue!60!black
+}
+
+\title{How Many Rogue AIs Can a Committee Tolerate?\\Byzantine Fault Tolerance in Multi-Agent Decision Systems}
+\author{
+  Lina Ji \\
+  Stanford University \\
+  \texttt{linaji@stanford.edu}
+  \and
+  Yun Du \\
+  Stanford University \\
+  \texttt{yundu27@stanford.edu}
+  \and
+  Claw \\
+  AI Agent (\texttt{the-mad-lobster}) \\
+  \texttt{claw@agent}
+}
+\date{March 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+As multi-agent AI systems make collective decisions---in ensemble models, multi-model verification pipelines, and autonomous committees---understanding their vulnerability to compromised agents becomes critical.
+We study Byzantine fault tolerance in voting committees of $N$ AI-like agents, where a fraction $f$ are adversarial.
+Classical BFT theory (Lamport et al., 1982) guarantees safety for $f < N/3$.
+We test whether this bound holds across three honest voter types (majority, Bayesian, cautious), three Byzantine strategies (random, strategic, mimicking), five adversarial fractions, and three committee sizes, totalling 405 configurations with 1{,}000 rounds each.
+Our key findings: (1)~Bayesian voters with multi-sample observations resist Byzantine corruption far beyond the $N/3$ bound (resilience score 0.87--0.99 vs.\ 0.74--0.96 for single-sample voters); (2)~coordinated strategic adversaries are 1.6--12$\times$ more damaging than random ones, with amplification growing superlinearly in committee size; (3)~mimicking adversaries are surprisingly ineffective because their partial honesty dilutes their adversarial impact.
+All results are fully reproducible via an agent-executable \texttt{SKILL.md}.
+\end{abstract}
+
+\section{Introduction}
+
+The Byzantine Generals Problem~\cite{lamport1982byzantine} asks: how many traitorous generals can an army tolerate while still reaching correct consensus?
+The classical answer is strict---fewer than one-third of participants can be faulty ($f < N/3$)---and this bound underlies decades of distributed systems design~\cite{castro1999practical}.
+
+This question takes on new urgency as AI systems increasingly make collective decisions.
+Ensemble models aggregate predictions from multiple sub-models; multi-agent verification pipelines cross-check outputs; and autonomous agent committees vote on actions.
+If some agents in such a system are compromised---through adversarial attacks, misalignment, or corruption---the collective decision may fail silently.
+
+We present a computational study of Byzantine fault tolerance in multi-agent voting committees.
+Each of $N$ agents receives a noisy signal about the correct decision (one of $K=5$ options) and votes.
+A fraction $f$ of agents are Byzantine---they vote adversarially to corrupt the committee's plurality decision.
+We systematically vary the honest voter type, Byzantine strategy, adversarial fraction, and committee size across 405 configurations (3 seeds each, 1{,}000 rounds per configuration) to characterize when and how consensus breaks.
+
+Our primary contribution is not the theoretical bound itself (which is well-established) but an empirical study of how \emph{agent capability} interacts with Byzantine resilience.
+Agents with richer inference (Bayesian updating over multiple observations) tolerate adversaries far beyond the classical $N/3$ threshold, while simple majority voters break near $f \approx 0.41$--$0.45$.
+
+\section{Methods}
+
+\subsection{Signal Model}
+
+In each round, nature draws a ground-truth option $y^* \sim \mathrm{Uniform}\{0, \ldots, K{-}1\}$ with $K = 5$.
+Each agent $i$ receives $m_i$ independent noisy observations: each observation equals $y^*$ with probability $q = 0.6$ (signal quality) and is uniformly random otherwise.
+The agent's input is the count vector $\mathbf{c}_i \in \mathbb{N}^K$ of how many times each option was observed.
+
+\subsection{Honest Voter Types}
+
+\textbf{Majority voter} ($m = 1$ sample): votes for the observed option (argmax of $\mathbf{c}_i$; ties broken randomly).
+
+\textbf{Bayesian voter} ($m = 3$ samples): computes the posterior $\mathrm{Dir}(\mathbf{1} + \mathbf{c}_i)$ under a uniform Dirichlet prior and votes for the MAP estimate.
+
+\textbf{Cautious voter} ($m = 1$ sample): computes the posterior mean and abstains (does not vote) if the best option's probability is below threshold $\tau = 0.30$.
+
+\subsection{Byzantine Strategies}
+
+\textbf{Random}: votes uniformly at random, ignoring signals.
+
+\textbf{Strategic}: all Byzantine agents coordinate to vote for a fixed option (option~0), concentrating adversarial votes.
+
+\textbf{Mimicking}: with probability 0.3 votes for the coordinated wrong answer; otherwise votes honestly (argmax).
+This strategy is designed to be hard to distinguish from honest behavior.
+
+\subsection{Experiment Design}
+
+We run a full factorial grid: 3 honest types $\times$ 3 Byzantine strategies $\times$ 5 fractions ($f \in \{0, 0.10, 0.20, 0.33, 0.50\}$) $\times$ 3 committee sizes ($N \in \{5, 9, 15\}$) $\times$ 3 seeds = 405 configurations, each with 1{,}000 voting rounds.
+The committee decides by plurality vote with random tie-breaking.
+Simulations run in parallel via Python multiprocessing.
+
+\subsection{Metrics}
+
+\textbf{Decision accuracy}: fraction of rounds where the committee's plurality vote matches $y^*$.
+
+\textbf{Byzantine threshold} ($f^*$): the fraction $f$ at which accuracy first drops below 50\%, estimated by linear interpolation between neighboring grid points.
+
+\textbf{Byzantine amplification}: the ratio $(\text{baseline} - \text{acc}_{\text{strategic}}) / (\text{baseline} - \text{acc}_{\text{random}})$ at $f = 0.33$, measuring how much worse coordinated adversaries are than random ones.
+
+\textbf{Resilience score}: area under the accuracy-vs-$f$ curve (trapezoidal rule), normalized to $[0, 1]$.
+
+\section{Results}
+
+\subsection{Accuracy Degradation}
+
+Table~\ref{tab:accuracy} shows mean accuracy (averaged over all Byzantine types and committee sizes) by honest type and adversarial fraction.
+Bayesian voters consistently outperform the other types, maintaining 92.3\% accuracy at $f = 0.33$ compared to 82.6\% for majority and cautious voters.
+
+\begin{table}[h]
+\centering
+\caption{Mean decision accuracy by honest voter type and Byzantine fraction. Averaged over 3 Byzantine strategies, 3 committee sizes, and 3 seeds.}
+\label{tab:accuracy}
+\begin{tabular}{lccccc}
+\toprule
+Honest Type & $f=0.00$ & $f=0.10$ & $f=0.20$ & $f=0.33$ & $f=0.50$ \\
+\midrule
+Majority  & 0.965 & 0.957 & 0.924 & 0.826 & 0.703 \\
+Bayesian  & 0.992 & 0.990 & 0.979 & 0.923 & 0.799 \\
+Cautious  & 0.965 & 0.957 & 0.924 & 0.826 & 0.703 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Byzantine Thresholds}
+
+Against strategic adversaries, majority and cautious voters on larger committees ($N = 9, 15$) cross the 50\% accuracy threshold at $f^* \approx 0.41$--$0.45$, close to the classical $N/3 \approx 0.33$ bound.
+Bayesian voters, by contrast, maintain above-50\% accuracy up to $f^* = 0.43$ even on $N = 15$ committees and never cross the threshold on smaller committees ($f^* = 1.0$ for $N = 5, 9$).
+Against random and mimicking adversaries, no honest type crosses the 50\% threshold at any tested fraction.
+
+\subsection{Byzantine Amplification}
+
+Table~\ref{tab:amplification} shows the amplification factor at $f = 0.33$.
+Coordinated strategic adversaries are 1.6--12$\times$ more damaging than random ones, with amplification growing superlinearly in committee size $N$.
+For $N = 15$, strategic adversaries cause 7.4$\times$ (majority/cautious) to 12.0$\times$ (Bayesian) the accuracy drop of random adversaries.
+
+\begin{table}[h]
+\centering
+\caption{Byzantine amplification (strategic vs.\ random) at $f = 0.33$.}
+\label{tab:amplification}
+\begin{tabular}{lccc}
+\toprule
+Honest Type & $N=5$ & $N=9$ & $N=15$ \\
+\midrule
+Majority  & 1.59$\times$ & 3.08$\times$ & 7.42$\times$ \\
+Bayesian  & 1.68$\times$ & 4.17$\times$ & 12.00$\times$ \\
+Cautious  & 1.59$\times$ & 3.08$\times$ & 7.42$\times$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Mimicking Adversaries Are Surprisingly Ineffective}
+
+Counter to our initial hypothesis, mimicking adversaries (which appear honest 70\% of the time) cause \emph{less} damage than purely random adversaries.
+The mimicking strategy's partial honesty dilutes its adversarial effect: when mimics vote honestly, they actively help the committee reach the correct answer, and their 30\% adversarial flip rate is insufficient to overcome the honest majority.
+Resilience scores against mimicking (0.88--1.00) consistently exceed those against random (0.80--0.99) and strategic (0.74--0.90) adversaries.
+
+\section{Discussion}
+
+\paragraph{Bayesian resilience beyond $N/3$.}
+The classical $N/3$ bound assumes worst-case adversaries and simple voting.
+Bayesian voters with multiple observations effectively have higher individual accuracy, making each honest vote ``worth more'' in the plurality.
+This information advantage shifts the critical threshold upward---a finding with direct implications for multi-model AI systems where each sub-model can be given richer inputs.
+
+\paragraph{Superlinear amplification.}
+The growing amplification with $N$ suggests that larger committees are \emph{more} vulnerable to the distinction between coordinated and uncoordinated adversaries.
+In large committees, random Byzantine votes are diluted among many options ($K = 5$), but coordinated votes concentrate on a single wrong answer and can swing the plurality.
+
+\paragraph{Limitations.}
+Our study uses a static signal model with fixed quality $q = 0.6$ and $K = 5$ options.
+Real multi-agent AI systems involve dynamic environments, strategic adaptation, and heterogeneous agent capabilities.
+The mimicking strategy uses a fixed flip probability (0.3); adaptive mimics that learn the committee's decision rule could be more effective.
+We leave these extensions to future work.
+
+\paragraph{AI safety implications.}
+As multi-agent AI systems become more common in high-stakes settings---autonomous driving committees, medical diagnosis ensembles, financial trading collectives---understanding their Byzantine resilience is essential.
+Our results suggest that giving agents richer information (more observations) is a more effective defense than simply adding more agents, and that defending against coordinated adversaries requires fundamentally different strategies than defending against random failures.
+
+\section{Reproducibility}
+
+The complete experiment is executable via the accompanying \texttt{SKILL.md} file.
+An AI agent can reproduce all results by running five commands: create a virtual environment, install three pinned dependencies (numpy==2.4.3, scipy==1.17.1, pytest==9.0.2), run 47 unit tests, execute the experiment, and validate results.
+Runtime is approximately 10--20 seconds on a modern machine with multiprocessing.
+All random seeds are fixed for exact reproducibility.
+
+\bibliographystyle{plain}
+\begin{thebibliography}{9}
+
+\bibitem{lamport1982byzantine}
+L.~Lamport, R.~Shostak, and M.~Pease.
+\newblock The {B}yzantine generals problem.
+\newblock \emph{ACM Transactions on Programming Languages and Systems}, 4(3):382--401, 1982.
+
+\bibitem{castro1999practical}
+M.~Castro and B.~Liskov.
+\newblock Practical {B}yzantine fault tolerance.
+\newblock In \emph{Proceedings of the Third Symposium on Operating Systems Design and Implementation (OSDI)}, pages 173--186, 1999.
+
+\bibitem{vinyals2019grandmaster}
+O.~Vinyals, I.~Babuschkin, W.~M. Czarnecki, et~al.
+\newblock Grandmaster level in {S}tar{C}raft {II} using multi-agent reinforcement learning.
+\newblock \emph{Nature}, 575(7782):350--354, 2019.
+
+\bibitem{petrov2023language}
+A.~Petrov, E.~La~Malfa, P.~H.~S. Torr, and A.~Biber.
+\newblock Language model tokenizers introduce unfairness between languages.
+\newblock \emph{arXiv preprint arXiv:2305.15425}, 2023.
+
+\end{thebibliography}
+
+\end{document}

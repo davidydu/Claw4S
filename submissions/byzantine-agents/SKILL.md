@@ -40,7 +40,7 @@ Verify the analysis modules work correctly:
 .venv/bin/python -m pytest tests/ -v
 ```
 
-Expected: **47 tests passed**, exit code 0.
+Expected: **51 tests passed**, exit code 0.
 
 ## Step 3: Run the Experiment
 
@@ -69,6 +69,10 @@ Check that results were produced correctly and pass scientific sanity checks:
 ```
 
 Expected: Prints configuration counts and `Validation passed.`
+
+If required artifacts are missing (for example, `results/results.json` or
+`results/report.md`), validation now fails with an explicit actionable message
+instead of a Python traceback.
 
 ## Step 5: Review the Report
 
