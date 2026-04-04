@@ -1,0 +1,199 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{amsmath}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue!60!black,
+  citecolor=blue!60!black,
+  urlcolor=blue!60!black
+}
+
+\title{To Share or Not to Share:\\The Information Disclosure Dilemma in Competitive AI Systems}
+\author{
+  Lina Ji \\
+  Stanford University \\
+  \texttt{linaji@stanford.edu}
+  \and
+  Yun Du \\
+  Stanford University \\
+  \texttt{yundu27@stanford.edu}
+  \and
+  Claw \\
+  AI Agent \\
+  \texttt{claw@agent}
+}
+\date{March 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+When AI agents compete in shared environments, each holds private information that could benefit the group if disclosed---but also advantage competitors.
+We simulate this \emph{information disclosure dilemma} with four agent types (Open, Secretive, Reciprocal, Strategic) across 108 experimental conditions varying competition intensity and information complementarity.
+Our results reveal three findings: (1)~sharing universally improves group welfare (49.5\% gain over hoarding at medium competition), (2)~strategic agents gradually reduce sharing as competition intensifies (from 47.6\% to 29.6\% disclosure), but without a sharp phase transition, and (3)~Secretive agents earn the highest \emph{individual} payoff in mixed populations despite reducing group welfare---a classic free-rider effect.
+The analysis is fully agent-executable via a \texttt{SKILL.md} file requiring only Python and NumPy.
+\end{abstract}
+
+\section{Introduction}
+
+As AI systems increasingly operate in shared environments---competing for resources in cloud infrastructure, bidding in automated markets, or collaborating on scientific problems---they face a fundamental dilemma: should they share their private information?
+Sharing improves collective decision-making, but it also empowers competitors.
+This tension, formalized in the economics literature as strategic information transmission~\cite{crawford1982strategic}, takes on new urgency in multi-agent AI systems where information flows can be precisely controlled.
+
+Prior work on information sharing in strategic settings includes Milgrom and Roberts~\cite{milgrom1986relying} on disclosure by interested parties, and Bergemann and Bonatti~\cite{bergemann2019markets} on markets for information.
+However, these models typically assume rational, perfectly optimizing agents.
+We ask: what happens when heterogeneous AI agents---some cooperative, some selfish, some adaptive---interact in an information-sharing environment?
+
+We contribute an \textbf{agent-executable simulation} that sweeps over 108 experimental conditions (4 agent compositions $\times$ 3 competition levels $\times$ 3 information complementarity levels $\times$ 3 seeds), with 10,000 rounds per simulation.
+The entire pipeline---environment setup, simulation, statistical analysis, and validation---runs from a single \texttt{SKILL.md} file.
+
+\section{Model}
+
+\subsection{Environment}
+Each round, a hidden state $\boldsymbol{\theta} \sim \mathcal{N}(\mathbf{0}, \mathbf{I})$ is drawn in $\mathbb{R}^8$.
+Each of $N{=}4$ agents privately observes 2 of the 8 dimensions (with noise $\sigma{=}0.1$), such that the union of all observations covers the full state.
+
+\subsection{Information Sharing}
+Agent $i$ chooses a disclosure level $d_i \in [0,1]$.
+At $d_i{=}1$, the agent shares its full observation; at $d_i{=}0$, it shares nothing.
+Partial disclosure adds noise proportional to $1{-}d_i$.
+Received information is further degraded by a \emph{complementarity noise} scaled by $3\sigma(1{-}\kappa)$, where $\kappa \in \{0.3, 0.6, 0.9\}$ is the complementarity parameter.
+
+\subsection{Payoffs}
+Each agent estimates $\boldsymbol{\theta}$ using its own observations plus any received shared information.
+The payoff for agent $i$ is:
+\[
+  \pi_i = -\text{MSE}_i - \lambda \cdot \frac{1}{N{-}1}\sum_{j \neq i} \text{Improvement}_j
+\]
+where $\text{MSE}_i = \|\hat{\boldsymbol{\theta}}_i - \boldsymbol{\theta}\|^2 / 8$ is agent $i$'s estimation error, $\text{Improvement}_j = \max(\text{MSE}_j^{\text{baseline}} - \text{MSE}_j, 0)$ is agent $j$'s gain from shared information, and $\lambda \in \{0.2, 0.5, 0.8\}$ is the competition parameter.
+
+\subsection{Agent Types}
+\begin{itemize}
+  \item \textbf{Open}: always discloses $d_i{=}1$.
+  \item \textbf{Secretive}: always discloses $d_i{=}0$.
+  \item \textbf{Reciprocal}: tracks an exponential moving average of others' disclosure ($\alpha{=}0.1$), starts at 0.5.
+  \item \textbf{Strategic}: uses Experience-Weighted Attraction (EWA) learning over 11 discrete actions $\{0.0, 0.1, \ldots, 1.0\}$, with annealing softmax temperature ($\tau: 1.0 \to 0.1$).
+\end{itemize}
+
+\section{Experimental Design}
+
+We sweep 4 compositions (all-open, all-secretive, mixed, all-strategic) $\times$ 3 competition levels $\times$ 3 complementarity levels $\times$ 3 seeds = 108 simulations, each running 10,000 rounds.
+Metrics are computed per-round and aggregated: sharing rate, group welfare (sum of payoffs), individual welfare gap, and information asymmetry (Gini coefficient of estimation errors).
+Equilibrium behavior is measured over the last 10\% of rounds (``tail'').
+
+\section{Results}
+
+\subsection{Sharing and Group Welfare}
+
+Table~\ref{tab:sharing} shows equilibrium sharing rates and group welfare across competition levels for two key compositions at medium complementarity ($\kappa{=}0.6$).
+
+\begin{table}[h]
+\centering
+\small
+\caption{Tail sharing rate and group welfare (mean $\pm$ std across 3 seeds) at medium complementarity.}
+\label{tab:sharing}
+\begin{tabular}{llcc}
+\toprule
+\textbf{Composition} & \textbf{Competition} & \textbf{Tail Sharing} & \textbf{Group Welfare} \\
+\midrule
+All-strategic & Low ($\lambda{=}0.2$) & $0.476 \pm 0.009$ & $-1.03 \pm 0.02$ \\
+All-strategic & Medium ($\lambda{=}0.5$) & $0.400 \pm 0.007$ & $-1.94 \pm 0.02$ \\
+All-strategic & High ($\lambda{=}0.8$) & $0.296 \pm 0.017$ & $-2.67 \pm 0.03$ \\
+\midrule
+Mixed & Low ($\lambda{=}0.2$) & $0.487 \pm 0.003$ & $-1.35 \pm 0.04$ \\
+Mixed & Medium ($\lambda{=}0.5$) & $0.485 \pm 0.005$ & $-1.97 \pm 0.04$ \\
+Mixed & High ($\lambda{=}0.8$) & $0.436 \pm 0.015$ & $-2.65 \pm 0.06$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Strategic agents reduce sharing from 47.6\% to 29.6\% as competition increases---a gradual decline rather than a sharp phase transition.
+The cooperation premium is substantial: all-open welfare ($-1.53$) exceeds all-secretive ($-3.02$) by 49.5\% at medium competition.
+
+\subsection{Agent Type Rankings}
+
+Table~\ref{tab:rankings} ranks agent types by average cumulative payoff across all conditions.
+
+\begin{table}[h]
+\centering
+\small
+\caption{Agent type rankings (averaged across all 108 simulations).}
+\label{tab:rankings}
+\begin{tabular}{clcc}
+\toprule
+\textbf{Rank} & \textbf{Type} & \textbf{Avg Cumul.\ Payoff} & \textbf{Avg Sharing} \\
+\midrule
+1 & Open & $-4{,}862$ & 1.000 \\
+2 & Strategic & $-4{,}871$ & 0.396 \\
+3 & Secretive & $-5{,}270$ & 0.000 \\
+4 & Reciprocal & $-5{,}848$ & 0.466 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{The Free-Rider Effect}
+
+In mixed-composition simulations, Secretive agents earn the highest \emph{individual} payoff ($-3{,}001$ vs.\ $-5{,}854$ for Open at medium competition/complementarity) despite contributing nothing to the information commons.
+This is the classic free-rider problem: Secretive agents benefit from others' shared information without paying the competitive cost of disclosure.
+
+\subsection{Complementarity Effects}
+
+Higher information complementarity ($\kappa{=}0.9$) improves group welfare when agents share: all-open welfare is $-1.51$ at high complementarity vs.\ $-1.57$ at low.
+All-secretive welfare is unaffected by complementarity ($-3.02$), since no information flows.
+Strategic agents do not increase sharing at higher complementarity, because the competitive cost of others' improved decisions also increases.
+
+\section{Discussion}
+
+\paragraph{No sharp phase transition.}
+Contrary to our initial prediction of a critical competition threshold, strategic agents gradually reduce sharing across the full competition range.
+This may reflect the EWA learning algorithm's smooth exploration rather than a true equilibrium property.
+A best-response dynamics model might exhibit sharper transitions.
+
+\paragraph{Open beats Strategic overall.}
+Open agents slightly outperform Strategic agents in aggregate ($-4{,}862$ vs.\ $-4{,}871$), suggesting that unconditional cooperation is a viable strategy when averaged across diverse environments.
+However, this masks the free-rider vulnerability: in mixed populations, Open agents are heavily exploited by Secretive agents.
+
+\paragraph{AI safety implications.}
+As AI systems interact in shared environments (API ecosystems, collaborative robotics, federated learning), the incentive structure for information sharing will shape the AI ecosystem's trajectory.
+Our results suggest that without mechanisms to punish free-riding (reputation systems, reciprocity norms), hoarding is individually rational even when sharing would improve collective outcomes.
+Designing information-sharing protocols that align individual and group incentives is an open challenge for multi-agent AI safety.
+
+\paragraph{Limitations.}
+The Gaussian state-estimation environment is stylized.
+EWA learning may not converge to true Nash equilibria.
+We evaluate only 4 agent types; richer behavioral models (e.g., theory-of-mind agents) may yield different dynamics.
+The 10,000-round horizon may be insufficient for convergence in some conditions.
+
+\section{Conclusion}
+
+We presented an agent-executable simulation of the information disclosure dilemma among competitive AI agents.
+Sharing universally improves group welfare, but competition suppresses it---and free-riders thrive.
+Strategic agents partially share, settling between the extremes of full openness and full secrecy.
+The key contribution is the reproducible \texttt{SKILL.md} that any AI agent can execute to replicate all 108 simulations and analyses from scratch.
+
+\begin{thebibliography}{9}
+\bibitem{crawford1982strategic}
+V.~P.~Crawford and J.~Sobel,
+``Strategic Information Transmission,''
+\emph{Econometrica}, vol.~50, no.~6, pp.~1431--1451, 1982.
+
+\bibitem{milgrom1986relying}
+P.~Milgrom and J.~Roberts,
+``Relying on the Information of Interested Parties,''
+\emph{The RAND Journal of Economics}, vol.~17, no.~1, pp.~18--32, 1986.
+
+\bibitem{bergemann2019markets}
+D.~Bergemann and A.~Bonatti,
+``Markets for Information: An Introduction,''
+\emph{Annual Review of Economics}, vol.~11, pp.~85--107, 2019.
+\end{thebibliography}
+
+\end{document}
