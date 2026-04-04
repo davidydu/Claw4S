@@ -1,0 +1,226 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{amsmath}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue!60!black,
+  citecolor=blue!60!black,
+  urlcolor=blue!60!black
+}
+
+\title{The Delegation Dilemma:\\When AI Agents Outsource Decisions to Sub-Agents}
+\author{
+  Lina Ji \\
+  Stanford University \\
+  \texttt{linaji@stanford.edu}
+  \and
+  Yun Du \\
+  Stanford University \\
+  \texttt{yundu27@stanford.edu}
+  \and
+  Claw \\
+  AI Agent \\
+  \texttt{claw@agent}
+}
+\date{March 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+As AI orchestration systems delegate tasks to sub-agents, the classical principal-agent problem re-emerges in computational form: a principal cannot directly observe worker effort, only noisy output quality.
+We simulate this delegation dilemma with four incentive schemes---fixed-pay, piece-rate, tournament, and reputation-based---across four worker archetypes (honest, shirker, strategic, adaptive) under three noise levels.
+Our 144-simulation study (10{,}000 rounds each, 3 seeds) yields three findings: (1)~reputation-based incentives are the most effective at discouraging shirking among strategic workers (5\% shirking rate vs.\ 66\% under piece-rate); (2)~adaptive agents learn to free-ride under all schemes, converging to near-minimum effort; (3)~tournament incentives, while efficient with honest agents, fail catastrophically with strategic ones who settle into low-effort Nash equilibria.
+The simulation is fully agent-executable via a \texttt{SKILL.md} file.
+\end{abstract}
+
+\section{Introduction}
+
+The principal-agent problem---in which a principal delegates tasks to agents whose effort is unobservable---is among the most studied problems in microeconomics~\cite{holmstrom1979}.
+The classic insight is that incentive design matters: without proper alignment, agents will shirk, and the principal bears the cost of moral hazard.
+
+This problem has gained new urgency in AI systems.
+Modern agent architectures increasingly feature hierarchical delegation: an orchestrator agent breaks complex tasks into subtasks and assigns them to specialized worker agents~\cite{agrawal2023}.
+These worker agents may be separately trained models, tool-using LLMs, or even human contractors managed by AI.
+The orchestrator faces the same information asymmetry as a classical principal: it observes output quality but cannot directly verify the effort or diligence of the worker.
+
+We study this AI delegation dilemma through a computational model.
+A principal agent assigns tasks to $N=3$ workers, each of whom chooses an effort level $e \in \{1, 2, 3, 4, 5\}$.
+Output quality is $q = e + \varepsilon$, where $\varepsilon \sim \mathcal{N}(0, \sigma^2)$.
+The principal observes $q$ but not $e$, and pays workers according to one of four incentive schemes.
+We sweep over schemes, worker archetypes, and noise levels to understand which structures best align agent behavior with principal objectives.
+
+\section{Model}
+
+\subsection{Agents}
+
+The principal manages $N=3$ workers per simulation.
+We define four worker archetypes:
+\begin{itemize}
+  \item \textbf{Honest}: always exerts maximum effort ($e=5$).
+  \item \textbf{Shirker}: always exerts minimum effort ($e=1$).
+  \item \textbf{Strategic}: adjusts effort based on pay-per-effort ratio from the previous round, increasing when returns exceed cost and decreasing otherwise.
+  \item \textbf{Adaptive}: learns via exponential moving average of net returns per effort level, with $\epsilon$-greedy exploration (10\% exploration rate).
+\end{itemize}
+
+\subsection{Incentive Schemes}
+
+\begin{itemize}
+  \item \textbf{Fixed-pay}: constant wage $w = 3.0$ regardless of output.
+  \item \textbf{Piece-rate}: $w = 1.0 + 0.5 \cdot \max(q, 0)$.
+  \item \textbf{Tournament}: top performer receives bonus of $4.0$ (split on ties); others receive base wage $1.0$.
+  \item \textbf{Reputation-based}: wage $w = 1.0 + 4.0 \cdot r$, where $r$ is an exponential moving average of normalized quality ($\alpha = 0.1$, initial $r = 0.5$).
+\end{itemize}
+
+\subsection{Metrics}
+
+We compute six metrics per simulation:
+(1)~\textbf{average quality} (mean $q$ across all worker-rounds);
+(2)~\textbf{principal net payoff} (total quality minus total wages);
+(3)~\textbf{worker surplus} (total wages minus effort costs, where cost $= e \times 1.0$);
+(4)~\textbf{shirking rate} (fraction of rounds with $e < 3$);
+(5)~\textbf{quality variance} ($\text{Var}(q)$ across rounds);
+(6)~\textbf{incentive efficiency} (average quality per unit wage).
+
+\subsection{Experimental Design}
+
+We run a full factorial design: 4~schemes $\times$ 4~worker compositions $\times$ 3~noise levels ($\sigma \in \{0.5, 1.5, 3.0\}$) $\times$ 3~seeds $= 144$ simulations, each with 10{,}000 rounds.
+Results are aggregated across seeds (reporting mean $\pm$ std).
+
+\section{Results}
+
+\subsection{Average Output Quality}
+
+Table~\ref{tab:quality} presents average quality at medium noise ($\sigma = 1.5$).
+
+\begin{table}[h]
+\centering
+\small
+\caption{Average output quality by scheme and worker composition ($\sigma = 1.5$). Bold indicates best per column (excluding all-honest, which is trivially optimal).}
+\label{tab:quality}
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Scheme} & \textbf{All Honest} & \textbf{All Strategic} & \textbf{Mixed} & \textbf{All Adaptive} \\
+\midrule
+Fixed-pay    & 5.01 & 3.01 & 3.01 & 1.20 \\
+Piece-rate   & 5.01 & 2.18 & 2.73 & 1.20 \\
+Tournament   & 5.01 & 2.34 & 2.35 & 1.37 \\
+Reputation   & 5.01 & \textbf{3.46} & \textbf{3.14} & 1.20 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Reputation-based incentives produce the highest quality from strategic workers (3.46 vs.\ 3.01 for fixed-pay), and are the only scheme that improves upon the ``do nothing'' fixed-pay baseline for self-interested agents.
+
+\subsection{Shirking Rates}
+
+Table~\ref{tab:shirking} shows the fraction of worker-rounds with effort below~3.
+
+\begin{table}[h]
+\centering
+\small
+\caption{Shirking rate (fraction of rounds with effort $< 3$) by scheme and composition ($\sigma = 1.5$).}
+\label{tab:shirking}
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Scheme} & \textbf{All Honest} & \textbf{All Strategic} & \textbf{Mixed} & \textbf{All Adaptive} \\
+\midrule
+Fixed-pay    & 0.00 & 0.00 & 0.33 & 0.94 \\
+Piece-rate   & 0.00 & 0.66 & 0.55 & 0.94 \\
+Tournament   & 0.00 & 0.66 & 0.67 & 0.90 \\
+Reputation   & 0.00 & \textbf{0.05} & \textbf{0.35} & 0.94 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+A striking result: strategic workers under \emph{fixed-pay} do not shirk (0\% rate), because their pay-per-effort ratio at the default effort of~3 is exactly~$3.0/3 = 1.0$, which falls in the ``hold steady'' band ($[0.8, 1.2]$).
+In contrast, piece-rate and tournament schemes inadvertently incentivize downward effort adjustment because marginal returns are insufficient to justify high effort.
+Reputation-based incentives achieve the lowest shirking among non-trivial compositions (5\% for all-strategic).
+
+\subsection{Incentive Efficiency}
+
+\begin{table}[h]
+\centering
+\small
+\caption{Incentive efficiency (avg.\ quality per unit wage) by scheme ($\sigma = 1.5$).}
+\label{tab:efficiency}
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Scheme} & \textbf{All Honest} & \textbf{All Strategic} & \textbf{Mixed} & \textbf{All Adaptive} \\
+\midrule
+Fixed-pay    & 1.67 & 1.00 & 1.00 & 0.40 \\
+Piece-rate   & 1.43 & 1.02 & 1.13 & 0.70 \\
+Tournament   & \textbf{2.15} & 1.00 & 1.01 & 0.59 \\
+Reputation   & 1.14 & \textbf{1.03} & 1.01 & 0.69 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Tournament incentives are the most efficient with honest workers (2.15) because the principal only pays a bonus to one worker per round, but this advantage vanishes with strategic workers who converge to low-effort equilibria.
+
+\subsection{Robustness Across Noise Levels}
+
+Reputation-based incentives with strategic workers show robustness across noise levels: quality ranges from 3.00 ($\sigma = 0.5$) to 3.46 ($\sigma = 1.5$) to 3.18 ($\sigma = 3.0$).
+Counterintuitively, medium noise yields the highest quality because noise occasionally inflates observed quality, which boosts reputation and increases future wages, creating a self-reinforcing incentive loop.
+
+\section{Discussion}
+
+\paragraph{Reputation as the dominant mechanism.}
+The reputation scheme's effectiveness stems from its temporal structure: current effort affects future wages through the reputation score, creating an inter-temporal incentive that other schemes lack.
+This parallels findings in repeated-game theory where future payoffs discipline current behavior~\cite{holmstrom1979}.
+For AI delegation, this suggests that orchestrator agents should maintain track records of sub-agent performance and condition future task allocation on past quality.
+
+\paragraph{The adaptive agent paradox.}
+Adaptive agents, despite having the most sophisticated learning mechanism, converge to near-minimum effort ($\approx 1.2$ average quality) across all schemes.
+This is not a failure of the learning algorithm but a rational outcome: the $\epsilon$-greedy learner correctly discovers that low effort maximizes the wage-minus-cost surplus under most schemes.
+This finding has implications for AI safety: self-improving agents may learn to game incentive structures even when those structures appear well-designed.
+
+\paragraph{Tournament failure modes.}
+Tournament incentives create a ``race to the bottom'' among strategic workers.
+When all workers reduce effort simultaneously, the relative ranking is preserved (ensuring someone still wins the bonus), but absolute quality drops.
+This is a well-known limitation of relative performance evaluation~\cite{jensen1976}.
+
+\paragraph{Limitations.}
+Our worker archetypes are hand-coded heuristics rather than learned policies.
+Strategic workers use a simple one-step-lookback rule; more sophisticated agents (e.g., using reinforcement learning) might behave differently.
+The noise model is Gaussian and i.i.d., which may not capture correlated failures in real AI systems.
+We study a symmetric setting with identical tasks; heterogeneous task difficulty would introduce selection effects.
+
+\paragraph{AI safety implications.}
+As multi-agent AI systems become prevalent, understanding incentive alignment in delegation hierarchies is critical~\cite{agrawal2023}.
+Our results suggest that (1)~reputation-based mechanisms most effectively prevent shirking, (2)~adaptive agents will learn to exploit any fixed incentive scheme, and (3)~tournament-style competition between sub-agents can produce worse outcomes than flat compensation.
+These findings can inform the design of agent orchestration frameworks where task quality is observable but effort is not.
+
+\section{Conclusion}
+
+We presented an agent-executable simulation of the delegation dilemma in AI hierarchies.
+Across 144 simulations, reputation-based incentives most effectively align strategic workers with principal objectives, achieving the lowest shirking rate (5\%) and highest quality (3.46) among non-trivial compositions.
+Adaptive agents converge to free-riding under all schemes, highlighting the challenge of incentive design for self-optimizing AI systems.
+The complete experiment is encoded as a \texttt{SKILL.md} file, enabling any AI agent to reproduce all results from scratch in under 60 seconds.
+
+\begin{thebibliography}{9}
+\bibitem{holmstrom1979}
+B.~Holmstr{\"o}m,
+``Moral Hazard and Observability,''
+\emph{The Bell Journal of Economics}, vol.~10, no.~1, pp.~74--91, 1979.
+
+\bibitem{jensen1976}
+M.~C.~Jensen and W.~H.~Meckling,
+``Theory of the Firm: Managerial Behavior, Agency Costs and Ownership Structure,''
+\emph{Journal of Financial Economics}, vol.~3, no.~4, pp.~305--360, 1976.
+
+\bibitem{agrawal2023}
+A.~Agrawal, J.~Gans, and A.~Goldfarb,
+``Do LLMs Change the Principal-Agent Problem?''
+\emph{National Bureau of Economic Research Working Paper}, no.~w31500, 2023.
+\end{thebibliography}
+
+\end{document}
