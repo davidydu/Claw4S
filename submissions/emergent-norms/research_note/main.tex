@@ -1,0 +1,198 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{amsmath}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue!60!black,
+  citecolor=blue!60!black,
+  urlcolor=blue!60!black
+}
+
+\title{The Invisible Hand of Algorithms:\\ How Social Norms Emerge Among AI Agents}
+\author{
+  Lina Ji \\
+  Stanford University \\
+  \texttt{linaji@stanford.edu}
+  \and
+  Yun Du \\
+  Stanford University \\
+  \texttt{yundu27@stanford.edu}
+  \and
+  Claw \\
+  AI Agent (\texttt{the-mad-lobster})
+}
+\date{March 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+When AI agents interact repeatedly in shared environments, behavioral conventions---\emph{norms}---can emerge without explicit coordination.
+We simulate populations of 20--100 heterogeneous agents (conformists, innovators, traditionalists, and adaptive learners) playing 3-action coordination games over 50,000 pairwise interactions.
+Across 108 configurations varying population composition, game structure, and scale, we find that (1)~adaptive learners achieve the highest norm efficiency (0.97 in dominant-equilibrium games) but only when payoff asymmetry provides a focal point; (2)~convergence is \emph{harder} in larger populations ($N\!=\!100$: 35,823 avg rounds vs.\ $N\!=\!20$: 19,412); (3)~conformist-heavy populations converge fastest but to less robust norms (fragility 0.34); and (4)~symmetric games---lacking a welfare-dominant equilibrium---rarely converge, yielding persistent diversity.
+These findings illuminate how multi-agent AI systems self-organize and suggest that payoff structure, not agent sophistication alone, determines emergent welfare.
+\end{abstract}
+
+\section{Introduction}
+
+As AI agents increasingly operate in open, multi-agent environments---from automated markets to collaborative robotics---their collective behavior is not always centrally designed.
+Instead, behavioral conventions can emerge organically from repeated local interactions, analogous to social norms in human societies~\cite{young1993evolution, axelrod1986evolutionary}.
+Understanding which norms emerge, whether they are welfare-maximizing, and how robust they are to disruption is critical for predicting and shaping multi-AI system dynamics.
+
+Prior work on norm emergence in agent populations has studied evolutionary dynamics~\cite{axelrod1986evolutionary}, convention formation through adaptive play~\cite{young1993evolution}, and computational models of social conventions~\cite{shoham1997emergence}.
+However, these studies typically use homogeneous populations or restrict attention to 2-action games.
+We extend this line by simulating \emph{heterogeneous} populations with four distinct behavioral strategies in a 3-action coordination game, measuring four metrics that characterize the emergent norm landscape.
+
+The primary contribution is an \textbf{agent-executable skill} (\texttt{SKILL.md}) that any AI coding agent can run to reproduce all 108 simulations, validate results, and generate a summary report---without any manual setup.
+
+\section{Methodology}
+
+\subsection{Coordination Game}
+Agents play a 3-action symmetric coordination game.
+Each round, a random pair is selected; both choose an action $a \in \{0, 1, 2\}$ and receive payoffs from matrix $\Pi$.
+Coordination (same action) yields high payoff; miscoordination yields low payoff.
+We study three payoff structures:
+\begin{itemize}
+  \item \textbf{Symmetric}: All coordination equilibria yield $\Pi_{ii} = 3$, off-diagonal $\Pi_{ij} = 0$.
+  \item \textbf{Asymmetric}: Equilibria differ: $\Pi_{00} = 4$, $\Pi_{11} = 3$, $\Pi_{22} = 2$, off-diagonal 0.
+  \item \textbf{Dominant}: One equilibrium dominates: $\Pi_{00} = 5$, $\Pi_{11} = \Pi_{22} = 2$, off-diagonal $\Pi_{ij} = 0.5$.
+\end{itemize}
+
+\subsection{Agent Types}
+\begin{itemize}
+  \item \textbf{Conformist}: Plays the most common action in the population.
+  \item \textbf{Innovator}: Plays its last action with probability $1 - \epsilon$ ($\epsilon = 0.15$), otherwise explores uniformly.
+  \item \textbf{Traditionalist}: Explores until receiving payoff $\geq 2.0$, then anchors to that action permanently.
+  \item \textbf{Adaptive}: Maintains EMA beliefs over action values ($\alpha = 0.1$) with softmax selection (temperature $\tau = 1.0$).
+\end{itemize}
+
+\subsection{Experimental Design}
+We sweep over 4 population compositions $\times$ 3 game structures $\times$ 3 population sizes ($N = 20, 50, 100$) $\times$ 3 random seeds $= 108$ simulations, each running 50,000 pairwise interactions.
+Simulations are parallelized across CPU cores using Python's \texttt{multiprocessing}.
+
+\subsection{Metrics}
+\begin{enumerate}
+  \item \textbf{Norm convergence time}: Round at which one action captures $\geq 80\%$ of a trailing window of 500 interactions. If never reached, censored at 50,000.
+  \item \textbf{Norm efficiency}: $\eta = \bar{\pi}_{\text{tail}} / \pi^*$, ratio of average payoff in the last 20\% of rounds to the optimal coordination payoff. Values in $[0, 1]$.
+  \item \textbf{Norm diversity}: Number of actions with $\geq 10\%$ share in the last 20\% of rounds. Values in $\{1, 2, 3\}$.
+  \item \textbf{Norm fragility}: Fraction of innovators that must be injected to displace the dominant norm (tested at 10\%, 20\%, 30\%, 40\%, 50\%). Value of 1.0 means unbreakable.
+\end{enumerate}
+
+\section{Results}
+
+\subsection{Convergence by Composition}
+
+Table~\ref{tab:composition} shows aggregate metrics by population composition.
+
+\begin{table}[h]
+\centering
+\small
+\caption{Norm emergence by population composition (averaged over 27 configurations each).}
+\label{tab:composition}
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Composition} & \textbf{Converged} & \textbf{Avg Conv.\ Time} & \textbf{Efficiency} & \textbf{Fragility} \\
+\midrule
+All adaptive       & 66.7\% & 18,438 & \textbf{0.732} & \textbf{0.71} \\
+Mixed conformist   & 70.4\% & \textbf{17,361} & 0.572 & 0.34 \\
+Traditionalist-heavy & 40.7\% & 33,058 & 0.419 & 0.27 \\
+Innovator-heavy    & 3.7\%  & 49,087 & 0.400 & 0.46 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Mixed-conformist populations converge fastest (17,361 rounds on average), but all-adaptive populations achieve the highest efficiency (0.732) and the most robust norms (fragility 0.71---requiring $>$50\% innovators to break).
+Innovator-heavy populations almost never converge (3.7\%), confirming that excessive exploration prevents norm crystallization.
+
+\subsection{Effect of Game Structure}
+
+Table~\ref{tab:game} breaks down results by game structure.
+
+\begin{table}[h]
+\centering
+\small
+\caption{Norm emergence by game structure (averaged over 36 configurations each).}
+\label{tab:game}
+\begin{tabular}{lccc}
+\toprule
+\textbf{Game} & \textbf{Efficiency} & \textbf{Diversity} & \textbf{Fragility} \\
+\midrule
+Dominant   & \textbf{0.591} & 2.14 & \textbf{0.64} \\
+Asymmetric & 0.521 & 2.19 & 0.45 \\
+Symmetric  & 0.480 & \textbf{2.64} & 0.25 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Games with a welfare-dominant equilibrium produce the most efficient and robust norms.
+Symmetric games---where all coordination equilibria are equivalent---yield the highest diversity (2.64 clusters) and lowest fragility (0.25), indicating persistent pluralism when no focal point exists.
+
+\subsection{Scale Effects}
+
+Larger populations take longer to converge and achieve lower efficiency: $N\!=\!20$ averages 19,412 rounds at efficiency 0.573, while $N\!=\!100$ averages 35,823 rounds at 0.504.
+This is consistent with Young's~\cite{young1993evolution} theoretical prediction that convention formation time scales with population size.
+
+\subsection{Interaction: Adaptive Agents + Dominant Games}
+
+The strongest result is the interaction between agent type and game structure.
+All-adaptive populations in the dominant game converge in just 1,460 rounds (100\% convergence rate) with efficiency 0.972 and perfect robustness (fragility 1.0).
+The same agents in the symmetric game \emph{never} converge (0/9), with efficiency dropping to 0.335 and diversity of 3.0.
+This demonstrates that payoff structure---not agent sophistication---is the primary determinant of norm quality.
+
+\section{Discussion}
+
+\paragraph{Focal points matter more than learning.}
+The most striking finding is the all-adaptive/symmetric result: sophisticated learners fail to coordinate when no equilibrium is salient.
+This echoes Schelling's~\cite{schelling1960strategy} focal point theory---coordination requires asymmetry to break symmetry.
+
+\paragraph{Conformism enables but constrains.}
+Conformist agents accelerate convergence but reduce welfare by locking in early, possibly suboptimal norms.
+Their norms are also fragile (0.34)---a small influx of innovators can disrupt them.
+
+\paragraph{Implications for multi-AI systems.}
+In deployed multi-agent settings (e.g., autonomous vehicles negotiating right-of-way, LLM agents sharing APIs), our results suggest: (1)~designing payoff structures with a clear welfare-dominant equilibrium is more effective than relying on agent learning; (2)~homogeneous adaptive populations are most efficient but require focal points; (3)~population diversity (mixing agent types) helps convergence when focal points are absent.
+
+\paragraph{Limitations.}
+Our agents use simple heuristics rather than deep RL or LLM-based reasoning.
+The 3-action game is stylized; real multi-agent interactions have richer action spaces.
+We measure fragility via innovator injection, which is one of many possible perturbation models.
+Statistical variance across seeds is moderate ($\sigma_\eta = 0.24$), suggesting additional seeds would tighten confidence intervals.
+
+\section{Conclusion}
+
+We simulated norm emergence in heterogeneous AI agent populations across 108 configurations.
+The central finding is that \emph{payoff structure}---specifically the presence of a welfare-dominant equilibrium---determines norm quality more than agent sophistication.
+Adaptive agents achieve 97\% efficiency in dominant games but fail entirely in symmetric ones.
+The experiment is fully reproducible via the accompanying \texttt{SKILL.md}, which any AI agent can execute end-to-end to regenerate all results.
+
+\begin{thebibliography}{9}
+\bibitem{young1993evolution}
+H.~P.~Young,
+``The Evolution of Conventions,''
+\emph{Econometrica}, vol.~61, no.~1, pp.~57--84, 1993.
+
+\bibitem{axelrod1986evolutionary}
+R.~Axelrod,
+``An Evolutionary Approach to Norms,''
+\emph{American Political Science Review}, vol.~80, no.~4, pp.~1095--1111, 1986.
+
+\bibitem{shoham1997emergence}
+Y.~Shoham and M.~Tennenholtz,
+``On the Emergence of Social Conventions: Modeling, Analysis, and Simulations,''
+\emph{Artificial Intelligence}, vol.~94, no.~1--2, pp.~139--166, 1997.
+
+\bibitem{schelling1960strategy}
+T.~C.~Schelling,
+\emph{The Strategy of Conflict},
+Harvard University Press, 1960.
+\end{thebibliography}
+
+\end{document}
