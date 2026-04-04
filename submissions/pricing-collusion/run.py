@@ -10,12 +10,9 @@ import os
 import sys
 import time
 from multiprocessing import Pool, cpu_count
+from pathlib import Path
 
-from src.experiment import ExperimentConfig, run_simulation, MATCHUPS
-from src.market import LogitMarket
-from src.auditors import AuditorPanel
-from src.analysis import compute_statistics
-from src.report import generate_report, generate_figures
+from src.output_spec import RESULTS_DIR, TOP_LEVEL_OUTPUTS, FIGURE_OUTPUTS
 
 MEMORIES = [1, 3, 5]
 PRESETS = ["e-commerce", "ride-share", "commodity"]
@@ -33,8 +30,31 @@ ROUNDS_BY_MATCHUP = {
 }
 
 
+def cleanup_previous_outputs(results_dir=RESULTS_DIR):
+    """Remove prior primary output artifacts to prevent stale validation passes."""
+    base = Path(results_dir)
+    removed = []
+
+    for filename in TOP_LEVEL_OUTPUTS:
+        path = base / filename
+        if path.exists():
+            path.unlink()
+            removed.append(filename)
+
+    figures_dir = base / "figures"
+    for filename in FIGURE_OUTPUTS:
+        path = figures_dir / filename
+        if path.exists():
+            path.unlink()
+            removed.append(f"figures/{filename}")
+
+    return removed
+
+
 def build_configs():
     """Build the full experiment matrix with adaptive round counts."""
+    from src.experiment import ExperimentConfig, MATCHUPS
+
     configs = []
     for matchup in MATCHUPS:
         total_rounds = ROUNDS_BY_MATCHUP[matchup]
@@ -52,6 +72,10 @@ def build_configs():
 
 def _run_and_audit(config):
     """Run one simulation + auditor panel. Returns a plain dict (picklable)."""
+    from src.experiment import run_simulation
+    from src.market import LogitMarket
+    from src.auditors import AuditorPanel
+
     result = run_simulation(config)
     market = LogitMarket.from_preset(config.preset)
     panel = AuditorPanel()
@@ -82,8 +106,15 @@ def _run_and_audit(config):
 
 
 def main():
-    os.makedirs("results", exist_ok=True)
+    os.makedirs(RESULTS_DIR, exist_ok=True)
     sys.stdout.reconfigure(line_buffering=True)
+    removed = cleanup_previous_outputs()
+    if removed:
+        print(f"[prep] Cleared {len(removed)} stale result artifact(s).")
+
+    from src.experiment import MATCHUPS
+    from src.analysis import compute_statistics
+    from src.report import generate_report, generate_figures
 
     configs = build_configs()
     total = len(configs)
@@ -106,7 +137,7 @@ def main():
                       f"| {elapsed/60:.1f}m elapsed | ~{eta:.0f}m remaining",
                       flush=True)
                 # Write progress file
-                with open("results/progress.json", "w") as f:
+                with open(Path(RESULTS_DIR) / "progress.json", "w") as f:
                     json.dump({"completed": done, "total": total,
                                "percent": round(100*done/total, 1),
                                "elapsed_min": round(elapsed/60, 1),
@@ -140,21 +171,22 @@ def main():
         "statistics": statistics,
     }
 
-    with open("results/results.json", "w") as f:
+    with open(Path(RESULTS_DIR) / "results.json", "w") as f:
         json.dump(serializable, f, indent=2, default=str)
-    with open("results/report.md", "w") as f:
+    with open(Path(RESULTS_DIR) / "report.md", "w") as f:
         f.write(report)
-    with open("results/statistical_tests.json", "w") as f:
+    with open(Path(RESULTS_DIR) / "statistical_tests.json", "w") as f:
         json.dump(statistics, f, indent=2)
 
     # Clean up progress file
-    if os.path.exists("results/progress.json"):
-        os.remove("results/progress.json")
+    progress_path = Path(RESULTS_DIR) / "progress.json"
+    if progress_path.exists():
+        progress_path.unlink()
 
-    print(f"\nDone. Results saved to results/")
-    print(f"  results/results.json ({total} records)")
-    print(f"  results/report.md")
-    print(f"  results/statistical_tests.json")
+    print(f"\nDone. Results saved to {RESULTS_DIR}/")
+    print(f"  {RESULTS_DIR}/results.json ({total} records)")
+    print(f"  {RESULTS_DIR}/report.md")
+    print(f"  {RESULTS_DIR}/statistical_tests.json")
     print(f"  Total time: {elapsed_total/60:.1f} min ({n_workers} workers)")
 
 

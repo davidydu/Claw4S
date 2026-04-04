@@ -3,14 +3,43 @@
 
 import json
 import sys
+from pathlib import Path
+
+from src.output_spec import RESULTS_DIR, TOP_LEVEL_OUTPUTS, FIGURE_OUTPUTS
+
+
+def find_missing_artifacts(results_dir=RESULTS_DIR):
+    """Return relative paths for required output artifacts that are missing."""
+    base = Path(results_dir)
+    missing = []
+
+    for filename in TOP_LEVEL_OUTPUTS:
+        if not (base / filename).exists():
+            missing.append(filename)
+
+    for filename in FIGURE_OUTPUTS:
+        rel = f"figures/{filename}"
+        if not (base / "figures" / filename).exists():
+            missing.append(rel)
+
+    return missing
 
 
 def main():
+    missing = find_missing_artifacts()
+    if missing:
+        print("Error: missing required output artifacts:")
+        for rel in missing:
+            print(f"  - {RESULTS_DIR}/{rel}")
+        print("\nRun `python run.py` to regenerate a complete results bundle.")
+        sys.exit(1)
+
+    results_path = Path(RESULTS_DIR) / "results.json"
     try:
-        with open("results/results.json") as f:
+        with open(results_path) as f:
             data = json.load(f)
     except FileNotFoundError:
-        print("Error: results/results.json not found. Run `run.py` first.")
+        print(f"Error: {RESULTS_DIR}/results.json not found. Run `run.py` first.")
         sys.exit(1)
 
     num_sims = data["metadata"]["num_simulations"]
@@ -52,9 +81,10 @@ def main():
                 errors.append(f"Auditor {name} score {score} out of [0, 1] range")
                 break
 
-    # Check Nash < monopoly for all conditions
+    # Check Nash < monopoly for no-shock conditions only
+    # (cost shocks can push Nash above price_max in tight markets, making Nash >= monopoly)
     for s in data["statistics"]:
-        if s["nash_price"] >= s["monopoly_price"]:
+        if not s["shocks"] and s["nash_price"] >= s["monopoly_price"]:
             errors.append(f"Nash >= monopoly for {s['matchup']}/{s['preset']}")
 
     # Check competitive control has low collusion
